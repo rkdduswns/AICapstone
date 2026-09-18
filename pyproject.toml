@@ -1,0 +1,5 @@
+[project]
+name = "contexttrace"
+version = "0.1.0"
+description = "Windows 작업 로그 기반 개인 지식 출처 역추적 시스템"
+requires-python = ">=3.11"
