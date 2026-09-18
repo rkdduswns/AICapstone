@@ -9,6 +9,12 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [기획 및 추상설계](etc/기획-및-추상설계.md)
 - [개발 지침](etc/개발-지침.md)
 - [개발 Phase](etc/phases/README.md)
+- [Phase 1 준비 및 작업 순서](etc/phases/phase1-preparation.md)
+- [개발 환경 설치](docs/dev/development-setup.md)
+- [Phase 1 상태 통신 규격](docs/dev/health-api.md)
+
+현재는 Phase 1 준비 단계입니다. 설치 설정과 Python 패키지 경계만 구성되어 있으며,
+Client 화면과 Backend 서버 실행 기능은 아직 구현하지 않았습니다.
 
 ## 디렉토리 구조
 
