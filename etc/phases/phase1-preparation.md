@@ -100,7 +100,7 @@ Phase 1 완료는 별개이며 Windows에서 독립 실행·연결 성공·연�
 - 사용자 최신 지시로 PySide6 Widgets를 최종 Client 기술로 확정했다. 위 임시 구성안/미확인 표기는 준비 당시 이력이다.
 - 1B Client 독립 실행, 상태 화면, QtNetwork 비동기 요청 구현.
 - 1C 정상/실패/복구 및 timeout/창 닫기 자동 테스트 구현.
-- 1D Windows 자동 검증을 GitHub Actions로 시도한다. 실행 결과는 아래 보고서에서 확인한다.
+- 1D Windows Server 2025 자동 검증: Python 3.11.9/3.12.10 각각 27개 통과. Windows 10/11 수동 검증은 남음.
 - Windows 10/11 실제 데스크톱 수동 검증은 별도이며 Phase 1 완료 및 main 병합은 그 전까지 보류한다.
 
 최신 결과: [Client 및 Windows 검증](../../docs/reports/phase1-client-windows.md).
