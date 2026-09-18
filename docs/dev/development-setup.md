@@ -1,7 +1,6 @@
 # Phase 1 개발 환경
 
-현재 설치 가능한 것은 의존성과 `client`, `backend`, `shared` 패키지 경계다.
-앱 실행 명령은 Phase 1 구현 후 제공한다.
+의존성과 패키지를 설치한 뒤 Backend를 독립 실행할 수 있다. Client 화면은 아직 미구현이다.
 Client 설치 설정은 PySide6 임시 구성안이며 최종 기술 선택은 아직 미확인이다.
 
 ## Windows PowerShell
@@ -47,9 +46,8 @@ PySide6 wheel 외의 OS 그래픽 라이브러리가 필요할 수 있다. Windo
 ## 검증 명령의 의미
 
 `pip check`는 의존성 일관성, import는 모듈 로딩, Ruff는 정적 검사를 확인한다.
-현재 동작 테스트가 없으므로 `python -m pytest`는 테스트 없음(exit 5) 상태이며 통과로 취급하지 않는다.
-Phase 1 구현 시 단위 및 실제 HTTP 통합 테스트를 추가하고 `python -m pytest`를 완료 기준에 포함한다.
-CI는 그 검증 명령이 실제 기능을 검사하게 된 시점에 추가한다.
+`python -m pytest -q`는 상태 API 및 별도 Backend 프로세스의 HTTP 통합 테스트를 실행한다.
+현재 13개 테스트가 있으며 Client 테스트와 CI는 아직 추가하지 않았다.
 
 ## 공식 참고 문서
 
@@ -57,3 +55,24 @@ CI는 그 검증 명령이 실제 기능을 검사하게 된 시점에 추가한
 - [FastAPI 서버 실행](https://fastapi.tiangolo.com/deployment/manually/)
 
 프로젝트의 실행 옵션/응답 규격은 [상태 API 계약](health-api.md)을 따른다.
+
+## Backend 실행 및 확인 (1A)
+
+저장소 루트에서 설치를 마친 뒤 실행한다.
+
+```powershell
+.\.venv\Scripts\python.exe -m backend
+```
+
+다른 터미널에서 상태를 확인한다.
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/health | ConvertTo-Json -Depth 4
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Linux에서는 `.venv/bin/python -m backend`를 사용한다.
+포트 변경: `python -m backend --port 8766`. 1–65535 범위만 허용한다.
+기본 호스트는 127.0.0.1이며 외부 인터페이스로 변경하는 옵션은 제공하지 않는다.
+종료는 Ctrl+C. 사용 중인 포트로 실행하면 오류 로그와 비정상 종료 코드가 반환된다.
+Windows 명령은 안내이며 실제 Windows 실행 검증은 1D에 남아 있다.

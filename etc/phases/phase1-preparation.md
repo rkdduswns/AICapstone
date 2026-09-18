@@ -83,3 +83,14 @@ Phase 1 완료는 별개이며 Windows에서 독립 실행·연결 성공·연�
 
 참조: [환경 설치](../../docs/dev/development-setup.md), [상태 계약](../../docs/dev/health-api.md),
 [준비 검증 결과](../../docs/reports/phase1-preparation.md).
+
+## 현재 진행 상태 (1A 구현 후)
+
+- Phase 1: IN_PROGRESS. main 병합은 사용자 지시에 따라 Phase 1 개발 및 테스트 완료 후 수행.
+- 1A: Linux에서 구현 및 검증 완료. 공통 응답 dataclass, Backend 진입점, 상태 API, 예외 응답 추가.
+- 1B: NOT_STARTED. Client 기술 선택 확인 및 상태 화면 구현 필요.
+- 1C: NOT_STARTED. 실제 Client–Backend 연결 검증 필요.
+- 1D: NOT_STARTED. Windows 설치 및 UI/연결 검증 필요.
+
+위 준비 시점의 표와 미구현 파일 목록은 당시 기록이며, 최신 구현 상태는 이 절과
+[1A 결과](../../docs/reports/phase1-backend.md)를 따른다. Phase 1 전체 완료 체크는 유지한다.
