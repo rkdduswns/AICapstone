@@ -18,3 +18,11 @@ Backend 구현을 Client에서 직접 import하지 않는다. 서비스/API 버�
 자동 검증은 UI 생성, 응답별 표시, timeout 및 이벤트 루프 생존, 요청 중 종료,
 실제 Backend 미실행→연결→종료→재기동 복구를 검사한다.
 수동 확인 절차는 [개발 환경](../dev/development-setup.md)에 기록했다.
+
+## Windows 최초 실행 및 수정
+
+[최초 실행](https://github.com/rkdduswns/AICapstone/actions/runs/35389845994)에서
+Windows Server 2025 Datacenter(build 26100), Python 3.11.9 환경을 확인했다.
+서버 미실행 시 연결 거절 대신 3초 timeout이 먼저 발생하여 기대 메시지 검사가 실패했다.
+실패 시 UI 생존이라는 계약에 맞게 연결 거절과 시간 초과를 모두 허용하도록 수정했다.
+연결 성공 및 재기동 복구 검사는 유지하며 Windows 재검증 결과를 별도 기록한다.

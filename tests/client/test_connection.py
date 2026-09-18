@@ -141,7 +141,8 @@ def test_real_backend_failure_connection_and_recovery(app, tmp_path):
             window.show()
             window.check()
             wait_for(app, lambda: window.button.isEnabled())
-            assert window.status.text().startswith("연결 안 됨")
+            # OS connection refusal timing can exceed the application deadline on Windows.
+            assert window.status.text().startswith(("연결 안 됨", "시간 초과"))
             for _ in range(2):
                 process = subprocess.Popen(
                     [sys.executable, "-m", "backend", "--port", str(port)], stdout=log, stderr=log)
@@ -160,7 +161,7 @@ def test_real_backend_failure_connection_and_recovery(app, tmp_path):
                 process.wait(timeout=10)
                 window.button.click()
                 wait_for(app, lambda: window.button.isEnabled())
-                assert window.status.text().startswith("연결 안 됨")
+                assert window.status.text().startswith(("연결 안 됨", "시간 초과"))
         finally:
             window.close()
             if process is not None and process.poll() is None:
