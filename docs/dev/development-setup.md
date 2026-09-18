@@ -1,7 +1,7 @@
 # Phase 1 개발 환경
 
-의존성과 패키지를 설치한 뒤 Backend를 독립 실행할 수 있다. Client 화면은 아직 미구현이다.
-Client 설치 설정은 PySide6 임시 구성안이며 최종 기술 선택은 아직 미확인이다.
+의존성과 패키지를 설치한 뒤 Backend를 독립 실행할 수 있다. Client도 독립 실행할 수 있다.
+사용자 지시로 Client 기술은 PySide6 Widgets로 최종 확정했다.
 
 ## Windows PowerShell
 
@@ -47,7 +47,7 @@ PySide6 wheel 외의 OS 그래픽 라이브러리가 필요할 수 있다. Windo
 
 `pip check`는 의존성 일관성, import는 모듈 로딩, Ruff는 정적 검사를 확인한다.
 `python -m pytest -q`는 상태 API 및 별도 Backend 프로세스의 HTTP 통합 테스트를 실행한다.
-현재 13개 테스트가 있으며 Client 테스트와 CI는 아직 추가하지 않았다.
+Backend, Client Qt 이벤트 루프, 실제 HTTP 연결 및 실패/복구를 검사한다. Windows CI 결과는 별도 보고서를 따른다.
 
 ## 공식 참고 문서
 
@@ -76,3 +76,25 @@ Linux에서는 `.venv/bin/python -m backend`를 사용한다.
 기본 호스트는 127.0.0.1이며 외부 인터페이스로 변경하는 옵션은 제공하지 않는다.
 종료는 Ctrl+C. 사용 중인 포트로 실행하면 오류 로그와 비정상 종료 코드가 반환된다.
 Windows 명령은 안내이며 실제 Windows 실행 검증은 1D에 남아 있다.
+
+## Client 실행 (Windows PowerShell)
+
+Backend와 별도의 터미널에서 실행한다.
+
+```powershell
+.\.venv\Scripts\python.exe -m client
+```
+
+서버 포트를 변경했다면 Client에도 동일하게 `--port 8766`을 지정한다.
+Linux 자동 검증은 Qt offscreen을 사용하며 Windows에서는 기본 Windows Qt 플랫폼을 사용한다.
+
+## Windows 10/11 수동 검증
+
+1. Backend가 없는 상태에서 Client 창이 열리고 연결 확인 시 오류가 표시되는지 확인한다.
+2. Backend를 실행하고 재확인해 연결됨 및 버전이 표시되는지 확인한다.
+3. Backend를 종료하고 재확인해 연결 실패가 표시되는지 확인한다.
+4. Backend를 재시작하고 재확인해 복구되는지 확인한다.
+5. 요청 중 창을 닫아 오류 없이 종료되는지 확인한다.
+6. 창의 한글 글꼴, 배율, 버튼 조작을 확인하고 OS 버전·Python 버전·commit SHA를 결과에 기록한다.
+
+GitHub Windows runner의 자동 테스트는 Windows Server 환경일 수 있으며 Windows 10/11 수동 검증을 대체하지 않는다.

@@ -94,3 +94,13 @@ Phase 1 완료는 별개이며 Windows에서 독립 실행·연결 성공·연�
 
 위 준비 시점의 표와 미구현 파일 목록은 당시 기록이며, 최신 구현 상태는 이 절과
 [1A 결과](../../docs/reports/phase1-backend.md)를 따른다. Phase 1 전체 완료 체크는 유지한다.
+
+## 사용자 확정 및 Windows 검증 진행
+
+- 사용자 최신 지시로 PySide6 Widgets를 최종 Client 기술로 확정했다. 위 임시 구성안/미확인 표기는 준비 당시 이력이다.
+- 1B Client 독립 실행, 상태 화면, QtNetwork 비동기 요청 구현.
+- 1C 정상/실패/복구 및 timeout/창 닫기 자동 테스트 구현.
+- 1D Windows 자동 검증을 GitHub Actions로 시도한다. 실행 결과는 아래 보고서에서 확인한다.
+- Windows 10/11 실제 데스크톱 수동 검증은 별도이며 Phase 1 완료 및 main 병합은 그 전까지 보류한다.
+
+최신 결과: [Client 및 Windows 검증](../../docs/reports/phase1-client-windows.md).

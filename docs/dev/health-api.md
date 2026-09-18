@@ -1,6 +1,6 @@
 # Phase 1 상태 통신 계약
 
-상태: 1A Backend 및 공통 응답 구조 구현·Linux 검증 완료. Client 화면은 미구현.
+상태: 1A Backend 및 공통 응답 구조 구현·Linux 검증 완료. PySide6 Client 구현 및 Linux 자동 검증 완료. Windows 검증 결과는 별도 보고서 참조.
 
 ## 접속 및 요청
 
@@ -78,3 +78,5 @@ Client는 loopback host를 고정한다. 포트 충돌·잘못된 옵션은 명�
 - 공통 구조는 Python dataclass로 정의하여 UI 및 서버 프레임워크 의존성을 피한다.
 - 앱 버전은 설치된 `contexttrace` 패키지 메타데이터에서 읽는다.
 - 상태 API만 노출하며 자동 문서 경로와 후행 슬래시 리다이렉트는 비활성화했다.
+
+Client는 [Qt QNetworkAccessManager](https://doc.qt.io/qtforpython-6/PySide6/QtNetwork/QNetworkAccessManager.html)를 사용한다. 전체 요청 3초 타이머, 수동 재확인, 요청 취소와 종료 정리를 구현했다.
