@@ -11,7 +11,7 @@ Python 3.11 이상과 Git을 준비한다. 기존 프로젝트의 Python 최소 
 ```powershell
 git clone https://github.com/rkdduswns/AICapstone.git
 cd AICapstone
-git switch chore/phase1-preparation
+git switch main
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m pip check
@@ -19,9 +19,9 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m ruff check src tests
 ```
 
-PR merge 후에는 준비 브랜치 전환 대신 최신 main을 사용한다.
+Phase 1 병합 후 최신 main을 사용한다.
 가상환경 활성화 없이 해당 Python을 직접 사용하므로 PowerShell 실행 정책 변경이 필요 없다.
-이미 clone했다면 다시 clone하지 않고 준비 브랜치를 fetch/checkout한다.
+이미 clone했다면 작업 중인 변경을 저장하고 `git fetch origin`, `git switch main`, `git pull --ff-only origin main`으로 갱신한다.
 
 ## 다른 개발 환경에서 공통 코드 확인
 
@@ -75,7 +75,7 @@ Linux에서는 `.venv/bin/python -m backend`를 사용한다.
 포트 변경: `python -m backend --port 8766`. 1–65535 범위만 허용한다.
 기본 호스트는 127.0.0.1이며 외부 인터페이스로 변경하는 옵션은 제공하지 않는다.
 종료는 Ctrl+C. 사용 중인 포트로 실행하면 오류 로그와 비정상 종료 코드가 반환된다.
-Windows 명령은 안내이며 실제 Windows 실행 검증은 1D에 남아 있다.
+Windows 자동 실행 검증과 사용자 확인 결과는 [검증 보고서](../reports/phase1-client-windows.md)를 따른다.
 
 ## Client 실행 (Windows PowerShell)
 

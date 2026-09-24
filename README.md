@@ -13,8 +13,9 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [개발 환경 설치](docs/dev/development-setup.md)
 - [Phase 1 상태 통신 규격](docs/dev/health-api.md)
 
-현재는 Phase 1 개발 중입니다. 1A 공통 응답 구조와 Backend 상태 API를 구현하고 Linux에서 검증했습니다.
-PySide6 Client 화면과 연결 테스트를 구현했습니다. Windows 검증 상태는 아래 보고서를 따릅니다. Phase 1 개발 및 테스트 완료 후 main에 병합합니다.
+Phase 1 실행 골격 및 Client–Backend 연결을 완료했습니다(2026-09-24).
+Linux 및 Windows 자동 테스트와 사용자 실행 확인을 근거로 완료 처리했습니다.
+다음 단계는 Phase 2 Windows 활성 창 감지입니다.
 
 설치 후 `python -m backend`로 Backend를 실행하고 `http://127.0.0.1:8765/health`에서 확인합니다.
 검증 명령: `python -m pytest -q`, `python -m ruff check src tests`.
