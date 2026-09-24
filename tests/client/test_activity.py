@@ -277,7 +277,10 @@ def test_recheck_and_close_cancel_late_responses(app, window, fake_server):
     wait_for(app, lambda: done)
     assert window.application.text() == "새 창"
     settings["delay"] = 0.25
-    wait_for(app, lambda: window.activity.reply is not None)
+    paths_before_close = len(settings["paths"])
+    # 이미 전송한 요청이 서버에 늦게 도착한 경우를 종료 후 재요청으로 오인하지 않는다.
+    wait_for(app, lambda: len(settings["paths"]) > paths_before_close
+             and window.activity.reply is not None)
     window.close()
     assert window.activity.reply is None
     assert not window.activity.timer.isActive()
@@ -299,3 +302,21 @@ def test_plain_text_and_empty_or_long_title(app, window, fake_server, title):
     assert window.window_title.toPlainText() == (title or "(제목 없음)")
     assert window.application.textFormat() == Qt.TextFormat.PlainText
     assert window.width() == 620
+
+
+def test_unchanged_title_preserves_selection_and_scroll(app, window, fake_server):
+    """반복 수신 중에도 긴 제목을 읽거나 복사하는 사용자 조작을 유지한다."""
+    title = "\n".join(f"가상 제목 {index}" for index in range(100))
+    fake_server[1]["body"]["data"]["window"]["window_title"] = title
+    window.check()
+    wait_for(app, lambda: window.application.text() == "Google Chrome")
+    window.window_title.selectAll()
+    scrollbar = window.window_title.verticalScrollBar()
+    scrollbar.setValue(scrollbar.maximum())
+    previous_scroll = scrollbar.value()
+    assert previous_scroll > 0
+    received = []
+    window.activity.activity_received.connect(lambda activity: received.append(activity))
+    wait_for(app, lambda: len(received) >= 2)
+    assert window.window_title.textCursor().hasSelection()
+    assert scrollbar.value() == previous_scroll

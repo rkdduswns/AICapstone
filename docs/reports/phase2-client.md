@@ -38,19 +38,22 @@
 ## 로컬 검증 결과
 
 - 환경: Windows 10 build 19045, Python 3.14.7, PySide6/Qt 6.11.2, 기본 Windows Qt 플랫폼.
-- `python -m pytest -q`: **71 passed**, 26.14s.
+- `python -m pytest -q`: **72 passed**, 26.52s (동일 제목의 선택·스크롤 보존 검증 포함).
 - `python -m ruff check src tests tools`: 통과.
 - `python -m pip check`: 통과.
 - 가상 데이터를 통한 실제 Qt 화면 이미지 확인: 한글, 프로그램/제목/상태 영역, 줄바꿈 배치 정상.
 - 기존 Starlette/httpx deprecation warning 1건. 이번 작업에서 의존성 변경은 하지 않았다.
 - 최초 제한 환경 실행은 69개 통과, 임시 디렉터리 접근 제한으로 2개 setup 오류가 있었다.
   접근 가능한 환경에서 전체 71개를 다시 실행해 통과했다.
+  이후 동일 제목의 사용자 선택·스크롤 보존과 종료 테스트의 서버 수신 시점 동기화를 보완하고
+  전체 72개를 재검증했다.
 
 검증 내용:
 
 - Chrome→VS Code, Word→Explorer, 동일 창 유지의 가상 응답을 실제 loopback HTTP로 전달.
 - 활성 창 없음, 미지원, 감지 오류 시 이전 프로그램/제목 제거.
 - API/서비스/필수 필드/상태 조합 검증, 빈 제목, 긴 한글 제목, HTML 형태 문자열의 plain text 표시.
+- 동일 제목 반복 수신 시 텍스트 선택 및 스크롤 위치 유지.
 - HTTP 404/500/302, 전송 실패, 잘못된 JSON/Content-Type, timeout 및 자동 복구.
 - 느린 요청 중복 방지, Qt 이벤트 루프 생존, 재확인 시 이전 요청 취소, 종료 후 재조회 방지.
 - 실제 Phase 1 Backend 별도 프로세스의 연결/종료/재시작과 `기능 준비 중` 표시.

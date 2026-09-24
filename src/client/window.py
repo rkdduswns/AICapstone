@@ -107,12 +107,20 @@ class MainWindow(QWidget):
             "unsupported": "수집 불가 — 지원하지 않는 창 또는 환경",
             "error": "감지 오류 — 다음 조회에서 다시 확인합니다.",
         }
-        self._clear_activity(messages[activity.collection_status])
-        if activity.window is not None:
+        if activity.window is None:
+            self._clear_activity(messages[activity.collection_status])
+        else:
+            self.collection_status.setText(messages[activity.collection_status])
             window = activity.window
-            self.application.setText(window.application)
-            self.process.setText(f"{window.process_name} · PID {window.process_id}")
-            self.window_title.setPlainText(window.window_title or "(제목 없음)")
+            if self.application.text() != window.application:
+                self.application.setText(window.application)
+            process = f"{window.process_name} · PID {window.process_id}"
+            if self.process.text() != process:
+                self.process.setText(process)
+            title = window.window_title or "(제목 없음)"
+            # 동일 창의 반복 응답은 사용자가 선택한 텍스트/스크롤 위치를 초기화하지 않는다.
+            if self.window_title.toPlainText() != title:
+                self.window_title.setPlainText(title)
         self.activity_updated_at.setText("마지막 정상 수신: " + self._now())
 
     def _clear_activity(self, message: str) -> None:
