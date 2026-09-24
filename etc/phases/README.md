@@ -19,7 +19,10 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | Phase 13 | 근거 기반 RAG | 검색 기록 기반 답변과 출처 제공 |
 | Phase 14 | 작업 세션·타임라인·안정화 | 세션 구성, 전체 통합, 최종 검증 |
 
-현재 상태: **Phase 1 DONE** (2026-09-24). 다음 작업은 Phase 2 Windows 활성 창 감지이며 아직 시작하지 않았다.
+현재 상태: **Phase 1 DONE**, **Phase 2 IN_PROGRESS** (2026-09-24).
+Phase 2 Client 표시·자동 조회 및 Shared 계약을 구현하고 가상 HTTP 응답으로 검증했다.
+다음 작업은 Backend Windows 감지와 실제 창 전환 통합 검증이다.
+[Client 구현 결과와 현재 상태](../../docs/reports/phase2-client.md)를 참고한다.
 
 ## 진행 원칙
 

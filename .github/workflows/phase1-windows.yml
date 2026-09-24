@@ -1,7 +1,10 @@
-name: Phase 1 Windows validation
+name: Windows validation
 on:
   push:
-    branches: [chore/phase1-preparation]
+    branches: [main, chore/phase1-preparation]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -19,7 +22,7 @@ jobs:
           python-version: '${{ matrix.python }}'
       - run: python -m pip install -e ".[dev]"
       - run: python -m pip check
-      - run: python -m ruff check src tests
+      - run: python -m ruff check src tests tools
       - run: python -m pytest -q --junitxml=windows-results.xml
       - name: Record environment
         if: always()

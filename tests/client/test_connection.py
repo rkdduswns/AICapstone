@@ -131,6 +131,7 @@ def test_timeout_and_close_during_request(app, fake_server):
 
 
 def test_real_backend_failure_connection_and_recovery(app, tmp_path):
+    """실제 Phase 1 서버의 연결 복구와 Phase 2 API 미구현 안내를 함께 확인한다."""
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]
@@ -157,6 +158,8 @@ def test_real_backend_failure_connection_and_recovery(app, tmp_path):
                 window.button.click()
                 wait_for(app, lambda: window.button.isEnabled())
                 assert window.status.text().startswith("연결됨")
+                wait_for(app, lambda: window.collection_status.text().startswith("기능 준비 중"))
+                assert window.application.text() == "—"
                 process.terminate()
                 process.wait(timeout=10)
                 window.button.click()
