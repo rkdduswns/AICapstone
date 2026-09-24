@@ -1,14 +1,15 @@
-"""Asynchronous loopback health requests using Qt's event loop."""
+"""Backend 연결 응답을 검증하고 화면에 표시할 연결 상태로 바꾼다."""
 
 import json
 
-from PySide6.QtCore import QObject, QTimer, QUrl, Signal
-from PySide6.QtNetwork import QNetworkAccessManager, QNetworkProxy, QNetworkReply, QNetworkRequest
+from PySide6.QtCore import QObject, Signal
 
+from client.json_request import JsonRequest
 from shared.protocol import API_VERSION, DEFAULT_PORT, SERVICE_NAME
 
 
 def read_version(payload: bytes) -> str:
+    """다른 서비스나 호환되지 않는 API를 정상 연결로 오인하지 않도록 검사한다."""
     body = json.loads(payload)
     if not isinstance(body, dict) or body.get("ok") is not True or body.get("error") is not None:
         raise ValueError("Invalid response envelope")
@@ -27,69 +28,38 @@ def read_version(payload: bytes) -> str:
     return version
 
 
-class BackendClient(QObject):
+class BackendClient(JsonRequest):
+    """Phase 1의 수동 연결 확인을 유지하고 성공 여부를 별도 신호로 전달한다."""
+
     result = Signal(str)
+    connection_changed = Signal(bool)
 
     def __init__(self, port: int = DEFAULT_PORT, parent: QObject | None = None) -> None:
-        super().__init__(parent)
-        self.port = port
-        self.manager = QNetworkAccessManager(self)
-        self.manager.setProxy(QNetworkProxy(QNetworkProxy.ProxyType.NoProxy))
-        self.timer = QTimer(self)
-        self.timer.setSingleShot(True)
-        self.timer.setInterval(3000)
-        self.timer.timeout.connect(self._timeout)
-        self.reply: QNetworkReply | None = None
-        self.timed_out = False
+        super().__init__(port, parent)
+        self.received.connect(self._received)
+        self.failed.connect(self._failed)
 
     def check(self) -> None:
-        if self.reply is not None:
-            return
-        self.timed_out = False
-        request = QNetworkRequest(QUrl(f"http://127.0.0.1:{self.port}/health"))
-        request.setRawHeader(b"Accept", b"application/json")
-        request.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
-                             QNetworkRequest.RedirectPolicy.ManualRedirectPolicy)
-        self.reply = self.manager.get(request)
-        self.reply.finished.connect(self._finished)
-        self.timer.start()
+        """UI 이벤트 루프를 막지 않고 서비스 상태를 요청한다."""
+        self.get("/health")
 
-    def _timeout(self) -> None:
-        if self.reply is not None:
-            self.timed_out = True
-            self.reply.abort()
-
-    def _finished(self) -> None:
-        reply = self.reply
-        if reply is None:
-            return
-        self.reply = None
-        self.timer.stop()
+    def _received(self, payload: bytes) -> None:
+        """검증된 응답일 때만 현재 창 정보 조회를 시작할 수 있게 한다."""
         try:
-            status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
-            if self.timed_out:
-                message = "시간 초과 — 다시 확인해 주세요."
-            elif status is not None and status != 200:
-                message = "상태 확인 실패 — HTTP 오류"
-            elif reply.error() != QNetworkReply.NetworkError.NoError:
-                message = "연결 안 됨 — Backend 실행 후 다시 확인해 주세요."
-            else:
-                content_type = str(reply.header(QNetworkRequest.KnownHeaders.ContentTypeHeader))
-                try:
-                    if content_type.split(";")[0].strip().lower() != "application/json":
-                        raise ValueError("Invalid content type")
-                    version = read_version(bytes(reply.readAll()))
-                    message = f"연결됨 — Backend {version}"
-                except (ValueError, UnicodeDecodeError):
-                    message = "호환되지 않는 응답"
-            self.result.emit(message)
-        finally:
-            reply.deleteLater()
+            version = read_version(payload)
+        except (ValueError, UnicodeDecodeError):
+            self._failed("content_type", 0)
+            return
+        self.result.emit(f"연결됨 — Backend {version}")
+        self.connection_changed.emit(True)
 
-    def close(self) -> None:
-        self.timer.stop()
-        if self.reply is not None:
-            reply, self.reply = self.reply, None
-            reply.finished.disconnect(self._finished)
-            reply.abort()
-            reply.deleteLater()
+    def _failed(self, reason: str, status: int) -> None:
+        """서버 원문이나 내부 예외를 노출하지 않는 기존 연결 안내를 유지한다."""
+        message = {
+            "timeout": "시간 초과 — 다시 확인해 주세요.",
+            "http": "상태 확인 실패 — HTTP 오류",
+            "network": "연결 안 됨 — Backend 실행 후 다시 확인해 주세요.",
+            "content_type": "호환되지 않는 응답",
+        }[reason]
+        self.result.emit(message)
+        self.connection_changed.emit(False)
