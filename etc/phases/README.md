@@ -19,12 +19,23 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | Phase 13 | 근거 기반 RAG | 검색 기록 기반 답변과 출처 제공 |
 | Phase 14 | 작업 세션·타임라인·안정화 | 세션 구성, 전체 통합, 최종 검증 |
 
-현재 상태: **Phase 1 DONE**, **Phase 2 Client DONE / 전체 IN_PROGRESS** (2026-10-01).
-Phase 2 Client 표시·자동 조회 및 Shared 계약을 구현하고 가상 HTTP 응답으로 검증했다.
-Phase 2에 남은 작업은 Backend Windows 감지와 실제 창 전환 통합 검증이다.
-사용자는 Client를 우선 담당하며, 다음 채팅에서는 **Phase 3 Client**를 진행한다.
-[Phase 3 Client 인수인계](phase3-client-handoff.md)를 기준으로 시작한다. Phase 3 Client 구현은 완료했으며 전체는 IN_PROGRESS이다.
-[Client 구현 결과와 현재 상태](../../docs/reports/phase2-client.md)를 참고한다.
+현재 상태 (2026-10-02):
+
+| Phase | Client 상태 | 전체 상태 / 남은 작업 |
+|---|---|---|
+| 1 | DONE | DONE |
+| 2 | DONE · 현재 창 표시/자동 조회 | IN_PROGRESS · Backend Windows 감지, 실제 창 전환 통합 |
+| 3 | DONE · 시작 시각/누적 활성 시간 표시 | IN_PROGRESS · Backend 시간/종료/재방문 계산과 통합 |
+| 4 | DONE · 최근 기록 조회/새로고침 | IN_PROGRESS · Backend 저장/갱신/조회, 재시작 복원과 통합 |
+
+구현 및 검증 근거: [Phase 2](../../docs/reports/phase2-client.md),
+[Phase 3](../../docs/reports/phase3-client.md), [Phase 4](../../docs/reports/phase4-client.md).
+사용자는 Client를 우선 담당한다. Phase 3은 별도 채팅에서 구현된 최신 GitHub 브랜치를 확인하여 계승했다.
+Phase 4 Client는 `feat/phase3-client` 기반의 `feat/phase4-client`에서 진행한다.
+Backend 작업 브랜치와 분리하며 Shared 계약은 Backend 구현 시 함께 반영한다.
+
+이후에는 한 채팅에서 이어가되, **매 작업의 구현·검증·미완료 항목을 GitHub 코드/문서/PR에 기록**한다.
+대화나 과거 인수인계만으로 완료 상태를 판단하지 않는다. 재개 시 최신 브랜치·PR과 이 현황을 먼저 확인한다.
 
 ## 진행 원칙
 
@@ -63,4 +74,5 @@ fix/privacy-filter
 docs/phase-8
 ```
 
-2026-10-01: Phase 3 Client 시작 시각·누적 활성 시간 표시 구현. Phase 3 전체는 IN_PROGRESS이며 실제 Backend 추적/연동은 미완료다. [구현 보고서](../../docs/reports/phase3-client.md).
+Client PR은 이전 Client 브랜치를 대상으로 단계별 변경만 검토한다.
+선행 PR 병합 시 다음 PR의 기준 브랜치와 차이를 확인한 뒤 변경한다. 전체 Phase 완료와 Client 완료는 구분한다.

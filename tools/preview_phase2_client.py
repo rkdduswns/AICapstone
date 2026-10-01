@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Callable
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
@@ -22,6 +23,7 @@ from shared.activity import (
     CurrentActivityResponse,
 )
 from shared.protocol import HealthResponse, HealthStatus
+from shared.records import RECENT_RECORDS_LIMIT, RECENT_RECORDS_PATH, RecentRecordsResponse
 
 SAMPLES = (
     CurrentActivity("collecting", ActiveWindow(
@@ -39,7 +41,8 @@ SAMPLES = (
 
 
 @contextmanager
-def preview_server(timing: bool = False):
+def preview_server(timing: bool = False,
+                   records_provider: Callable[[], RecentRecordsResponse] | None = None):
     """운영 Backend와 충돌하지 않는 임시 loopback 포트에서 가상 응답만 제공한다."""
     started = time.monotonic()
 
@@ -56,6 +59,9 @@ def preview_server(timing: bool = False):
                     sample = replace(sample, timing=ActivityTiming(
                         "2026-10-01T10:00:00+09:00", 65000 + int(time.monotonic() - started) * 1000))
                 response = CurrentActivityResponse(sample)
+            elif (records_provider is not None
+                  and self.path == f"{RECENT_RECORDS_PATH}?limit={RECENT_RECORDS_LIMIT}"):
+                response = records_provider()
             else:
                 self.send_error(404)
                 return
@@ -84,19 +90,24 @@ def preview_server(timing: bool = False):
         thread.join(timeout=2)
 
 
-def main(timing: bool = False) -> int:
+def main(timing: bool = False,
+         records_provider: Callable[[], RecentRecordsResponse] | None = None) -> int:
     """미리보기 또는 가상 데이터 화면 이미지 저장을 실행하고 서버를 함께 종료한다."""
-    phase = 3 if timing else 2
+    phase = 4 if records_provider else (3 if timing else 2)
     parser = argparse.ArgumentParser(description=f"Phase {phase} Client 가상 데이터 미리보기")
     parser.add_argument("--snapshot", type=Path, help="화면을 PNG로 저장한 뒤 종료")
     args = parser.parse_args()
     app = QApplication([sys.argv[0]])
-    with preview_server(timing) as port:
+    with preview_server(timing, records_provider) as port:
         window = MainWindow(port)
         window.setWindowTitle(f"ContextTrace — Phase {phase} 미리보기 (가상 데이터)")
         window.layout().insertWidget(0, display_label(
-            "가상 데이터 미리보기 · 4초마다 예시 전환 · 실제 작업 정보는 수집하지 않습니다."))
+            "가상 데이터 미리보기 · 실제 작업 정보는 수집하거나 저장하지 않습니다."))
+        if records_provider:
+            window.tabs.setCurrentWidget(window.recent)
         if args.snapshot:
+            received_signal = (window.recent.client.records_received if records_provider
+                               else window.activity.activity_received)
             def save_snapshot():
                 """첫 응답을 화면에 배치한 뒤 이 앱의 위젯만 렌더링한다."""
                 saved = window.grab().save(str(args.snapshot), "PNG")
@@ -105,10 +116,10 @@ def main(timing: bool = False) -> int:
 
             def received(activity):
                 """연속 응답으로 여러 저장 작업이 예약되지 않도록 첫 신호만 사용한다."""
-                window.activity.activity_received.disconnect(received)
+                received_signal.disconnect(received)
                 QTimer.singleShot(100, save_snapshot)
 
-            window.activity.activity_received.connect(received)
+            received_signal.connect(received)
             QTimer.singleShot(5000, lambda: app.exit(1))
         window.show()
         window.check()
