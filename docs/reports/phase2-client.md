@@ -67,6 +67,24 @@ Phase 2의 Windows 11 수동 검증 및 실제 감지기 연동 결과도 아직
 진입점: `python -m backend`, `python -m client`. 패키징/설치 프로그램은 아직 없다.
 미리보기: `python tools/preview_phase2_client.py` (별도 Backend 불필요).
 
-다음 최소 작업은 **Phase 2B Backend 활성 창 감지 + 현재 창 API**다.
+Phase 2 전체에 남은 최소 작업은 **Phase 2B Backend 활성 창 감지 + 현재 창 API**다.
 `src/shared/activity.py`와 [현재 창 계약](../dev/current-activity-api.md)을 기준으로 구현한다.
 그 뒤 Phase 2C에서 실제 창 전환/바탕화면/종료 프로그램을 검사하고 Phase 2 완료 여부를 판단한다.
+
+## Client 마무리 재검증 및 다음 채팅 — 2026-10-01
+
+사용자는 Client를 우선 개발하고, 작동 확인 후 커밋한 다음 다음 채팅에서 Phase 3를 진행하도록 지시했다.
+Client 기능 코드는 기존 커밋 `33792af4113c59c1446874bc3cd4e78fe87518e9`과 동일하다.
+
+- GitHub 최신 상태 확인: main `efafd8e`, Client `33792af`, Backend 준비 브랜치 `abdcb47`.
+- `python -m pytest -q`: **72 passed**, 28.39s. 기존 Starlette/httpx deprecation warning 1건.
+- `python -m ruff check src tests tools`, `python -m pip check`, `git diff --check`: 통과.
+- 가상 HTTP 미리보기 실행 및 화면 이미지 확인: 프로그램명·창 제목·수집 상태·한글 배치 정상.
+- 검증 범위는 Client UI, 가상 응답, 기존 Backend 연결/실패/복구다. 실제 Windows 창 감지 연동은 포함하지 않는다.
+
+Phase 2 Client 작업은 완료 상태로 인계한다. Phase 2 전체는 Backend/실제 통합이 남아 IN_PROGRESS를 유지한다.
+이번 마무리 커밋은 검증 기록과 다음 작업 지침만 추가하며 실행 코드는 변경하지 않는다.
+PR #2는 별도 검토를 위해 유지하며 main 병합은 수행하지 않는다.
+
+다음 사용자 작업은 **Phase 3 Client — 작업 시작 시각과 활성 시간 표시**다.
+[다음 채팅 인수인계](../../etc/phases/phase3-client-handoff.md)를 따른다.
