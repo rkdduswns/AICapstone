@@ -23,7 +23,7 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 Phase 2 Client 표시·자동 조회 및 Shared 계약을 구현하고 가상 HTTP 응답으로 검증했다.
 Phase 2에 남은 작업은 Backend Windows 감지와 실제 창 전환 통합 검증이다.
 사용자는 Client를 우선 담당하며, 다음 채팅에서는 **Phase 3 Client**를 진행한다.
-[Phase 3 Client 인수인계](phase3-client-handoff.md)를 기준으로 시작한다. Phase 3 구현은 아직 시작하지 않았다.
+[Phase 3 Client 인수인계](phase3-client-handoff.md)를 기준으로 시작한다. Phase 3 Client 구현은 완료했으며 전체는 IN_PROGRESS이다.
 [Client 구현 결과와 현재 상태](../../docs/reports/phase2-client.md)를 참고한다.
 
 ## 진행 원칙
@@ -62,3 +62,5 @@ feat/hybrid-search
 fix/privacy-filter
 docs/phase-8
 ```
+
+2026-10-01: Phase 3 Client 시작 시각·누적 활성 시간 표시 구현. Phase 3 전체는 IN_PROGRESS이며 실제 Backend 추적/연동은 미완료다. [구현 보고서](../../docs/reports/phase3-client.md).

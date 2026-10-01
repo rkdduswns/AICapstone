@@ -1,5 +1,7 @@
 """Backend 연결과 현재 프로그램·창 제목·수집 상태를 표시하는 화면."""
 
+from datetime import datetime
+
 from PySide6.QtCore import QDateTime, Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
@@ -35,7 +37,7 @@ class MainWindow(QWidget):
     def __init__(self, port: int = DEFAULT_PORT) -> None:
         super().__init__()
         self.setWindowTitle("ContextTrace — 현재 작업")
-        self.resize(620, 440)
+        self.resize(620, 520)
         layout = QVBoxLayout(self)
         connection = QGroupBox("Backend 연결 · 마지막 확인 결과")
         connection_layout = QVBoxLayout(connection)
@@ -59,10 +61,14 @@ class MainWindow(QWidget):
         self.window_title.setMaximumHeight(96)
         self.window_title.setPlainText("—")
         self.activity_updated_at = display_label("마지막 정상 수신: 없음")
+        self.started_at = display_label("—")
+        self.active_duration = display_label("—")
         activity_layout.addRow("수집 상태", self.collection_status)
         activity_layout.addRow("프로그램", self.application)
         activity_layout.addRow("프로세스", self.process)
         activity_layout.addRow("창 제목", self.window_title)
+        activity_layout.addRow("작업 시작 (PC 현지 시각)", self.started_at)
+        activity_layout.addRow("누적 활성 시간", self.active_duration)
         activity_layout.addRow(self.activity_updated_at)
         layout.addWidget(activity)
         layout.addStretch()
@@ -121,6 +127,18 @@ class MainWindow(QWidget):
             # 동일 창의 반복 응답은 사용자가 선택한 텍스트/스크롤 위치를 초기화하지 않는다.
             if self.window_title.toPlainText() != title:
                 self.window_title.setPlainText(title)
+            if activity.timing is None:
+                self.started_at.setText("시간 정보 없음")
+                self.active_duration.setText("시간 정보 없음")
+            else:
+                # 수신 시각과 분리하고 Backend 누적값만 표시한다. 로컬 타이머로 늘리지 않는다.
+                started = datetime.fromisoformat(
+                    activity.timing.started_at.replace("Z", "+00:00")).astimezone()
+                self.started_at.setText(started.isoformat(sep=" ", timespec="seconds"))
+                seconds = activity.timing.active_duration_ms // 1000
+                hours, remainder = divmod(seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                self.active_duration.setText(f"{hours:02d}:{minutes:02d}:{seconds:02d}")
         self.activity_updated_at.setText("마지막 정상 수신: " + self._now())
 
     def _clear_activity(self, message: str) -> None:
@@ -129,6 +147,8 @@ class MainWindow(QWidget):
         self.application.setText("—")
         self.process.setText("—")
         self.window_title.setPlainText("—")
+        self.started_at.setText("—")
+        self.active_duration.setText("—")
 
     @staticmethod
     def _now() -> str:

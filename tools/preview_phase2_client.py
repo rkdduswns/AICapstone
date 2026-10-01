@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -14,7 +14,13 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
 from client.window import MainWindow, display_label
-from shared.activity import ACTIVITY_PATH, ActiveWindow, CurrentActivity, CurrentActivityResponse
+from shared.activity import (
+    ACTIVITY_PATH,
+    ActiveWindow,
+    ActivityTiming,
+    CurrentActivity,
+    CurrentActivityResponse,
+)
 from shared.protocol import HealthResponse, HealthStatus
 
 SAMPLES = (
@@ -33,7 +39,7 @@ SAMPLES = (
 
 
 @contextmanager
-def preview_server():
+def preview_server(timing: bool = False):
     """운영 Backend와 충돌하지 않는 임시 loopback 포트에서 가상 응답만 제공한다."""
     started = time.monotonic()
 
@@ -44,7 +50,12 @@ def preview_server():
                 response = HealthResponse(HealthStatus(version="preview"))
             elif self.path == ACTIVITY_PATH:
                 index = int((time.monotonic() - started) / 4) % len(SAMPLES)
-                response = CurrentActivityResponse(SAMPLES[index])
+                sample = SAMPLES[index]
+                if timing and sample.window is not None:
+                    # 미리보기 전용 가상 누적값이며 실제 창이나 시스템 시간을 수집하지 않는다.
+                    sample = replace(sample, timing=ActivityTiming(
+                        "2026-10-01T10:00:00+09:00", 65000 + int(time.monotonic() - started) * 1000))
+                response = CurrentActivityResponse(sample)
             else:
                 self.send_error(404)
                 return
@@ -73,15 +84,16 @@ def preview_server():
         thread.join(timeout=2)
 
 
-def main() -> int:
+def main(timing: bool = False) -> int:
     """미리보기 또는 가상 데이터 화면 이미지 저장을 실행하고 서버를 함께 종료한다."""
-    parser = argparse.ArgumentParser(description="Phase 2 Client 가상 데이터 미리보기")
+    phase = 3 if timing else 2
+    parser = argparse.ArgumentParser(description=f"Phase {phase} Client 가상 데이터 미리보기")
     parser.add_argument("--snapshot", type=Path, help="화면을 PNG로 저장한 뒤 종료")
     args = parser.parse_args()
     app = QApplication([sys.argv[0]])
-    with preview_server() as port:
+    with preview_server(timing) as port:
         window = MainWindow(port)
-        window.setWindowTitle("ContextTrace — Phase 2 미리보기 (가상 데이터)")
+        window.setWindowTitle(f"ContextTrace — Phase {phase} 미리보기 (가상 데이터)")
         window.layout().insertWidget(0, display_label(
             "가상 데이터 미리보기 · 4초마다 예시 전환 · 실제 작업 정보는 수집하지 않습니다."))
         if args.snapshot:

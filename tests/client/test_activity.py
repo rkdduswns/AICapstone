@@ -8,6 +8,7 @@ import threading
 import time
 from copy import deepcopy
 from dataclasses import asdict
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -320,3 +321,105 @@ def test_unchanged_title_preserves_selection_and_scroll(app, window, fake_server
     wait_for(app, lambda: len(received) >= 2)
     assert window.window_title.textCursor().hasSelection()
     assert scrollbar.value() == previous_scroll
+
+
+def timed_body(started_at="2026-10-01T10:00:00+09:00", duration=65000):
+    """Backend가 계산한 시간만 제공하는 가상 스냅샷을 만든다."""
+    body = deepcopy(GOOD)
+    body["data"]["timing"] = {"started_at": started_at, "active_duration_ms": duration}
+    return body
+
+
+@pytest.mark.parametrize("timing", [
+    [], "bad", {}, {"started_at": "2026-10-01T10:00:00+09:00"},
+    {"started_at": None, "active_duration_ms": 0},
+    *[{"started_at": stamp, "active_duration_ms": 0} for stamp in [
+        "2026-10-01T10:00:00", "2026-02-30T00:00:00Z", "bad",
+        "2026-10-01", "2026-10-01T10:00:00+09:60",
+        "2026-10-01T10:00:00+24:00",
+    ]],
+    *[{"started_at": "2026-10-01T10:00:00Z", "active_duration_ms": duration}
+      for duration in [-1, True, "1000", 1.5, None]],
+])
+def test_invalid_timing_is_rejected(timing):
+    """불완전하거나 모호한 시간 값이 정상 시간으로 표시되지 않게 한다."""
+    body = deepcopy(GOOD)
+    body["data"]["timing"] = timing
+    with pytest.raises(ValueError):
+        read_activity(json.dumps(body).encode())
+
+
+@pytest.mark.parametrize("stamp", [
+    "2026-10-01T10:00:00Z", "2026-10-01T10:00:00.123456+09:00",
+    "2026-10-01T10:00:00-05:30",
+])
+def test_timezone_aware_timing(stamp):
+    """UTC·양수·음수 오프셋을 가진 시작 시각과 0밀리초를 보존한다."""
+    activity = read_activity(json.dumps(timed_body(stamp, 0)).encode())
+    assert activity.timing.started_at == stamp
+    assert activity.timing.active_duration_ms == 0
+
+
+@pytest.mark.parametrize("status", ["no_active_window", "unsupported", "error"])
+def test_noncollecting_rejects_stale_timing(status):
+    """창이 없으면 이전 작업의 시간 객체도 남길 수 없다."""
+    body = timed_body()
+    body["data"].update(collection_status=status, window=None)
+    with pytest.raises(ValueError):
+        read_activity(json.dumps(body).encode())
+
+
+def test_timing_http_updates_transition_failure_and_recovery(app, window, fake_server):
+    """실제 HTTP에서 누적값 갱신·재방문·오류 제거·복구를 함께 검증한다."""
+    settings = fake_server[1]
+    settings["body"] = timed_body()
+    window.check()
+    wait_for(app, lambda: window.active_duration.text() == "00:01:05")
+    expected_start = datetime.fromisoformat("2026-10-01T10:00:00+09:00").astimezone()
+    assert window.started_at.text() == expected_start.isoformat(sep=" ", timespec="seconds")
+    # 시간이 흘러도 서버 값이 같으면 활성 시간을 임의로 늘리지 않는다.
+    received = []
+    window.activity.activity_received.connect(lambda activity: received.append(activity))
+    wait_for(app, lambda: len(received) >= 2)
+    assert window.active_duration.text() == "00:01:05"
+    settings["body"] = timed_body(duration=3661999)
+    wait_for(app, lambda: window.active_duration.text() == "01:01:01")
+    settings["body"] = timed_body("2026-10-01T10:05:00+09:00", 0)
+    settings["body"]["data"]["window"]["application"] = "Visual Studio Code"
+    wait_for(app, lambda: window.application.text() == "Visual Studio Code")
+    assert window.active_duration.text() == "00:00:00"
+    assert window.started_at.text() != expected_start.isoformat(sep=" ", timespec="seconds")
+    settings["body"] = timed_body(duration=70000)
+    wait_for(app, lambda: window.active_duration.text() == "00:01:10")
+    assert window.started_at.text() == expected_start.isoformat(sep=" ", timespec="seconds")
+    settings["body"] = timed_body(duration=-1)
+    wait_for(app, lambda: window.collection_status.text().startswith("호환되지 않는"))
+    assert window.started_at.text() == window.active_duration.text() == "—"
+    assert window.application.text() == "—"
+    settings["body"] = timed_body(duration=90061000)
+    wait_for(app, lambda: window.active_duration.text() == "25:01:01")
+    settings["status"] = 500
+    wait_for(app, lambda: window.collection_status.text().startswith("수신 실패"))
+    assert window.started_at.text() == window.active_duration.text() == "—"
+    settings.update(status=200, body=timed_body())
+    wait_for(app, lambda: window.active_duration.text() == "00:01:05")
+    settings["body"] = deepcopy(GOOD)
+    settings["body"]["data"].pop("timing", None)
+    wait_for(app, lambda: window.active_duration.text() == "시간 정보 없음")
+    assert window.application.text() == "Google Chrome"
+    settings["body"] = timed_body()
+    wait_for(app, lambda: window.active_duration.text() == "00:01:05")
+    settings["body"] = deepcopy(GOOD)
+    settings["body"]["data"].update(collection_status="no_active_window", window=None)
+    wait_for(app, lambda: window.collection_status.text().startswith("대기"))
+    assert window.started_at.text() == window.active_duration.text() == "—"
+
+
+@pytest.mark.parametrize("duration,expected", [(0, "00:00:00"), (999, "00:00:00"),
+                                             (1000, "00:00:01")])
+def test_duration_truncates_milliseconds(app, window, duration, expected):
+    """밀리초를 반올림해 서버 누적 시간보다 큰 초를 표시하지 않는다."""
+    window._show_activity(read_activity(json.dumps(timed_body(duration=duration)).encode()))
+    assert window.active_duration.text() == expected
+    window.check()
+    assert window.started_at.text() == window.active_duration.text() == "—"

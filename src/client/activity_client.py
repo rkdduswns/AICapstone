@@ -1,11 +1,13 @@
 """현재 창 응답의 검증과 자동 조회. Windows 감지는 Backend가 담당한다."""
 
 import json
+import re
+from datetime import datetime
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from client.json_request import JsonRequest
-from shared.activity import ACTIVITY_PATH, ActiveWindow, CurrentActivity
+from shared.activity import ACTIVITY_PATH, ActiveWindow, ActivityTiming, CurrentActivity
 from shared.protocol import API_VERSION, DEFAULT_PORT, SERVICE_NAME
 
 
@@ -25,9 +27,12 @@ def read_activity(payload: bytes) -> CurrentActivity:
     if "window" not in data:
         raise ValueError("Missing window field")
     window = data["window"]
+    timing = read_timing(data.get("timing"))
     if status != "collecting":
         if window is not None:
             raise ValueError("Unexpected window for collection status")
+        if timing is not None:
+            raise ValueError("Unexpected timing for collection status")
         return CurrentActivity(collection_status=status, window=None)
     if not isinstance(window, dict):
         raise ValueError("Missing active window")
@@ -42,7 +47,33 @@ def read_activity(payload: bytes) -> CurrentActivity:
     return CurrentActivity(collection_status=status, window=ActiveWindow(
         application=window["application"], process_name=window["process_name"],
         process_id=window["process_id"], window_title=window["window_title"],
-    ))
+    ), timing=timing)
+
+
+def read_timing(value: object) -> ActivityTiming | None:
+    """기존 응답의 누락/null은 미지원으로 처리하고 제공된 시간 객체는 엄격히 검사한다."""
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Invalid timing")
+    started_at = value.get("started_at")
+    # 시간대가 없는 시각을 PC 시간대로 추측하면 서로 다른 순간을 표시할 수 있다.
+    if not isinstance(started_at, str) or not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})",
+        started_at,
+    ):
+        raise ValueError("Invalid start timestamp")
+    offset = started_at[-6:]
+    if not started_at.endswith("Z") and (int(offset[1:3]) > 23 or int(offset[4:]) > 59):
+        raise ValueError("Invalid timezone offset")
+    try:
+        datetime.fromisoformat(started_at.replace("Z", "+00:00")).astimezone()
+    except (OverflowError, OSError) as error:
+        raise ValueError("Start timestamp cannot be displayed locally") from error
+    duration = value.get("active_duration_ms")
+    if type(duration) is not int or duration < 0:
+        raise ValueError("Invalid active duration")
+    return ActivityTiming(started_at, duration)
 
 
 class ActivityClient(JsonRequest):

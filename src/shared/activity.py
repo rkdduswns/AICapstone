@@ -20,6 +20,14 @@ class ActiveWindow:
 
 
 @dataclass(frozen=True)
+class ActivityTiming:
+    """Backend 작업 시작 시각(시간대 포함 ISO 8601)과 누적 활성 밀리초."""
+
+    started_at: str
+    active_duration_ms: int
+
+
+@dataclass(frozen=True)
 class CurrentActivity:
     """감지 성공일 때만 window를 제공하고 나머지 상태에서는 None으로 비운다."""
 
@@ -27,6 +35,7 @@ class CurrentActivity:
     window: ActiveWindow | None
     service: str = SERVICE_NAME
     api_version: int = API_VERSION
+    timing: ActivityTiming | None = None
 
 
 @dataclass(frozen=True)
