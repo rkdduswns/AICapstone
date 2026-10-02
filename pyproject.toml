@@ -23,9 +23,13 @@ namespaces = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--import-mode=importlib"
+# 학습용 test_*.py도 프로젝트 테스트로 수집하지 않는다.
+addopts = "--import-mode=importlib --ignore=etc/study"
 
 [tool.ruff]
+# 학습 사본은 파일 경로를 직접 전달해도 검사에서 제외한다.
+extend-exclude = ["etc/study"]
+force-exclude = true
 target-version = "py311"
 line-length = 100
 
