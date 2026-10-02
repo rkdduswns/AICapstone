@@ -1,13 +1,15 @@
 # Phase 1A — 공통 응답 및 Backend 상태 API
 
-## 준비 재확인
+작업 브랜치: `chore/phase1-preparation`.
+이 보고서는 Backend 구현 단계의 검증 기록이다. Phase 1 최종 완료 결과는
+[Client 및 Windows 검증](phase1-client-windows.md)을 따른다.
 
-- 최신 main: `942cc2c5ce96cd4142837ef4a0c852727af661c6`.
-- 작업 브랜치 원격 기준: `3292a1d10540b3befdf3ca35ba8d8d0e3d49ce08`.
-- 로컬 준비 결과의 tree와 원격 커밋 tree 일치 확인.
-- 기존 기획·지침·Phase 1·통신 규격과 설치 의존성 재확인. 1A 진행을 막는 항목 없음.
-- Client PySide6 최종 선택은 미확인이나 Backend와 독립되어 1A 진행 가능.
-- 사용자 결정: Phase 1 개발 및 테스트 완료 후 main 병합. Draft PR #1에서 계속 작업.
+## 초기 환경 검증
+
+Linux / Python 3.12.14의 새 가상환경에서 editable 설치, pip check,
+QtCore/QtWidgets/QtNetwork·FastAPI·Uvicorn 및 프로젝트 패키지 import, Ruff, diff 검사를 통과했다.
+설치 확인 버전은 PySide6 6.11.2, FastAPI 0.141.1, Uvicorn 0.53.0이다.
+이는 2026-09-19 환경 기록이며 Windows 실행 검증이나 버전 고정을 의미하지 않는다.
 
 ## 구현
 
@@ -33,9 +35,7 @@
 테스트 실행 시 설치된 Starlette의 httpx 및 AnyIO 관련 deprecation warning 2건이 발생했다.
 현재 테스트 실패는 없으며 이 단계에서 의존성을 임의 교체하지 않았다.
 
-## 완료 범위 및 다음 작업
+## 검증 범위
 
-1A는 Linux 기준 구현·검증 완료. Phase 1 전체는 IN_PROGRESS.
-Windows 10/11 및 Python 3.11 실행, Client UI, 연결 실패/복구, CI는 미검증 또는 미구현이다.
-다음은 1B Client 진입점 및 상태 화면이며 최종 Client 기술을 확인해야 한다.
-기존 Phase 1 완료 체크리스트는 Windows와 Client 검증 전 완료 처리하지 않는다.
+이 단계는 Linux의 Shared 응답 구조와 Backend 실행/API 검증을 다룬다.
+Client UI, Windows 실행 및 연결 실패·복구 검증은 [후속 보고서](phase1-client-windows.md)에 기록했다.

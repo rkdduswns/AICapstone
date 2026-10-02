@@ -10,7 +10,7 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [개발 지침](etc/개발-지침.md)
 - [개발 Phase](etc/phases/README.md)
 - [Phase 전체 체크리스트·작업 이력](etc/phases/00-progress.md)
-- [Phase 1 준비 및 작업 순서](etc/phases/phase001-preparation.md)
+- [Phase 1 완료 조건](etc/phases/phase001.md)
 - [개발 환경 설치](docs/dev/development-setup.md)
 - [Phase 1 상태 통신 규격](docs/dev/health-api.md)
 - [Phase 2 현재 창 통신 규격](docs/dev/current-activity-api.md)

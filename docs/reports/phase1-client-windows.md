@@ -2,7 +2,7 @@
 
 ## 결정 및 구현
 
-사용자가 PySide6를 최종 선택했다. 1B 상태 화면 및 독립 진입점, 1C QtNetwork 연결을 구현했다.
+Client 기술은 PySide6 Widgets다. 1B 상태 화면 및 독립 진입점, 1C QtNetwork 연결을 구현했다.
 Backend 구현을 Client에서 직접 import하지 않는다. 서비스/API 버전, 응답 형태를 검사한다.
 3초 timeout, 중복 요청 방지, 요청 중 종료 정리, 마지막 확인 시각 표시를 포함한다.
 
@@ -10,10 +10,10 @@ Backend 구현을 Client에서 직접 import하지 않는다. 서비스/API 버�
 
 - 로컬 환경: Linux / Python 3.12.14 / Qt offscreen.
 - 로컬 결과: pytest 27개 통과, Ruff 및 git diff --check 통과. 기존 의존성 deprecation warning 2건 유지.
-- Windows 실행 환경은 로컬에 없어 GitHub Actions Windows runner에서 자동 검증했다.
+- Windows 자동 검증은 GitHub Actions Windows runner에서 수행했다.
 - Windows CI: Python 3.11.9 및 3.12.10 모두 27개 통과. 설치, pip check, Ruff도 통과.
-- 사용자 실행 확인: 2026-09-24 테스트 결과가 좋으며 완료 처리 및 병합을 진행하라는 명시적 승인 수신.
-- Phase 1: DONE. 사용자 승인에 따라 PR #1의 main 병합 진행.
+- 수동 실행 확인: 2026-09-24 테스트 결과 수락 및 완료 승인.
+- Phase 1: DONE. 2026-09-24 [PR #1](https://github.com/rkdduswns/AICapstone/pull/1) main 병합.
 
 자동 검증은 UI 생성, 응답별 표시, timeout 및 이벤트 루프 생존, 요청 중 종료,
 실제 Backend 미실행→연결→종료→재기동 복구를 검사한다.
@@ -39,15 +39,9 @@ Windows Server 2025 Datacenter(build 26100), Python 3.11.9 환경을 확인했�
 
 두 환경에서 Qt 창 생성·표시, 비동기 응답, 실패/timeout/정상 복구, 요청 중 창 종료,
 실제 Backend 프로세스 실행 및 HTTP 왕복을 확인했다. CI에서 사람의 화면 조작은 수행하지 않았다.
-자동 검증 당시에는 Windows 실제 기기 수동 확인을 기다렸으며, 아래 사용자 승인으로 Phase 1 완료 판정을 갱신했다.
 
-## 사용자 확인 및 완료 판정 — 2026-09-24
+## 수동 실행 확인 및 완료 판정 — 2026-09-24
 
-사용자가 앞서 안내한 실행·연결·실패·복구·화면 종료 확인 항목에 이어
-“테스트 결과는 매우 좋고, 완료처리 및 병합 진행해줘”라고 보고하고 승인했다.
-이를 사용자 수동 검증 결과 수락으로 기록하여 Phase 1을 DONE으로 처리한다.
-자동 테스트는 기존 Windows Python 3.11/3.12 각각 27개 통과 근거를 유지한다.
-
-사용자의 정확한 Windows 버전/build, Python 버전 및 항목별 로그는 전달받지 않았다.
-따라서 Windows 10과 11 양쪽 모두 직접 검증했다고 주장하지 않는다.
-이번 완료 변경은 문서와 체크리스트만 수정하며 검증된 실행 코드는 변경하지 않는다.
+자동 검증과 사용자 수동 실행 결과 수락을 근거로 Phase 1을 DONE으로 처리했다.
+수동 검증 기기의 정확한 Windows build·Python 버전·항목별 로그는 기록되지 않았다.
+따라서 Windows 10과 11 양쪽의 수동 검증 완료를 의미하지 않는다.
