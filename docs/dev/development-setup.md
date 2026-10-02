@@ -127,3 +127,28 @@ Client/Shared와 기존 Backend의 회귀 검증:
 화면 점검: 가상 데이터 안내, 프로그램·제목·수집 상태 전환, 한글, 긴 제목 줄바꿈/스크롤,
 상태 변화 시 이전 창 정보 제거, 연결 재확인 및 창 종료를 확인한다.
 실제 OS 감지 검증은 [Phase 2 체크리스트](../../etc/phases/phase2.md)에 별도로 남긴다.
+
+## Phase 3–4 Client 확인
+
+아직 main에 병합되지 않은 Client 변경은 [현재 Phase 현황](../../etc/phases/README.md)의 브랜치에서 확인한다.
+Phase 4는 `feat/phase4-client`이며 Phase 2–3 Client 구현을 포함한다. 추가 의존성은 없다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/preview_phase3_client.py
+.\.venv\Scripts\python.exe tools/preview_phase4_client.py
+```
+
+각 명령은 독립적인 가상 HTTP 서버와 Client 창을 띄운다. 하나씩 실행하고 창을 닫아 종료한다.
+Phase 3은 시작 시각/누적 활성 시간을, Phase 4는 최근 기록 탭을 처음부터 보여준다.
+Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중복 추가되지 않는지 확인할 수 있다.
+`--snapshot <PNG 경로>`를 사용하면 첫 유효 응답의 화면을 저장하고 종료한다.
+
+일반 `python -m client`에서는 연결 확인 후 `최근 기록` 탭을 연다.
+최근 20건, 마지막 활성 시각순, 선택 상세의 전체 제목·프로세스·시각·누적 활성 시간·재방문 횟수를 확인한다.
+새로고침 도중 버튼 잠금, 같은 ID 선택 복원, 긴 한글 제목의 상세 스크롤도 확인한다.
+빈 목록과 오류 표시, timeout/연결 재확인/창 종료, 기존 현재 창 표시는 자동 테스트로 검증한다.
+기존 Backend에는 기록 endpoint가 없어 `기능 준비 중`이 정상이다.
+
+전체 검증 명령은 위의 pytest/Ruff/pip check와 동일하다.
+[최근 기록 API 계약](recent-records-api.md)과 [Phase 4 검증 보고서](../reports/phase4-client.md)를 참고한다.
+가상 미리보기 성공은 실제 저장소나 재시작 후 기록 유지 검증을 의미하지 않는다.

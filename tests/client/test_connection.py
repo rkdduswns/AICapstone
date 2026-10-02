@@ -160,6 +160,9 @@ def test_real_backend_failure_connection_and_recovery(app, tmp_path):
                 assert window.status.text().startswith("연결됨")
                 wait_for(app, lambda: window.collection_status.text().startswith("기능 준비 중"))
                 assert window.application.text() == "—"
+                window.tabs.setCurrentWidget(window.recent)
+                wait_for(app, lambda: window.recent.status.text().startswith("기능 준비 중"))
+                assert window.recent.table.rowCount() == 0
                 process.terminate()
                 process.wait(timeout=10)
                 window.button.click()

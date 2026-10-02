@@ -1,12 +1,11 @@
 """현재 창 응답의 검증과 자동 조회. Windows 감지는 Backend가 담당한다."""
 
 import json
-import re
-from datetime import datetime
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from client.json_request import JsonRequest
+from client.time_values import parse_timestamp
 from shared.activity import ACTIVITY_PATH, ActiveWindow, ActivityTiming, CurrentActivity
 from shared.protocol import API_VERSION, DEFAULT_PORT, SERVICE_NAME
 
@@ -57,19 +56,7 @@ def read_timing(value: object) -> ActivityTiming | None:
     if not isinstance(value, dict):
         raise ValueError("Invalid timing")
     started_at = value.get("started_at")
-    # 시간대가 없는 시각을 PC 시간대로 추측하면 서로 다른 순간을 표시할 수 있다.
-    if not isinstance(started_at, str) or not re.fullmatch(
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})",
-        started_at,
-    ):
-        raise ValueError("Invalid start timestamp")
-    offset = started_at[-6:]
-    if not started_at.endswith("Z") and (int(offset[1:3]) > 23 or int(offset[4:]) > 59):
-        raise ValueError("Invalid timezone offset")
-    try:
-        datetime.fromisoformat(started_at.replace("Z", "+00:00")).astimezone()
-    except (OverflowError, OSError) as error:
-        raise ValueError("Start timestamp cannot be displayed locally") from error
+    parse_timestamp(started_at)
     duration = value.get("active_duration_ms")
     if type(duration) is not int or duration < 0:
         raise ValueError("Invalid active duration")

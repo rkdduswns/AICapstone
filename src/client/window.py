@@ -1,6 +1,4 @@
-"""Backend 연결과 현재 프로그램·창 제목·수집 상태를 표시하는 화면."""
-
-from datetime import datetime
+"""Backend 연결, 현재 작업 상태와 최근 저장 기록을 표시하는 화면."""
 
 from PySide6.QtCore import QDateTime, Qt
 from PySide6.QtGui import QCloseEvent
@@ -11,12 +9,15 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSizePolicy,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from client.activity_client import ActivityClient
 from client.backend_client import BackendClient
+from client.recent_records import RecentRecordsWidget
+from client.time_values import format_duration, format_timestamp
 from shared.activity import CurrentActivity
 from shared.protocol import DEFAULT_PORT
 
@@ -36,8 +37,8 @@ class MainWindow(QWidget):
 
     def __init__(self, port: int = DEFAULT_PORT) -> None:
         super().__init__()
-        self.setWindowTitle("ContextTrace — 현재 작업")
-        self.resize(620, 520)
+        self.setWindowTitle("ContextTrace — 작업 기록")
+        self.resize(620, 660)
         layout = QVBoxLayout(self)
         connection = QGroupBox("Backend 연결 · 마지막 확인 결과")
         connection_layout = QVBoxLayout(connection)
@@ -70,8 +71,12 @@ class MainWindow(QWidget):
         activity_layout.addRow("작업 시작 (PC 현지 시각)", self.started_at)
         activity_layout.addRow("누적 활성 시간", self.active_duration)
         activity_layout.addRow(self.activity_updated_at)
-        layout.addWidget(activity)
-        layout.addStretch()
+        self.tabs = QTabWidget()
+        self.tabs.addTab(activity, "현재 작업")
+        self.recent = RecentRecordsWidget(port, self)
+        self.tabs.addTab(self.recent, "최근 기록")
+        self.tabs.currentChanged.connect(self._tab_changed)
+        layout.addWidget(self.tabs, 1)
 
         self.activity = ActivityClient(port, self)
         self.activity.activity_received.connect(self._show_activity)
@@ -86,6 +91,7 @@ class MainWindow(QWidget):
         if self.backend.reply is not None:
             return
         self.activity.stop()
+        self.recent.set_connected(False)
         self._clear_activity("대기 — Backend 연결 확인 중")
         self.status.setText("연결 중")
         self.button.setEnabled(False)
@@ -99,11 +105,18 @@ class MainWindow(QWidget):
 
     def _connection_changed(self, connected: bool) -> None:
         """표시 문구를 분석하는 대신 검증 결과로 자동 조회 여부를 결정한다."""
+        self.recent.set_connected(connected)
         if connected:
             self._clear_activity("확인 중 — 현재 창 정보를 기다리고 있습니다.")
             self.activity.start()
+            self._tab_changed(self.tabs.currentIndex())
         else:
             self._clear_activity("수신 중단 — Backend 연결을 확인해 주세요.")
+
+    def _tab_changed(self, index: int) -> None:
+        """최근 기록 탭을 사용할 때 조회하며 현재 창 폴링과 분리한다."""
+        if self.tabs.widget(index) is self.recent:
+            self.recent.load_if_needed()
 
     def _show_activity(self, activity: CurrentActivity) -> None:
         """새 스냅샷으로 교체하며 비수집 상태에서는 이전 프로그램/제목을 지운다."""
@@ -132,13 +145,8 @@ class MainWindow(QWidget):
                 self.active_duration.setText("시간 정보 없음")
             else:
                 # 수신 시각과 분리하고 Backend 누적값만 표시한다. 로컬 타이머로 늘리지 않는다.
-                started = datetime.fromisoformat(
-                    activity.timing.started_at.replace("Z", "+00:00")).astimezone()
-                self.started_at.setText(started.isoformat(sep=" ", timespec="seconds"))
-                seconds = activity.timing.active_duration_ms // 1000
-                hours, remainder = divmod(seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                self.active_duration.setText(f"{hours:02d}:{minutes:02d}:{seconds:02d}")
+                self.started_at.setText(format_timestamp(activity.timing.started_at))
+                self.active_duration.setText(format_duration(activity.timing.active_duration_ms))
         self.activity_updated_at.setText("마지막 정상 수신: " + self._now())
 
     def _clear_activity(self, message: str) -> None:
@@ -156,7 +164,8 @@ class MainWindow(QWidget):
         return QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """화면 종료 이후 자동 조회나 응답 콜백이 남지 않도록 두 요청을 정리한다."""
+        """화면 종료 이후 자동 조회나 응답 콜백이 남지 않도록 모든 요청을 정리한다."""
         self.activity.stop()
         self.backend.close()
+        self.recent.set_connected(False)
         super().closeEvent(event)
