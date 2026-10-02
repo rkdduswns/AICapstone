@@ -87,4 +87,4 @@ Phase 2 Client 작업은 완료 상태로 인계한다. Phase 2 전체는 Backen
 PR #2는 별도 검토를 위해 유지하며 main 병합은 수행하지 않는다.
 
 다음 사용자 작업은 **Phase 3 Client — 작업 시작 시각과 활성 시간 표시**다.
-[다음 채팅 인수인계](../../etc/phases/phase3-client-handoff.md)를 따른다.
+[다음 채팅 인수인계](../../etc/phases/phase003-client-handoff.md)를 따른다.
