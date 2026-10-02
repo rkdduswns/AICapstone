@@ -22,7 +22,7 @@ Ruff, pip check, 가상 데이터 화면 표시 확인 완료. 기존 Starlette/
 ## 다음 채팅 시작 절차
 
 1. 최신 main, Client/Backend 브랜치, PR #2 상태와 로컬 미커밋 변경을 먼저 확인한다.
-2. `etc/개발-지침.md`, `phase3.md`, `docs/dev/current-activity-api.md`, 현재 Client/Shared 코드와 테스트를 읽는다.
+2. `etc/개발-지침.md`, `phase003.md`, `docs/dev/current-activity-api.md`, 현재 Client/Shared 코드와 테스트를 읽는다.
 3. Phase 2 Client가 main에 병합됐다면 최신 main에서 `feat/phase3-client`를 만든다.
    아직 병합되지 않았다면 최신 `feat/phase2-client`를 기준으로 새 브랜치를 만든다.
    Phase 2 Client 코드가 없는 기존 main에서 새 작업을 시작하지 않는다.

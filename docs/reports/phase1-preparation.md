@@ -37,4 +37,4 @@
 - 동작 테스트 및 CI
 
 실행 기능은 아직 작성하지 않았으므로 앱 실행, 기능 테스트, Phase 1 완료를 주장하지 않는다.
-다음 작업은 `phase1-preparation.md`의 1A(shared 응답 구조 + Backend /health)다.
+다음 작업은 `../../etc/phases/phase001-preparation.md`의 1A(shared 응답 구조 + Backend /health)다.
