@@ -12,10 +12,13 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [Phase 1 준비 및 작업 순서](etc/phases/phase1-preparation.md)
 - [개발 환경 설치](docs/dev/development-setup.md)
 - [Phase 1 상태 통신 규격](docs/dev/health-api.md)
+- [Phase 2 현재 창 통신 규격](docs/dev/current-activity-api.md)
+- [Phase 2 Client 구현 및 검증](docs/reports/phase2-client.md)
 
 Phase 1 실행 골격 및 Client–Backend 연결을 완료했습니다(2026-09-24).
 Linux 및 Windows 자동 테스트와 사용자 실행 확인을 근거로 완료 처리했습니다.
-다음 단계는 Phase 2 Windows 활성 창 감지입니다.
+Phase 2는 Client 표시·자동 조회와 Shared 구조를 먼저 구현했습니다.
+Backend의 Windows 활성 창 감지 및 실제 창 전환 통합은 다음 작업입니다.
 
 설치 후 `python -m backend`로 Backend를 실행하고 `http://127.0.0.1:8765/health`에서 확인합니다.
 검증 명령: `python -m pytest -q`, `python -m ruff check src tests`.
@@ -60,3 +63,7 @@ AICapstone/
 
 Client 실행: `python -m client`.
 [Client 및 Windows 검증 결과](docs/reports/phase1-client-windows.md).
+
+Phase 2 화면의 가상 데이터 미리보기: `python tools/preview_phase2_client.py`.
+실제 Backend 없이 프로그램/제목/수집 상태가 4초마다 바뀝니다. 실제 사용자 작업은 수집하지 않습니다.
+현재 Phase 1 Backend에 연결하면 연결 상태는 정상이고 현재 창 영역은 `기능 준비 중`으로 표시됩니다.

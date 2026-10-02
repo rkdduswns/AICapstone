@@ -1,4 +1,4 @@
-# Phase 1 개발 환경
+# 개발 환경
 
 의존성과 패키지를 설치한 뒤 Backend를 독립 실행할 수 있다. Client도 독립 실행할 수 있다.
 사용자 지시로 Client 기술은 PySide6 Widgets로 최종 확정했다.
@@ -98,3 +98,32 @@ Linux 자동 검증은 Qt offscreen을 사용하며 Windows에서는 기본 Wind
 6. 창의 한글 글꼴, 배율, 버튼 조작을 확인하고 OS 버전·Python 버전·commit SHA를 결과에 기록한다.
 
 GitHub Windows runner의 자동 테스트는 Windows Server 환경일 수 있으며 Windows 10/11 수동 검증을 대체하지 않는다.
+
+## Phase 2 Client 우선 개발
+
+실행 의존성은 Phase 1과 같다. 새 패키지 설치는 필요하지 않다.
+일반 실행은 `python -m client`이며 연결 확인 성공 후 현재 창 정보를 자동 조회한다.
+Phase 1 Backend에는 현재 창 API가 없어 `기능 준비 중`으로 표시된다.
+
+Backend 감지 구현 전에 가상 데이터로 화면을 확인하려면 저장소 루트에서 실행한다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/preview_phase2_client.py
+```
+
+별도 Backend 실행 없이 Chrome → VS Code → Word → Explorer → 활성 창 없음 → 미지원 → 감지 오류를
+4초마다 반복한다. 상단에 가상 데이터임을 표시하며 실제 Windows 작업을 수집하거나 저장하지 않는다.
+미리보기 창을 닫으면 임시 HTTP 서버도 종료된다.
+이미지 저장만 하려면 `--snapshot <PNG 경로>`를 추가한다.
+
+Client/Shared와 기존 Backend의 회귀 검증:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m ruff check src tests tools
+.\.venv\Scripts\python.exe -m pip check
+```
+
+화면 점검: 가상 데이터 안내, 프로그램·제목·수집 상태 전환, 한글, 긴 제목 줄바꿈/스크롤,
+상태 변화 시 이전 창 정보 제거, 연결 재확인 및 창 종료를 확인한다.
+실제 OS 감지 검증은 [Phase 2 체크리스트](../../etc/phases/phase2.md)에 별도로 남긴다.
