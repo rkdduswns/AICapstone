@@ -93,3 +93,5 @@
 
 - [Qt 비동기 HTTP 요청](https://doc.qt.io/qtforpython-6/PySide6/QtNetwork/QNetworkAccessManager.html)
 - [Qt 타이머](https://doc.qt.io/qtforpython-6/PySide6/QtCore/QTimer.html)
+
+Phase 3 Client는 선택적인 data.timing 확장을 지원한다. [시간 표시 계약](activity-timing-api.md)을 따른다.

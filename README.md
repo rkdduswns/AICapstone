@@ -67,3 +67,5 @@ Client 실행: `python -m client`.
 Phase 2 화면의 가상 데이터 미리보기: `python tools/preview_phase2_client.py`.
 실제 Backend 없이 프로그램/제목/수집 상태가 4초마다 바뀝니다. 실제 사용자 작업은 수집하지 않습니다.
 현재 Phase 1 Backend에 연결하면 연결 상태는 정상이고 현재 창 영역은 `기능 준비 중`으로 표시됩니다.
+
+Phase 3 Client는 작업 시작 시각과 Backend 누적 활성 시간을 표시합니다. 시간 정보가 없는 기존 응답도 지원합니다. 가상 미리보기: python tools/preview_phase3_client.py. [시간 규격](docs/dev/activity-timing-api.md).
