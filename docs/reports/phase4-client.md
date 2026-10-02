@@ -4,16 +4,9 @@
 
 ## 시작 기준과 범위
 
-GitHub의 main `efafd8e489ef87e42679495ad675c27261feccb5`는 Phase 1이며,
-별도 채팅의 Phase 3 Client는 `feat/phase3-client`의 `e698b9af7cd37f963fd94092b170e85e8d80e1d3`에 있다.
-해당 코드, 시간 API, 검증 보고서와 Phase 4 계획을 대조한 후 `feat/phase4-client`를 만들었다.
-Phase 3 Client의 98개 기존 테스트를 유지하고, Phase 4만 비교하도록 PR 기준은 `feat/phase3-client`로 한다.
-main 및 별도의 Backend 개발 브랜치는 변경하지 않는다.
-
-기존 Phase 현황의 “다음 채팅에서 Phase 3” 안내는 이미 완료된 Phase 3 보고서와 불일치했다.
-현황을 Phase 2–4 Client 완료/Backend 미완료로 정리하고, 사용자 지시에 따라
-이후 한 채팅에서 진행하더라도 매 작업 결과와 미완료 항목은 GitHub에 기록하도록 반영했다.
-과거 인수인계와 기획 원문은 보존했다.
+작업 브랜치: `feat/phase4-client`. 기반: Phase 3 Client
+`e698b9af7cd37f963fd94092b170e85e8d80e1d3`. 기존 98개 테스트에 기록 조회 검증을 추가했다.
+2026-10-02 [PR #4](https://github.com/rkdduswns/AICapstone/pull/4)로 main에 병합했다.
 
 ## 구현
 
@@ -53,8 +46,8 @@ Windows 10 build 19045 / Python 3.14.7 / PySide6·Qt 6.11.2에서 기존 가상�
 - 별도 프로세스로 실행하는 **실제 기존 Backend**의 연결 실패→시작→종료→재시작 복구 및 기록 API 404 표시.
 
 기존 Starlette/httpx deprecation warning 1건은 남아 있다. 이 작업에서 의존성을 변경하지 않았다.
-제한 환경의 pytest 임시 폴더 접근 문제는 허용된 실행 환경에서 전체 테스트를 수행하여 해소했다.
-GitHub Windows Python 3.11/3.12 결과는 이 브랜치 PR의 Actions 검증에서 확인한다.
+GitHub Windows Python 3.11/3.12 검증은 커밋 `a3a1aec2ecce25bad7c1de7547279b766929d8a1`에서 성공했다.
+[Actions 실행 결과](https://github.com/rkdduswns/AICapstone/actions/runs/36882317714)를 참고한다.
 
 ## 미완료와 다음 통합
 

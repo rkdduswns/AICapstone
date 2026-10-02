@@ -1,7 +1,9 @@
 # 개발 환경
 
 의존성과 패키지를 설치한 뒤 Backend를 독립 실행할 수 있다. Client도 독립 실행할 수 있다.
-사용자 지시로 Client 기술은 PySide6 Widgets로 최종 확정했다.
+Client는 PySide6 Widgets, Backend는 FastAPI/Uvicorn을 사용한다.
+각각 별도 프로세스로 수동 실행하며 loopback HTTP/JSON으로 통신한다.
+Client는 QtNetwork로 비동기 요청을 보내고, 공통 데이터 정의는 `src/shared`에서 관리한다.
 
 ## Windows PowerShell
 
@@ -19,7 +21,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m ruff check src tests
 ```
 
-Phase 1 병합 후 최신 main을 사용한다.
+Phase 1 및 Phase 2–4 Client가 통합된 최신 main을 사용한다.
 가상환경 활성화 없이 해당 Python을 직접 사용하므로 PowerShell 실행 정책 변경이 필요 없다.
 이미 clone했다면 작업 중인 변경을 저장하고 `git fetch origin`, `git switch main`, `git pull --ff-only origin main`으로 갱신한다.
 
@@ -40,7 +42,7 @@ PySide6 wheel 외의 OS 그래픽 라이브러리가 필요할 수 있다. Windo
 - `pyproject.toml`: 실행 의존성(PySide6, FastAPI, Uvicorn), 개발 의존성(pytest, httpx, Ruff).
 - Client HTTP 요청은 QtNetwork를 사용한다. httpx는 Backend 테스트용이다.
 - 이번에는 호환 범위를 설정했다. lock 파일은 없으므로 완전히 동일한 버전 재현은 보장하지 않는다.
-- Windows 최초 실행 검증에서 설치 버전을 기록한 뒤 팀 공통 버전 고정 여부를 결정한다.
+- 검증 보고서에 OS·Python·주요 의존성 버전을 기록한다. 팀 공통 버전 고정은 별도 결정한다.
 - 실제 사용자 데이터/로그/비밀값을 저장소에 넣지 않는다.
 
 ## 검증 명령의 의미
@@ -130,8 +132,8 @@ Client/Shared와 기존 Backend의 회귀 검증:
 
 ## Phase 3–4 Client 확인
 
-아직 main에 병합되지 않은 Client 변경은 [현재 Phase 현황](../../etc/phases/README.md)의 브랜치에서 확인한다.
-Phase 4는 `feat/phase4-client`이며 Phase 2–3 Client 구현을 포함한다. 추가 의존성은 없다.
+Phase 2–4 Client는 2026-10-02 main에 병합했다. 최신 main에서 아래 미리보기를 실행한다.
+추가 의존성은 없다. 구현 상태와 Backend 잔여 작업은 [현재 Phase 현황](../../etc/phases/00-progress.md)을 따른다.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/preview_phase3_client.py

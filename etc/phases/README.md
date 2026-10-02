@@ -32,12 +32,15 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 
 구현 및 검증 근거: [Phase 2](../../docs/reports/phase2-client.md),
 [Phase 3](../../docs/reports/phase3-client.md), [Phase 4](../../docs/reports/phase4-client.md).
-사용자는 Client를 우선 담당한다. Phase 3은 별도 채팅에서 구현된 최신 GitHub 브랜치를 확인하여 계승했다.
-Phase 4 Client는 `feat/phase3-client` 기반의 `feat/phase4-client`에서 진행한다.
-Backend 작업 브랜치와 분리하며 Shared 계약은 Backend 구현 시 함께 반영한다.
+Client Phase 2–4는 2026-10-02 main에 병합했다. 후속 Client 개발은 최신 main을 기준으로 한다.
+Backend 감지·시간 추적·저장 구현은 별도 진행하며 통합 시 main의 Shared/API 계약을 반영한다.
 
-이후에는 한 채팅에서 이어가되, **매 작업의 구현·검증·미완료 항목을 GitHub 코드/문서/PR에 기록**한다.
-대화나 과거 인수인계만으로 완료 상태를 판단하지 않는다. 재개 시 최신 브랜치·PR과 이 현황을 먼저 확인한다.
+매 작업의 구현·검증·미완료 항목을 코드·문서·PR에 기록하고, 최신 브랜치와 검증 근거로 완료 상태를 판단한다.
+
+## 단계별 선행조건
+
+- Phase 4 저장 기능은 가상 데이터로 검증한다. 실제 사용자 기록을 저장하기 전 Phase 5의 저장 전 개인정보 보호 검사를 적용한다.
+- 기획에서 PDF/DOCX는 핵심 기능 안정화 후 확장 범위다. Phase 9 진입 전에 검색 기능(Phase 10–12)과의 구현 순서를 재검토한다.
 
 ## 진행 원칙
 
@@ -76,13 +79,13 @@ fix/privacy-filter
 docs/phase-8
 ```
 
-Client PR은 이전 Client 브랜치를 대상으로 단계별 변경만 검토한다.
-선행 PR 병합 시 다음 PR의 기준 브랜치와 차이를 확인한 뒤 변경한다. 전체 Phase 완료와 Client 완료는 구분한다.
+새 작업은 최신 main에서 분기한다. 미병합 선행 작업에 의존하는 경우에만 해당 브랜치를 PR 기준으로 사용하고,
+선행 PR 병합 후 main 기준으로 갱신한다. 전체 Phase 완료와 Client 완료는 구분한다.
 
 ## 파일명 및 현황 관리 규칙
 
 - Phase 본문: `phase001.md` ~ `phase014.md`처럼 번호를 세 자리로 기록한다.
-- Phase 보조 문서: `phase001-preparation.md`, `phase003-client-handoff.md`처럼 같은 번호 규칙을 따른다.
+- Phase 보조 문서는 별도로 유지할 필요가 있을 때만 `phaseNNN-주제.md` 규칙으로 작성한다.
 - 전체 현황은 `00-progress.md`, 폴더 안내는 `README.md`에서 관리한다.
 - GitHub 파일 목록에서 이름순으로 Phase 번호가 정렬되도록 한다.
 - 번호 변경 시 저장소 내 해당 문서 링크도 함께 갱신한다. 보고서·도구·Git 브랜치 이름은 변경하지 않는다.

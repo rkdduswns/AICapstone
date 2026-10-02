@@ -1,6 +1,6 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-02 (KST)**. 기준 main: `7f8208ae0f02dd9bc86fb8aa5c0d23e75c4a19ad`.
+기준일: **2026-10-02 (KST)**. 기준 main: `231e0e62b5975b5ca03d0bc4c2ce3ef326a1cc51`.
 Client Phase 2~4 및 study 병합 후의 개별 Phase 문서와 구현·검증 보고서를 대조한 현황이다.
 
 ## 읽는 방법과 갱신 규칙
@@ -44,6 +44,10 @@ Phase 2~4의 실제 감지·시간 계산·저장 및 Backend 통합 검증은 �
 | 2026-10-01 | Phase 3 Client | `feat/phase3-client` | 구현·검증 완료, 2026-10-02 [PR #3](https://github.com/rkdduswns/AICapstone/pull/3) 병합 |
 | 2026-10-02 | Phase 4 Client | `feat/phase4-client` | 구현·검증 완료, [PR #4](https://github.com/rkdduswns/AICapstone/pull/4) 병합 |
 | 2026-10-02 | study 공간 | `chore/study-workspace` | [PR #5](https://github.com/rkdduswns/AICapstone/pull/5) 병합; Phase 기능 진척과 별개 |
+
+문서 관리 이력: 2026-10-02 `docs/phase-progress`에서 통합 체크리스트와 세 자리 Phase 파일명을 적용했다
+([PR #6](https://github.com/rkdduswns/AICapstone/pull/6) 병합). 같은 날 `docs/project-doc-cleanup`에서
+준비·인계 문서를 기술 문서와 검증 보고서로 통합하고 현재 main 기준 안내를 정리했다.
 
 ## Phase 001 — 실행 골격 및 Client-Backend 연결
 

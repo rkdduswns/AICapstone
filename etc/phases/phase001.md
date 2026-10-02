@@ -1,6 +1,6 @@
 # Phase 1 - 실행 골격 및 Client-Backend 연결
 
-상태: **DONE** — 2026-09-24 사용자 테스트 결과 및 완료·병합 승인 기준.
+상태: **DONE** — 2026-09-24 자동 테스트 및 수동 실행 확인으로 완료, PR #1 main 병합.
 
 검증 근거: [자동 및 사용자 검증 결과](../../docs/reports/phase1-client-windows.md).
 

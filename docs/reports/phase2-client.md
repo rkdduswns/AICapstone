@@ -2,26 +2,11 @@
 
 기준일: 2026-09-24. Phase 2A 구현 및 가상 HTTP 검증 완료. Phase 2 전체는 IN_PROGRESS.
 
-## 저장소 재확인
+## 작업 기준
 
-- 저장소: `rkdduswns/AICapstone`, default branch: `main`.
-- 시작 SHA: `efafd8e489ef87e42679495ad675c27261feccb5`.
-- 최신 변경: `feat: complete Phase 1 client-backend connection (#1)`, 2026-09-24.
-- 시작 시 열린 PR 없음. Phase 1 DONE, Phase 2 미시작 상태에서 Client 우선 진행 지시를 적용했다.
-- `README`, `etc/개발-지침.md`, 기획/추상설계, Phase 1/2/3, `docs/dev`, Phase 1 검증 보고서,
-  실제 코드 및 테스트를 확인했다. `docs/wiki`는 없고 기획은 `etc/`에 있다.
-
-| 인수인계 항목 | 최신 저장소에서 확인한 내용 | 판정 |
-|---|---|---|
-| client/backend 최상위 경로 | `src/client`, `src/backend`, `src/browser`, `src/shared` | REPO_NEWER |
-| Client 기술 미확정 | PySide6 Widgets 확정, QtNetwork 비동기 HTTP 사용 | REPO_NEWER |
-| Python Backend | FastAPI/Uvicorn, loopback HTTP | MATCH 및 구체화 |
-| 재구성 Phase 2 = Backend 기반 | 실제 Phase 2 = Windows 활성 창 감지 | REPO_NEWER |
-| 현재 구현/테스트 미확인 | Phase 1 완료, 기존 테스트 27개 | REPO_NEWER |
-| 저장·검색·AI 모델 구성 | 기획은 있으나 구현 없음. DB/LLM 제품은 이번 작업에서 확정하지 않음 | 미구현 |
-
-기획 및 개발 지침의 Client UI / Backend 수집 책임 분리와 코드는 일치한다.
-새 규격은 `docs/dev/current-activity-api.md`에 분리했고 원본 기획/추상설계는 수정하지 않았다.
+Phase 1 완료 커밋 `efafd8e489ef87e42679495ad675c27261feccb5`에서
+`feat/phase2-client`로 개발했다. 2026-10-02 [PR #2](https://github.com/rkdduswns/AICapstone/pull/2)로 main에 병합했다.
+Client UI와 Backend 수집 책임을 분리하며, [현재 창 계약](../dev/current-activity-api.md)을 기준으로 한다.
 
 ## 구현 범위
 
@@ -43,10 +28,6 @@
 - `python -m pip check`: 통과.
 - 가상 데이터를 통한 실제 Qt 화면 이미지 확인: 한글, 프로그램/제목/상태 영역, 줄바꿈 배치 정상.
 - 기존 Starlette/httpx deprecation warning 1건. 이번 작업에서 의존성 변경은 하지 않았다.
-- 최초 제한 환경 실행은 69개 통과, 임시 디렉터리 접근 제한으로 2개 setup 오류가 있었다.
-  접근 가능한 환경에서 전체 71개를 다시 실행해 통과했다.
-  이후 동일 제목의 사용자 선택·스크롤 보존과 종료 테스트의 서버 수신 시점 동기화를 보완하고
-  전체 72개를 재검증했다.
 
 검증 내용:
 
@@ -71,20 +52,14 @@ Phase 2 전체에 남은 최소 작업은 **Phase 2B Backend 활성 창 감지 +
 `src/shared/activity.py`와 [현재 창 계약](../dev/current-activity-api.md)을 기준으로 구현한다.
 그 뒤 Phase 2C에서 실제 창 전환/바탕화면/종료 프로그램을 검사하고 Phase 2 완료 여부를 판단한다.
 
-## Client 마무리 재검증 및 다음 채팅 — 2026-10-01
+## Client 재검증 — 2026-10-01
 
-사용자는 Client를 우선 개발하고, 작동 확인 후 커밋한 다음 다음 채팅에서 Phase 3를 진행하도록 지시했다.
 Client 기능 코드는 기존 커밋 `33792af4113c59c1446874bc3cd4e78fe87518e9`과 동일하다.
 
-- GitHub 최신 상태 확인: main `efafd8e`, Client `33792af`, Backend 준비 브랜치 `abdcb47`.
 - `python -m pytest -q`: **72 passed**, 28.39s. 기존 Starlette/httpx deprecation warning 1건.
 - `python -m ruff check src tests tools`, `python -m pip check`, `git diff --check`: 통과.
 - 가상 HTTP 미리보기 실행 및 화면 이미지 확인: 프로그램명·창 제목·수집 상태·한글 배치 정상.
 - 검증 범위는 Client UI, 가상 응답, 기존 Backend 연결/실패/복구다. 실제 Windows 창 감지 연동은 포함하지 않는다.
 
-Phase 2 Client 작업은 완료 상태로 인계한다. Phase 2 전체는 Backend/실제 통합이 남아 IN_PROGRESS를 유지한다.
-이번 마무리 커밋은 검증 기록과 다음 작업 지침만 추가하며 실행 코드는 변경하지 않는다.
-PR #2는 별도 검토를 위해 유지하며 main 병합은 수행하지 않는다.
-
-다음 사용자 작업은 **Phase 3 Client — 작업 시작 시각과 활성 시간 표시**다.
-[다음 채팅 인수인계](../../etc/phases/phase003-client-handoff.md)를 따른다.
+Phase 2 Client는 완료했으며 Backend 감지·실제 통합은 남아 있다.
+후속 시간 표시는 [Phase 3 보고서](phase3-client.md)에 기록한다.
