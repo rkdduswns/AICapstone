@@ -19,11 +19,13 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [Phase 3 Client 구현 및 검증](docs/reports/phase3-client.md)
 - [Phase 4 최근 기록 규격](docs/dev/recent-records-api.md)
 - [Phase 4 Client 구현 및 검증](docs/reports/phase4-client.md)
+- [Phase 5 개인정보 설정 규격](docs/dev/privacy-api.md)
+- [Phase 5 Client 구현 및 검증](docs/reports/phase5-client.md)
 
 Phase 1 실행 골격 및 Client–Backend 연결을 완료했습니다(2026-09-24).
 Linux 및 Windows 자동 테스트와 사용자 실행 확인을 근거로 완료 처리했습니다.
-Phase 2–4는 Client 현재 창·시간·최근 기록 표시와 Shared 구조를 먼저 구현했습니다.
-Backend의 Windows 감지, 시간 추적, 로컬 저장 및 실제 통합은 미완료입니다.
+Phase 2–5는 Client 현재 창·시간·최근 기록·개인정보 설정 화면과 Shared 구조를 먼저 구현했습니다.
+Backend의 Windows 감지, 시간 추적, 로컬 저장, 보호 검사 및 실제 통합은 미완료입니다.
 최신 진행 상태와 검증 근거는 [개발 Phase](etc/phases/README.md)에 기록합니다.
 
 설치 후 `python -m backend`로 Backend를 실행하고 `http://127.0.0.1:8765/health`에서 확인합니다.
@@ -80,3 +82,7 @@ Phase 3 Client는 작업 시작 시각과 Backend 누적 활성 시간을 표시
 Phase 4 Client는 `최근 기록` 탭에서 최근 20건과 상세 시간을 조회하고 새로고침합니다.
 가상 미리보기: `python tools/preview_phase4_client.py`. 새로고침 시 가상 제목이 갱신되며 실제 작업은 저장하지 않습니다.
 현재 Phase 1 Backend에 연결하면 최근 기록도 `기능 준비 중`으로 표시됩니다.
+
+Phase 5 Client는 어느 탭에서나 일시정지·재개를 요청하고, 개인정보 보호 탭에서 차단 프로그램 목록을 적용합니다.
+가상 미리보기: `python tools/preview_phase5_client.py`. `chrome.exe`를 입력하면 가상 프로그램 차단 상태를 확인할 수 있습니다.
+실제 기록 차단 테스트는 Backend 연결 후 진행합니다. 현재 Backend에서는 보호 상태가 미확인이고 설정 기능은 준비 중입니다.

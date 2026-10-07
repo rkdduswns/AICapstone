@@ -63,10 +63,12 @@ def fake_server():
             settings["paths"].append(self.path)
             if self.path == "/health":
                 body, status, delay, content_type = settings["health"], 200, 0, "application/json"
-            else:
-                assert self.path == ACTIVITY_PATH
+            elif self.path == ACTIVITY_PATH:
                 body, status, delay, content_type = (
                     settings["body"], settings["status"], settings["delay"], settings["content_type"])
+            else:
+                self.send_error(404)  # 이 가상 서버는 현재 창 API까지만 구현한다.
+                return
             payload = body if isinstance(body, bytes) else json.dumps(body).encode()
             time.sleep(delay)
             if status == 0:

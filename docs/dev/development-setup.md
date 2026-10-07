@@ -154,3 +154,22 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 전체 검증 명령은 위의 pytest/Ruff/pip check와 동일하다.
 [최근 기록 API 계약](recent-records-api.md)과 [Phase 4 검증 보고서](../reports/phase4-client.md)를 참고한다.
 가상 미리보기 성공은 실제 저장소나 재시작 후 기록 유지 검증을 의미하지 않는다.
+
+## Phase 5 Client 확인
+
+추가 의존성 없이 `feat/phase5-client`의 제어 화면과 가상 HTTP 응답을 확인한다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/preview_phase5_client.py
+```
+
+- 어느 탭에서나 상단 `기록 일시정지`/`기록 재개` 버튼을 사용할 수 있다.
+- 개인정보 보호 탭에서 `chrome.exe`를 한 줄에 입력하고 `차단 목록 적용`을 누르면 가상 차단 상태가 표시된다.
+- 빈 목록을 적용하면 차단 목록을 비운다. `입력 되돌리기`는 서버에 쓰지 않고 초안만 복원한다.
+- `--reason sensitive_content`로 가상 민감 문자열 차단 표시를, `--snapshot <PNG 경로>`로 화면 저장을 확인한다.
+- 미리보기 입력은 프로세스 메모리에만 존재하고 창을 닫으면 사라진다. 실제 작업은 수집/필터/저장하지 않는다.
+
+자동 검증은 기존 pytest/Ruff/pip check 명령을 사용한다. 신규 검증 범위는 Client 계약·UI·가상 HTTP 요청이다.
+실제 일시정지 중 저장 방지, 차단 프로그램/민감 문자열 차단, 재개 후 저장 및 기존 기록 불변은 Backend 연결 후 수행한다.
+정상 실행에서 기존 Backend에 연결하면 보호 상태 `미확인`과 `기능 준비 중`이 표시되며 변경 버튼은 비활성화된다.
+[개인정보 API 계약](privacy-api.md)과 [검증 보고서](../reports/phase5-client.md)를 따른다.

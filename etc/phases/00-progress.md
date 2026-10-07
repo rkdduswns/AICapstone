@@ -1,7 +1,7 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-02 (KST)**. 기준 main: `231e0e62b5975b5ca03d0bc4c2ce3ef326a1cc51`.
-Client Phase 2~4 및 study 병합 후의 개별 Phase 문서와 구현·검증 보고서를 대조한 현황이다.
+기준일: **2026-10-07 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
+Client Phase 2~4 병합 상태에 Phase 5 Client의 가상 HTTP 구현·검증 결과를 반영했다.
 
 ## 읽는 방법과 갱신 규칙
 
@@ -22,7 +22,7 @@ Client Phase 2~4 및 study 병합 후의 개별 Phase 문서와 구현·검증 �
 | [002](phase002.md) | Windows 활성 창 감지 | IN_PROGRESS · Client DONE | 6/20 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` / `feat/phase2-backend`(준비·미병합) | 2026-10-02 (Client) |
 | [003](phase003.md) | 작업 시간 및 재방문 추적 | IN_PROGRESS · Client DONE | 2/17 | 2026-10-01 | `feat/phase3-client` | 2026-10-02 (Client) |
 | [004](phase004.md) | 작업 기록 저장 및 조회 | IN_PROGRESS · Client DONE | 8/21 | 2026-10-02 | `feat/phase4-client` | 2026-10-02 (Client) |
-| [005](phase005.md) | 기본 개인정보 보호 | NOT_STARTED | 0/18 | — | — | — |
+| [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 7/20 | 2026-10-07 | `feat/phase5-client` | — |
 | [006](phase006.md) | 클립보드 수집 | NOT_STARTED | 0/16 | — | — | — |
 | [007](phase007.md) | 브라우저 기본 연동 | NOT_STARTED | 0/22 | — | — | — |
 | [008](phase008.md) | 웹페이지 본문 수집 | NOT_STARTED | 0/18 | — | — | — |
@@ -33,7 +33,8 @@ Client Phase 2~4 및 study 병합 후의 개별 Phase 문서와 구현·검증 �
 | [013](phase013.md) | 근거 기반 RAG | NOT_STARTED | 0/25 | — | — | — |
 | [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
 
-Phase 2~4의 실제 감지·시간 계산·저장 및 Backend 통합 검증은 아직 남아 있다.
+Phase 2~5의 실제 감지·시간 계산·저장·보호 검사 및 Backend 통합 검증은 아직 남아 있다.
+Phase 5의 실제 수집/저장 차단 테스트는 Backend 연결 후 수행한다.
 
 ## 작업 이력
 
@@ -44,6 +45,7 @@ Phase 2~4의 실제 감지·시간 계산·저장 및 Backend 통합 검증은 �
 | 2026-10-01 | Phase 3 Client | `feat/phase3-client` | 구현·검증 완료, 2026-10-02 [PR #3](https://github.com/rkdduswns/AICapstone/pull/3) 병합 |
 | 2026-10-02 | Phase 4 Client | `feat/phase4-client` | 구현·검증 완료, [PR #4](https://github.com/rkdduswns/AICapstone/pull/4) 병합 |
 | 2026-10-02 | study 공간 | `chore/study-workspace` | [PR #5](https://github.com/rkdduswns/AICapstone/pull/5) 병합; Phase 기능 진척과 별개 |
+| 2026-10-07 | Phase 5 Client | `feat/phase5-client` | 제어 화면·Shared 계약·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase5-client.md). 실제 보호 검증은 Backend 연결 후 진행 |
 
 문서 관리 이력: 2026-10-02 `docs/phase-progress`에서 통합 체크리스트와 세 자리 Phase 파일명을 적용했다
 ([PR #6](https://github.com/rkdduswns/AICapstone/pull/6) 병합). 같은 날 `docs/project-doc-cleanup`에서
@@ -158,21 +160,23 @@ Phase 2~4의 실제 감지·시간 계산·저장 및 Backend 통합 검증은 �
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Client | 기록 일시정지 / 재개 | 미완료 | — | — | 미착수 |
-| Client | 차단 프로그램 목록 입력 | 미완료 | — | — | 미착수 |
-| Client | 현재 기록 가능 여부 표시 | 미완료 | — | — | 미착수 |
+| Client | 기록 일시정지 / 재개 | 완료 | 2026-10-07 | `feat/phase5-client` | [보고서](../../docs/reports/phase5-client.md) · Client/가상 응답 범위 |
+| Client | 차단 프로그램 목록 입력 | 완료 | 2026-10-07 | `feat/phase5-client` | [보고서](../../docs/reports/phase5-client.md) · 적용 확인 및 초안 보존 |
+| Client | 현재 기록 가능 여부 표시 | 완료 | 2026-10-07 | `feat/phase5-client` | [보고서](../../docs/reports/phase5-client.md) · Backend 판정 표시 |
 | Backend | 전체 기록 일시정지 | 미완료 | — | — | 미착수 |
 | Backend | 프로그램 차단 검사 | 미완료 | — | — | 미착수 |
 | Backend | 민감 문자열 패턴 검사 | 미완료 | — | — | 미착수 |
 | Backend | 저장 전 개인정보 보호 검사 | 미완료 | — | — | 미착수 |
 | Backend | 차단 사유 구분 | 미완료 | — | — | 미착수 |
-| Shared | 개인정보 설정 구조 | 미완료 | — | — | 미착수 |
-| Shared | 기록 상태 구조 | 미완료 | — | — | 미착수 |
-| Tests | 기록 일시정지 중 저장되지 않음 | 미완료 | — | — | 미착수 |
-| Tests | 차단 프로그램 활성 시 저장되지 않음 | 미완료 | — | — | 미착수 |
-| Tests | 민감 문자열 차단 | 미완료 | — | — | 미착수 |
-| Tests | 기록 재개 후 정상 저장 | 미완료 | — | — | 미착수 |
-| Tests | 기존 기록에는 영향 없음 | 미완료 | — | — | 미착수 |
+| Shared | 개인정보 설정 구조 | 완료 | 2026-10-07 | `feat/phase5-client` | [개인정보 API](../../docs/dev/privacy-api.md) |
+| Shared | 기록 상태 구조 | 완료 | 2026-10-07 | `feat/phase5-client` | [개인정보 API](../../docs/dev/privacy-api.md) |
+| Tests | 가상 HTTP 설정 요청·응답 및 기록 상태 표시 | 완료 | 2026-10-07 | `feat/phase5-client` | [보고서](../../docs/reports/phase5-client.md) |
+| Tests | 입력 검증·초안 보존·실패 복구·요청 취소 | 완료 | 2026-10-07 | `feat/phase5-client` | [보고서](../../docs/reports/phase5-client.md) |
+| Tests | 기록 일시정지 중 저장되지 않음 | 미완료 | — | — | Backend 연결 후 실제 저장소로 검증 |
+| Tests | 차단 프로그램 활성 시 저장되지 않음 | 미완료 | — | — | Backend 연결 후 실제 저장소로 검증 |
+| Tests | 민감 문자열 차단 | 미완료 | — | — | Backend 연결 후 실제 저장소로 검증 |
+| Tests | 기록 재개 후 정상 저장 | 미완료 | — | — | Backend 연결 후 실제 저장소로 검증 |
+| Tests | 기존 기록에는 영향 없음 | 미완료 | — | — | Backend 연결 후 실제 저장소로 검증 |
 | 완료 조건 | 사용자가 전체 기록을 즉시 중지할 수 있다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 지정 프로그램의 기록이 저장되지 않는다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 기본 민감 문자열이 저장되지 않는다. | 미완료 | — | — | 미착수 |

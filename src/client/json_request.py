@@ -1,6 +1,6 @@
-"""두 상태 API에서 함께 사용하는 비동기 HTTP 요청과 취소 처리."""
+"""조회와 설정 API에서 함께 사용하는 비동기 HTTP 요청과 취소 처리."""
 
-from PySide6.QtCore import QObject, QTimer, QUrl, Signal
+from PySide6.QtCore import QByteArray, QObject, QTimer, QUrl, Signal
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkProxy, QNetworkReply, QNetworkRequest
 
 from shared.protocol import DEFAULT_PORT
@@ -26,6 +26,14 @@ class JsonRequest(QObject):
         self.timed_out = False
 
     def get(self, path: str) -> None:
+        """본문 없이 조회하며 기존 상태/기록 API의 동작을 유지한다."""
+        self._request(path)
+
+    def put(self, path: str, payload: bytes) -> None:
+        """명시한 설정값을 JSON으로 전송하며 자동 재전송하지 않는다."""
+        self._request(path, payload)
+
+    def _request(self, path: str, payload: bytes | None = None) -> None:
         """고정된 loopback 주소에 요청하며 진행 중인 요청을 중복 생성하지 않는다."""
         if self.reply is not None:
             return
@@ -35,7 +43,12 @@ class JsonRequest(QObject):
         # 다른 주소로의 이동을 따르지 않고 API 오류로 처리한다.
         request.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                              QNetworkRequest.RedirectPolicy.ManualRedirectPolicy)
-        self.reply = self.manager.get(request)
+        if payload is None:
+            self.reply = self.manager.get(request)
+        else:
+            request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
+            request.setRawHeader(b"X-ContextTrace-Client", b"desktop")
+            self.reply = self.manager.put(request, QByteArray(payload))
         self.reply.finished.connect(self._finished)
         self.timer.start()
 
