@@ -40,7 +40,7 @@ class MainWindow(QWidget):
     def __init__(self, port: int = DEFAULT_PORT) -> None:
         super().__init__()
         self.setWindowTitle("ContextTrace — 작업 기록")
-        self.resize(620, 660)
+        self.resize(620, 740)
         layout = QVBoxLayout(self)
         connection = QGroupBox("Backend 연결 · 마지막 확인 결과")
         connection_layout = QVBoxLayout(connection)

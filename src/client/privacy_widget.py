@@ -52,6 +52,14 @@ class PrivacyWidget(QWidget):
         self.refresh_button = QPushButton("보호 상태 다시 확인")
         self.refresh_button.clicked.connect(self.client.refresh)
         layout.addWidget(self.refresh_button)
+        clipboard_row = QHBoxLayout()
+        self.clipboard_status = plain_label("클립보드 기록 · 미확인")
+        self.clipboard_toggle = QPushButton("클립보드 기록 켜기")
+        self.clipboard_toggle.clicked.connect(self._toggle_clipboard)
+        clipboard_row.addWidget(self.clipboard_status, 1)
+        clipboard_row.addWidget(self.clipboard_toggle)
+        layout.addLayout(clipboard_row)
+        layout.addWidget(plain_label("클립보드 기록을 켜도 전체 일시정지와 차단 설정이 우선합니다."))
         layout.addWidget(plain_label("차단 프로그램 · 실행 파일 이름을 한 줄에 하나씩 입력"))
         self.editor = QPlainTextEdit()
         self.editor.setPlaceholderText("예: chrome.exe\n비밀번호관리자.exe")
@@ -95,6 +103,11 @@ class PrivacyWidget(QWidget):
         """서버가 확인한 일시정지 값의 반대값만 전송하고 입력 중 목록은 보내지 않는다."""
         if self.state is not None:
             self.client.set_paused(not self.state.settings.paused)
+
+    def _toggle_clipboard(self) -> None:
+        """지원되는 서버에서 확인한 값만 반전하며 실제 OS 클립보드를 읽지 않는다."""
+        if self.state is not None and self.state.settings.clipboard_enabled is not None:
+            self.client.set_clipboard_enabled(not self.state.settings.clipboard_enabled)
 
     def _apply(self) -> None:
         """빈 목록도 명시적으로 적용하며 잘못된 실행 파일 이름은 전송 전에 안내한다."""
@@ -176,6 +189,13 @@ class PrivacyWidget(QWidget):
         self.refresh_button.setEnabled(self.connected and not writing)
         self.apply_button.setEnabled(confirmed and self.dirty)
         self.reset_button.setEnabled(confirmed and self.dirty)
+        enabled = self.state.settings.clipboard_enabled if self.state else None
+        self.clipboard_toggle.setEnabled(confirmed and enabled is not None)
+        self.clipboard_toggle.setText("클립보드 기록 끄기" if enabled else "클립보드 기록 켜기")
+        clipboard_status = ("미확인" if self.state is None else "기능 미지원")
+        if enabled is not None:
+            clipboard_status = "켜짐" if enabled else "꺼짐"
+        self.clipboard_status.setText("클립보드 기록 · " + clipboard_status)
         if self.state is None:
             self.toggle.setText("기록 일시정지")
         count = len(self.state.settings.blocked_processes) if self.state else None

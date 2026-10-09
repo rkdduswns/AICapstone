@@ -7,6 +7,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from client.json_request import JsonRequest
 from shared.privacy import (
     BLOCKED_PROCESSES_PATH,
+    CLIPBOARD_SETTING_PATH,
     MAX_BLOCKED_PROCESSES,
     PAUSED_PATH,
     PRIVACY_PATH,
@@ -51,6 +52,9 @@ def read_privacy(payload: bytes) -> PrivacyState:
         raise ValueError("Invalid settings")
     if len(blocked) > MAX_BLOCKED_PROCESSES or normalize_processes(blocked) != blocked:
         raise ValueError("Noncanonical blocked processes")
+    clipboard_enabled = settings.get("clipboard_enabled")
+    if clipboard_enabled is not None and type(clipboard_enabled) is not bool:
+        raise ValueError("Invalid clipboard setting")
     allowed, reason = recording.get("allowed"), recording.get("reason")
     if type(allowed) is not bool or reason not in (
         "allowed", "paused", "blocked_program", "sensitive_content",
@@ -61,7 +65,8 @@ def read_privacy(payload: bytes) -> PrivacyState:
         raise ValueError("Inconsistent recording status")
     if reason == "blocked_program" and not blocked:
         raise ValueError("Missing blocked program")
-    return PrivacyState(PrivacySettings(paused, blocked), RecordingStatus(allowed, reason))
+    return PrivacyState(PrivacySettings(paused, blocked, clipboard_enabled),
+                        RecordingStatus(allowed, reason))
 
 
 class PrivacyClient(JsonRequest):
@@ -104,6 +109,10 @@ class PrivacyClient(JsonRequest):
         """차단 목록만 변경하여 아직 입력 중인 값이나 일시정지 설정을 섞지 않는다."""
         self._change("blocked", BLOCKED_PROCESSES_PATH,
                      {"blocked_processes": normalize_processes(names)})
+
+    def set_clipboard_enabled(self, enabled: bool) -> None:
+        """클립보드 기록 목표값만 보내며 전체 일시정지나 차단 목록을 변경하지 않는다."""
+        self._change("clipboard", CLIPBOARD_SETTING_PATH, {"clipboard_enabled": enabled})
 
     def _change(self, operation: str, path: str, value: dict) -> None:
         """진행 중 조회는 취소하되 진행 중 쓰기는 중복 실행하지 않는다."""

@@ -21,7 +21,7 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | Phase 13 | 근거 기반 RAG | 검색 기록 기반 답변과 출처 제공 |
 | Phase 14 | 작업 세션·타임라인·안정화 | 세션 구성, 전체 통합, 최종 검증 |
 
-현재 상태 (2026-10-07):
+현재 상태 (2026-10-08):
 
 | Phase | Client 상태 | 전체 상태 / 남은 작업 |
 |---|---|---|
@@ -30,14 +30,17 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | 3 | DONE · 시작 시각/누적 활성 시간 표시 | IN_PROGRESS · Backend 시간/종료/재방문 계산과 통합 |
 | 4 | DONE · 최근 기록 조회/새로고침 | IN_PROGRESS · Backend 저장/갱신/조회, 재시작 복원과 통합 |
 | 5 | DONE · 일시정지/차단 목록/기록 상태 | IN_PROGRESS · Backend 저장 전 보호 검사 및 실제 차단·재개 검증 |
+| 6 | DONE · 클립보드 기록 설정/복사 텍스트 상세 | IN_PROGRESS · Backend 감지·작업 연결·중복 방지·필터·실제 저장 검증 |
 
 구현 및 검증 근거: [Phase 2](../../docs/reports/phase2-client.md),
 [Phase 3](../../docs/reports/phase3-client.md), [Phase 4](../../docs/reports/phase4-client.md),
-[Phase 5](../../docs/reports/phase5-client.md).
+[Phase 5](../../docs/reports/phase5-client.md), [Phase 6](../../docs/reports/phase6-client.md).
 Client Phase 2–4는 2026-10-02 main에 병합했다. 후속 Client 개발은 최신 main을 기준으로 한다.
 Backend 감지·시간 추적·저장 구현은 별도 진행하며 통합 시 main의 Shared/API 계약을 반영한다.
 Phase 5 Client는 최신 main에서 분기한 `feat/phase5-client`에 있다. 가상 HTTP로 화면과 요청을 확인했으며,
 실제 수집·저장 차단 테스트는 Backend 연결 후 진행한다.
+Phase 6 Client는 미병합 Phase 5에 의존하여 `feat/phase5-client`에서 분기한 `feat/phase6-client`에 있다.
+실제 클립보드 수집/저장 테스트 역시 Backend 연결 후 진행한다.
 
 매 작업의 구현·검증·미완료 항목을 코드·문서·PR에 기록하고, 최신 브랜치와 검증 근거로 완료 상태를 판단한다.
 
