@@ -12,17 +12,19 @@ from urllib.parse import parse_qs, urlsplit
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
+from client.url_values import read_url_rules
 from client.window import MainWindow, display_label
 from shared.activity import ActiveWindow, CurrentActivity, CurrentActivityResponse
+from shared.browser import BrowserPage
 from shared.clipboard import ClipboardEntry, RecordClipboard, RecordClipboardResponse
 from shared.privacy import PrivacyResponse, PrivacySettings, PrivacyState, RecordingStatus
 from shared.protocol import HealthResponse, HealthStatus
 from shared.records import ContextRecord, RecentRecords, RecentRecordsResponse
 
 
-def main(clipboard: bool = False) -> int:
-    """메모리의 가상 설정을 바꾸며 일시정지와 목록 적용 화면을 확인한다."""
-    phase = 6 if clipboard else 5
+def main(clipboard: bool = False, browser: bool = False) -> int:
+    """메모리의 가상 설정을 바꾸며 화면을 확인한다. 브라우저 수집/URL 매칭은 하지 않는다."""
+    phase = 7 if browser else 6 if clipboard else 5
     parser = argparse.ArgumentParser(description=f"Phase {phase} Client 가상 미리보기")
     parser.add_argument("--snapshot", type=Path, help="선택 화면의 첫 정상 응답을 저장하고 종료")
     parser.add_argument("--settings", action="store_true", help="개인정보 설정 탭으로 시작")
@@ -31,7 +33,8 @@ def main(clipboard: bool = False) -> int:
         help="가상 판정 사유. 일시정지 및 chrome.exe 차단은 이 값보다 우선")
     args = parser.parse_args()
     settings = {"paused": False, "blocked_processes": [],
-                "clipboard_enabled": False if clipboard else None}
+                "clipboard_enabled": False if clipboard else None,
+                "blocked_urls": [] if browser else None}
     lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
@@ -42,7 +45,7 @@ def main(clipboard: bool = False) -> int:
                       args.reason)
             return PrivacyResponse(PrivacyState(
                 PrivacySettings(settings["paused"], list(settings["blocked_processes"]),
-                                settings["clipboard_enabled"]),
+                                settings["clipboard_enabled"], settings["blocked_urls"]),
                 RecordingStatus(reason == "allowed", reason)))
 
         def do_GET(self):
@@ -59,6 +62,8 @@ def main(clipboard: bool = False) -> int:
                 records = [ContextRecord(
                     "sample-record", "Google Chrome", "chrome.exe", "가상 클립보드 자료 조사",
                     "2026-10-08T10:00:00+09:00", "2026-10-08T10:20:00+09:00", 120000, 1,
+                    BrowserPage("chrome", "가상 페이지 — <b>원문 제목</b>",
+                                "https://example.com/research?topic=sample#intro") if browser else None,
                 )] if clipboard else []
                 response = RecentRecordsResponse(RecentRecords(records))
             elif clipboard and urlsplit(self.path).path == "/records/clipboard":
@@ -98,6 +103,10 @@ def main(clipboard: bool = False) -> int:
                     if not isinstance(body, dict) or type(body.get("clipboard_enabled")) is not bool:
                         raise ValueError("Invalid clipboard setting")
                     change = {"clipboard_enabled": body["clipboard_enabled"]}
+                elif browser and self.path == "/privacy/blocked-urls":
+                    if not isinstance(body, dict) or not isinstance(body.get("blocked_urls"), list):
+                        raise ValueError("Invalid URL rules")
+                    change = {"blocked_urls": read_url_rules(body["blocked_urls"])}
                 else:
                     self.send_error(404)
                     return
@@ -132,14 +141,20 @@ def main(clipboard: bool = False) -> int:
     window = MainWindow(server.server_port)
     window.setWindowTitle(f"ContextTrace — Phase {phase} 미리보기 (가상 데이터)")
     window.layout().insertWidget(0, display_label(
-        "가상 설정 미리보기 · 실제 작업 정보는 수집하거나 저장하지 않습니다."))
-    show_clipboard = clipboard and not args.settings
-    if show_clipboard:
+        "가상 설정 미리보기 · 실제 작업 정보는 수집하거나 저장하지 않습니다."
+        + (" URL 차단 판정은 고정 예시입니다." if browser else "")))
+    show_records = clipboard and not args.settings
+    show_clipboard = show_records and not browser
+    if show_records:
         window.tabs.setCurrentWidget(window.recent)
-        window.recent.detail_tabs.setCurrentWidget(window.recent.clipboard)
+        if show_clipboard:
+            window.recent.detail_tabs.setCurrentWidget(window.recent.clipboard)
     else:
         window.tabs.setCurrentWidget(window.privacy)
+        if browser:
+            window.privacy.rule_tabs.setCurrentWidget(window.privacy.urls)
     received_signal = (window.recent.clipboard.client.entries_received if show_clipboard
+                       else window.recent.client.records_received if show_records
                        else window.privacy.client.state_received)
 
     def save_snapshot():

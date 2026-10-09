@@ -1,12 +1,16 @@
 """개인정보 설정 응답을 검증한다. 저장 허용 여부를 Client에서 추측하지 않는다."""
 
 import json
+from dataclasses import asdict
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from client.json_request import JsonRequest
+from client.url_values import normalize_rules, read_url_rules
+from shared.browser import UrlBlockRule
 from shared.privacy import (
     BLOCKED_PROCESSES_PATH,
+    BLOCKED_URLS_PATH,
     CLIPBOARD_SETTING_PATH,
     MAX_BLOCKED_PROCESSES,
     PAUSED_PATH,
@@ -55,17 +59,20 @@ def read_privacy(payload: bytes) -> PrivacyState:
     clipboard_enabled = settings.get("clipboard_enabled")
     if clipboard_enabled is not None and type(clipboard_enabled) is not bool:
         raise ValueError("Invalid clipboard setting")
+    blocked_urls = read_url_rules(settings.get("blocked_urls"))
     allowed, reason = recording.get("allowed"), recording.get("reason")
     if type(allowed) is not bool or reason not in (
         "allowed", "paused", "blocked_program", "sensitive_content",
-        "no_active_window", "unsupported", "error",
+        "no_active_window", "unsupported", "error", "blocked_url",
     ):
         raise ValueError("Invalid recording status")
     if allowed != (reason == "allowed") or paused != (reason == "paused"):
         raise ValueError("Inconsistent recording status")
     if reason == "blocked_program" and not blocked:
         raise ValueError("Missing blocked program")
-    return PrivacyState(PrivacySettings(paused, blocked, clipboard_enabled),
+    if reason == "blocked_url" and not blocked_urls:
+        raise ValueError("Missing blocked URL rule")
+    return PrivacyState(PrivacySettings(paused, blocked, clipboard_enabled, blocked_urls),
                         RecordingStatus(allowed, reason))
 
 
@@ -114,6 +121,11 @@ class PrivacyClient(JsonRequest):
         """클립보드 기록 목표값만 보내며 전체 일시정지나 차단 목록을 변경하지 않는다."""
         self._change("clipboard", CLIPBOARD_SETTING_PATH, {"clipboard_enabled": enabled})
 
+    def set_blocked_urls(self, rules: list[UrlBlockRule]) -> None:
+        """URL 규칙만 전송한다. 빈 목록은 전체 해제이고 다른 개인정보 설정은 유지한다."""
+        self._change("urls", BLOCKED_URLS_PATH,
+                     {"blocked_urls": [asdict(rule) for rule in normalize_rules(rules)]})
+
     def _change(self, operation: str, path: str, value: dict) -> None:
         """진행 중 조회는 취소하되 진행 중 쓰기는 중복 실행하지 않는다."""
         if not self.active or (self.reply is not None and self.operation != "read"):
@@ -128,8 +140,10 @@ class PrivacyClient(JsonRequest):
         """HTTP 성공만으로 완료하지 않고 변경한 필드가 응답에 반영됐는지도 확인한다."""
         try:
             state = read_privacy(payload)
+            # 중첩 dataclass도 요청 JSON과 같은 구조로 비교해 URL 규칙 누락/변조를 검출한다.
+            confirmed = asdict(state.settings)
             if self.expected is not None and any(
-                getattr(state.settings, key) != value for key, value in self.expected.items()
+                confirmed[key] != value for key, value in self.expected.items()
             ):
                 raise ValueError("Unconfirmed settings")
         except (ValueError, UnicodeDecodeError):

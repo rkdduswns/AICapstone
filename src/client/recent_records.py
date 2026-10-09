@@ -122,7 +122,11 @@ class RecentRecordsWidget(QWidget):
             self.table.selectRow(selected)
 
     def _show_selection(self) -> None:
-        """선택 기록의 긴 제목과 시작/마지막 활성 시각을 일반 텍스트로 표시한다."""
+        """선택 기록의 시간과 브라우저 출처를 일반 텍스트로 표시한다.
+
+        페이지 제목과 Windows 창 제목은 다른 출처이므로 구분한다. URL을 HTML 링크로
+        해석하거나 자동 실행하지 않아 긴 주소와 태그 모양의 제목도 그대로 확인할 수 있다.
+        """
         row = self.table.currentRow()
         if not 0 <= row < len(self.records):
             self.detail.clear()
@@ -131,13 +135,19 @@ class RecentRecordsWidget(QWidget):
         record = self.records[row]
         self.clipboard.set_record(record.id)
         self._detail_tab_changed(self.detail_tabs.currentIndex())
+        browser_text = "\n브라우저 출처: 없음 / 서버 미제공"
+        if record.browser is not None:
+            page = record.browser
+            browser_name = "Google Chrome" if page.browser == "chrome" else "Microsoft Edge"
+            browser_text = (f"\n브라우저: {browser_name}\n페이지 제목: {page.page_title or '(제목 없음)'}"
+                            f"\nURL: {page.url or '없음 (새 탭·내부 페이지 등)'}")
         self.detail.setPlainText(
             f"프로그램: {record.application} · 프로세스: {record.process_name}\n"
             f"시작: {format_timestamp(record.started_at)}\n"
             f"마지막 활성: {format_timestamp(record.last_active_at)}\n"
             f"활성 시간: {format_duration(record.active_duration_ms)}"
             f" · 재방문: {record.foreground_count - 1}회\n"
-            f"창 제목: {record.window_title or '(제목 없음)'}")
+            f"창 제목: {record.window_title or '(제목 없음)'}" + browser_text)
 
     def _detail_tab_changed(self, index: int) -> None:
         """선택 기록의 복사 본문은 상세 탭을 열 때만 서버에서 가져온다."""

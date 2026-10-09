@@ -1,5 +1,7 @@
 # Phase 4 최근 기록 API 계약
 
+Phase 7 확장: 선택적 브라우저 종류·페이지 제목·URL은 [브라우저 출처 계약](browser-api.md)을 따른다.
+
 상태: Client/Shared 구현 및 가상 HTTP 검증 완료. Backend 저장소와 endpoint는 미구현이다.
 이 문서를 Backend 구현 기준으로 사용하며, Phase 4 전체는 실제 저장·재시작 복원 검증 전까지 IN_PROGRESS다.
 

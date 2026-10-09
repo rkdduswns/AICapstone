@@ -6,6 +6,7 @@ from PySide6.QtCore import QObject, Signal
 
 from client.json_request import JsonRequest
 from client.time_values import parse_timestamp
+from client.url_values import read_browser
 from shared.protocol import API_VERSION, DEFAULT_PORT, SERVICE_NAME
 from shared.records import RECENT_RECORDS_LIMIT, RECENT_RECORDS_PATH, ContextRecord
 
@@ -46,7 +47,7 @@ def read_recent_records(payload: bytes) -> list[ContextRecord]:
         records.append(ContextRecord(**{field: row[field] for field in (
             "id", "application", "process_name", "window_title", "started_at",
             "last_active_at", "active_duration_ms", "foreground_count",
-        )}))
+        )}, browser=read_browser(row.get("browser"))))
     # 문자열 순서는 서로 다른 시간대를 비교할 수 없다. 동일 시각은 ID순으로 고정한다.
     records.sort(key=lambda record: record.id)
     records.sort(key=lambda record: parse_timestamp(record.last_active_at), reverse=True)

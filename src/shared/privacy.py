@@ -3,16 +3,18 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from shared.browser import UrlBlockRule
 from shared.protocol import API_VERSION, SERVICE_NAME
 
 PRIVACY_PATH = "/privacy"
 PAUSED_PATH = "/privacy/paused"
 BLOCKED_PROCESSES_PATH = "/privacy/blocked-processes"
 CLIPBOARD_SETTING_PATH = "/privacy/clipboard"
+BLOCKED_URLS_PATH = "/privacy/blocked-urls"
 MAX_BLOCKED_PROCESSES = 100
 RecordingReason = Literal[
     "allowed", "paused", "blocked_program", "sensitive_content",
-    "no_active_window", "unsupported", "error",
+    "no_active_window", "unsupported", "error", "blocked_url",
 ]
 
 
@@ -24,6 +26,8 @@ class PrivacySettings:
     blocked_processes: list[str]
     # None은 기존 Backend의 기능 미지원이다. 미지원과 명시적인 꺼짐을 구분한다.
     clipboard_enabled: bool | None = None
+    # None은 미지원, []는 지원되지만 설정된 규칙 없음이다. 둘을 같은 상태로 표시하지 않는다.
+    blocked_urls: list[UrlBlockRule] | None = None
 
 
 @dataclass(frozen=True)

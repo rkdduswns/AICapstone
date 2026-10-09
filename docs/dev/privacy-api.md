@@ -1,5 +1,8 @@
 # Phase 5 개인정보 설정 API 계약
 
+후속 확장: [클립보드 설정](clipboard-api.md), [Phase 7 URL 차단 설정·사유](browser-api.md).
+아래는 Phase 5 기본 계약이며 후속 선택 필드/사유는 해당 확장 계약을 함께 따른다.
+
 상태: Client/Shared 구현 및 가상 HTTP 검증. 실제 수집·저장 차단은 Backend 구현과 연결 후 검증한다.
 Client는 설정을 요청하고 Backend의 판정을 표시한다. 프로세스 감지·민감 문자열 판정·지속 저장은 하지 않는다.
 
