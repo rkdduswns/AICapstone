@@ -1,6 +1,6 @@
 # 현재 사용 기술 스택
 
-확인일: 2026-10-09. 기준: Phase 7 Client 브랜치의 `pyproject.toml`, 실제 소스 및 CI 설정.
+확인일: 2026-10-10. 기준: Phase 8 Client 브랜치의 `pyproject.toml`, 실제 소스 및 CI 설정.
 요구 버전은 설치 범위이고, 확인 버전은 이번 로컬 검증 환경의 값이다. 버전 고정 파일은 아직 없다.
 
 ## 실행 및 구현
@@ -14,14 +14,14 @@
 | Backend API | FastAPI | >=0.115,<1 / 0.141.1 | 현재 `/health`와 공통 HTTP 오류 처리 골격 |
 | Backend 실행 | Uvicorn | >=0.30,<1 / 0.53.0 | 로컬 ASGI 서버 실행 |
 | Backend 간접 의존성 | Starlette | FastAPI가 관리 / 1.7.0 | HTTP 예외·미들웨어·테스트 기반 |
-| 공통 데이터 | Python dataclasses, typing | 표준 라이브러리 | 상태·작업·개인정보·복사 항목·브라우저 출처 계약 |
+| 공통 데이터 | Python dataclasses, typing | 표준 라이브러리 | 상태·작업·개인정보·복사 항목·브라우저 출처·저장 웹 본문 계약 |
 | 통신 형식 | HTTP + JSON | API version 1 | 별도 Client/Backend 프로세스, `127.0.0.1` 기본 8765 포트 |
 | 데이터 검증·표시 | json, datetime, urllib.parse, re, ipaddress | Python 표준 라이브러리 | 응답 검증, 시각 변환, URL 입력 정규화 |
 | 대상 환경 | Windows | 로컬 Windows 10 build 19045 | 현재 데스크톱 실행·검증 대상 |
 
 Client는 Backend 내부 모듈이나 저장소를 직접 참조하지 않는다.
 Backend의 작업 수집·시간 계산·영속 저장·보호 판정은 아직 구현 전이며,
-Phase 2~7 Client는 Shared 계약과 가상 HTTP 응답으로 검증했다.
+Phase 2~8 Client는 Shared 계약과 가상 HTTP 응답으로 검증했다.
 
 ## 개발·검증·관리
 
@@ -39,7 +39,7 @@ Phase 2~7 Client는 Shared 계약과 가상 HTTP 응답으로 검증했다.
 
 CI 액션은 `checkout@v4`, `setup-python@v5`, `upload-artifact@v4`다.
 `etc/study/`는 실행 코드·테스트·정적 검사·패키징에서 제외된 학습 자료 영역이다.
-Phase 7에서는 새 외부 의존성을 추가하지 않았다.
+Phase 7~8에서는 새 외부 의존성을 추가하지 않았다.
 
 ## 아직 도입하지 않은 항목
 

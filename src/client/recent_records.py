@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from client.clipboard_widget import ClipboardWidget
 from client.records_client import RecordsClient
 from client.time_values import format_duration, format_timestamp, parse_timestamp
+from client.web_content_widget import WebContentWidget
 from shared.records import RECENT_RECORDS_LIMIT, ContextRecord
 
 
@@ -65,6 +66,8 @@ class RecentRecordsWidget(QWidget):
         self.detail_tabs.addTab(self.detail, "작업 정보")
         self.clipboard = ClipboardWidget(port, self)
         self.detail_tabs.addTab(self.clipboard, "복사 텍스트")
+        self.web_content = WebContentWidget(port, self)
+        self.detail_tabs.addTab(self.web_content, "웹 본문")
         self.detail_tabs.setMinimumHeight(220)
         self.detail_tabs.setMaximumHeight(260)
         self.detail_tabs.currentChanged.connect(self._detail_tab_changed)
@@ -131,9 +134,11 @@ class RecentRecordsWidget(QWidget):
         if not 0 <= row < len(self.records):
             self.detail.clear()
             self.clipboard.set_record(None)
+            self.web_content.set_record(None)
             return
         record = self.records[row]
         self.clipboard.set_record(record.id)
+        self.web_content.set_record(record)
         self._detail_tab_changed(self.detail_tabs.currentIndex())
         browser_text = "\n브라우저 출처: 없음 / 서버 미제공"
         if record.browser is not None:
@@ -150,9 +155,11 @@ class RecentRecordsWidget(QWidget):
             f"창 제목: {record.window_title or '(제목 없음)'}" + browser_text)
 
     def _detail_tab_changed(self, index: int) -> None:
-        """선택 기록의 복사 본문은 상세 탭을 열 때만 서버에서 가져온다."""
+        """복사 텍스트와 웹 본문은 사용자가 해당 상세 탭을 열 때만 별도로 조회한다."""
         if self.detail_tabs.widget(index) is self.clipboard:
             self.clipboard.load_if_needed()
+        elif self.detail_tabs.widget(index) is self.web_content:
+            self.web_content.load_if_needed()
 
     def _clear_rows(self) -> None:
         """이전 응답과 선택된 상세 내용이 새 결과에 섞이지 않도록 비운다."""
@@ -160,6 +167,7 @@ class RecentRecordsWidget(QWidget):
         self.table.setRowCount(0)
         self.detail.clear()
         self.clipboard.set_record(None)
+        self.web_content.set_record(None)
 
     def _show_error(self, message: str) -> None:
         """빈 목록과 오류를 구분하며 수동 새로고침으로 복구할 수 있게 한다."""
