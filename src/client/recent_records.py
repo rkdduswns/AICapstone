@@ -9,10 +9,12 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from client.clipboard_widget import ClipboardWidget
 from client.records_client import RecordsClient
 from client.time_values import format_duration, format_timestamp, parse_timestamp
 from shared.records import RECENT_RECORDS_LIMIT, ContextRecord
@@ -59,8 +61,14 @@ class RecentRecordsWidget(QWidget):
         self.detail.setReadOnly(True)
         self.detail.setTabChangesFocus(True)
         self.detail.setPlaceholderText("기록을 선택하면 전체 제목과 시간 정보를 확인할 수 있습니다.")
-        self.detail.setMaximumHeight(130)
-        layout.addWidget(self.detail)
+        self.detail_tabs = QTabWidget()
+        self.detail_tabs.addTab(self.detail, "작업 정보")
+        self.clipboard = ClipboardWidget(port, self)
+        self.detail_tabs.addTab(self.clipboard, "복사 텍스트")
+        self.detail_tabs.setMinimumHeight(220)
+        self.detail_tabs.setMaximumHeight(260)
+        self.detail_tabs.currentChanged.connect(self._detail_tab_changed)
+        layout.addWidget(self.detail_tabs)
         self.updated_at = QLabel("마지막 정상 조회: 없음")
         layout.addWidget(self.updated_at)
 
@@ -118,8 +126,11 @@ class RecentRecordsWidget(QWidget):
         row = self.table.currentRow()
         if not 0 <= row < len(self.records):
             self.detail.clear()
+            self.clipboard.set_record(None)
             return
         record = self.records[row]
+        self.clipboard.set_record(record.id)
+        self._detail_tab_changed(self.detail_tabs.currentIndex())
         self.detail.setPlainText(
             f"프로그램: {record.application} · 프로세스: {record.process_name}\n"
             f"시작: {format_timestamp(record.started_at)}\n"
@@ -128,11 +139,17 @@ class RecentRecordsWidget(QWidget):
             f" · 재방문: {record.foreground_count - 1}회\n"
             f"창 제목: {record.window_title or '(제목 없음)'}")
 
+    def _detail_tab_changed(self, index: int) -> None:
+        """선택 기록의 복사 본문은 상세 탭을 열 때만 서버에서 가져온다."""
+        if self.detail_tabs.widget(index) is self.clipboard:
+            self.clipboard.load_if_needed()
+
     def _clear_rows(self) -> None:
         """이전 응답과 선택된 상세 내용이 새 결과에 섞이지 않도록 비운다."""
         self.records = []
         self.table.setRowCount(0)
         self.detail.clear()
+        self.clipboard.set_record(None)
 
     def _show_error(self, message: str) -> None:
         """빈 목록과 오류를 구분하며 수동 새로고침으로 복구할 수 있게 한다."""

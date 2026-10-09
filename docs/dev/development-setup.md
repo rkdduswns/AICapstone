@@ -173,3 +173,25 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 실제 일시정지 중 저장 방지, 차단 프로그램/민감 문자열 차단, 재개 후 저장 및 기존 기록 불변은 Backend 연결 후 수행한다.
 정상 실행에서 기존 Backend에 연결하면 보호 상태 `미확인`과 `기능 준비 중`이 표시되며 변경 버튼은 비활성화된다.
 [개인정보 API 계약](privacy-api.md)과 [검증 보고서](../reports/phase5-client.md)를 따른다.
+
+## Phase 6 Client 확인
+
+`feat/phase6-client`는 미병합 Phase 5 Client에 의존한다. 추가 의존성은 없다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/preview_phase6_client.py
+.\.venv\Scripts\python.exe tools/preview_phase6_client.py --settings
+```
+
+각 명령을 하나씩 실행한다. 기본 화면은 최근 작업의 `복사 텍스트` 상세이며 `--settings`는 개인정보 설정 탭을 연다.
+`--snapshot <PNG 경로>`로 첫 유효 응답을 화면 이미지로 저장하고 종료할 수 있다.
+
+- 개인정보 보호 탭에서 초기 `꺼짐`을 확인하고 켜기/끄기를 요청한다. 전체 일시정지 상태와 입력 중 차단 목록이 유지되는지 확인한다.
+- 최근 기록에서 작업을 선택하고 복사 텍스트 탭을 열어 복사 시각별 원문과 줄바꿈을 확인한다.
+- 가상 저장 항목은 기록 설정을 꺼도 그대로 조회된다. 꺼짐은 이후 수집 설정이며 기존 기록 삭제 기능이 아니다.
+- 미리보기는 고정된 가상 데이터만 제공한다. OS 클립보드 읽기·쓰기·감시나 파일 저장은 수행하지 않는다.
+- 기존 Phase 5 응답에 클립보드 설정이 없으면 `기능 미지원`으로 표시하고 클립보드 변경 버튼만 잠근다.
+
+가상 HTTP 검증 및 기존 기능 회귀에는 기존 pytest/Ruff/pip check 명령을 사용한다.
+실제 클립보드 수집·중복 방지·작업 전환 연결·민감정보/일시정지 차단·저장은 Backend 연결 후 검증한다.
+[클립보드 API 계약](clipboard-api.md)과 [Phase 6 보고서](../reports/phase6-client.md)를 따른다.

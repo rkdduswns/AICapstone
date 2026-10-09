@@ -1,7 +1,7 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-07 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
-Client Phase 2~4 병합 상태에 Phase 5 Client의 가상 HTTP 구현·검증 결과를 반영했다.
+기준일: **2026-10-08 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
+Client Phase 2~4 병합 상태에 Phase 5~6 Client의 가상 HTTP 구현·검증 결과를 반영했다.
 
 ## 읽는 방법과 갱신 규칙
 
@@ -23,7 +23,7 @@ Client Phase 2~4 병합 상태에 Phase 5 Client의 가상 HTTP 구현·검증 �
 | [003](phase003.md) | 작업 시간 및 재방문 추적 | IN_PROGRESS · Client DONE | 2/17 | 2026-10-01 | `feat/phase3-client` | 2026-10-02 (Client) |
 | [004](phase004.md) | 작업 기록 저장 및 조회 | IN_PROGRESS · Client DONE | 8/21 | 2026-10-02 | `feat/phase4-client` | 2026-10-02 (Client) |
 | [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 7/20 | 2026-10-07 | `feat/phase5-client` | — |
-| [006](phase006.md) | 클립보드 수집 | NOT_STARTED | 0/16 | — | — | — |
+| [006](phase006.md) | 클립보드 수집 | IN_PROGRESS · Client DONE | 6/20 | 2026-10-08 | `feat/phase6-client` | — |
 | [007](phase007.md) | 브라우저 기본 연동 | NOT_STARTED | 0/22 | — | — | — |
 | [008](phase008.md) | 웹페이지 본문 수집 | NOT_STARTED | 0/18 | — | — | — |
 | [009](phase009.md) | 로컬 문서 내용 수집 | NOT_STARTED | 0/18 | — | — | — |
@@ -33,8 +33,8 @@ Client Phase 2~4 병합 상태에 Phase 5 Client의 가상 HTTP 구현·검증 �
 | [013](phase013.md) | 근거 기반 RAG | NOT_STARTED | 0/25 | — | — | — |
 | [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
 
-Phase 2~5의 실제 감지·시간 계산·저장·보호 검사 및 Backend 통합 검증은 아직 남아 있다.
-Phase 5의 실제 수집/저장 차단 테스트는 Backend 연결 후 수행한다.
+Phase 2~6의 실제 감지·시간 계산·저장·보호 검사·클립보드 수집 및 Backend 통합 검증은 아직 남아 있다.
+Phase 5~6의 실제 수집/저장/차단 테스트는 Backend 연결 후 수행한다.
 
 ## 작업 이력
 
@@ -46,6 +46,7 @@ Phase 5의 실제 수집/저장 차단 테스트는 Backend 연결 후 수행한
 | 2026-10-02 | Phase 4 Client | `feat/phase4-client` | 구현·검증 완료, [PR #4](https://github.com/rkdduswns/AICapstone/pull/4) 병합 |
 | 2026-10-02 | study 공간 | `chore/study-workspace` | [PR #5](https://github.com/rkdduswns/AICapstone/pull/5) 병합; Phase 기능 진척과 별개 |
 | 2026-10-07 | Phase 5 Client | `feat/phase5-client` | 제어 화면·Shared 계약·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase5-client.md). 실제 보호 검증은 Backend 연결 후 진행 |
+| 2026-10-08 | Phase 6 Client | `feat/phase6-client` | 미병합 Phase 5 기반. 클립보드 설정·작업별 복사 상세·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase6-client.md) |
 
 문서 관리 이력: 2026-10-02 `docs/phase-progress`에서 통합 체크리스트와 세 자리 Phase 파일명을 적용했다
 ([PR #6](https://github.com/rkdduswns/AICapstone/pull/6) 병합). 같은 날 `docs/project-doc-cleanup`에서
@@ -187,19 +188,23 @@ Phase 5의 실제 수집/저장 차단 테스트는 Backend 연결 후 수행한
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Client | 클립보드 기록 사용 여부 설정 | 미완료 | — | — | 미착수 |
-| Client | 최근 작업 상세에서 관련 복사 텍스트 확인 | 미완료 | — | — | 미착수 |
+| Client | 클립보드 기록 사용 여부 설정 | 완료 | 2026-10-08 | `feat/phase6-client` | [보고서](../../docs/reports/phase6-client.md) · Client/가상 응답 범위 |
+| Client | 최근 작업 상세에서 관련 복사 텍스트 확인 | 완료 | 2026-10-08 | `feat/phase6-client` | [보고서](../../docs/reports/phase6-client.md) · 읽기 전용 조회 |
 | Backend | 텍스트 클립보드 변화 감지 | 미완료 | — | — | 미착수 |
 | Backend | 동일 내용 반복 복사 방지 | 미완료 | — | — | 미착수 |
 | Backend | 복사 시각 기록 | 미완료 | — | — | 미착수 |
 | Backend | 현재 활성 작업과 연결 | 미완료 | — | — | 미착수 |
 | Backend | 개인정보 필터 적용 | 미완료 | — | — | 미착수 |
 | Backend | 과도한 길이 제한 | 미완료 | — | — | 미착수 |
-| Tests | 일반 텍스트 복사 | 미완료 | — | — | 미착수 |
-| Tests | 동일 텍스트 반복 복사 | 미완료 | — | — | 미착수 |
-| Tests | 프로그램 전환 직후 복사 | 미완료 | — | — | 미착수 |
-| Tests | 민감 문자열 복사 | 미완료 | — | — | 미착수 |
-| Tests | 기록 일시정지 중 복사 | 미완료 | — | — | 미착수 |
+| Shared | 클립보드 사용 설정의 선택 필드 및 변경 계약 | 완료 | 2026-10-08 | `feat/phase6-client` | [클립보드 API](../../docs/dev/clipboard-api.md) |
+| Shared | 작업별 복사 이벤트 및 상세 응답 구조 | 완료 | 2026-10-08 | `feat/phase6-client` | [클립보드 API](../../docs/dev/clipboard-api.md) |
+| Tests | 가상 HTTP 클립보드 설정 변경 및 구형 응답 호환 | 완료 | 2026-10-08 | `feat/phase6-client` | [보고서](../../docs/reports/phase6-client.md) |
+| Tests | 작업별 조회·선택 전환·원문 표시·응답 검증·오류 및 취소 | 완료 | 2026-10-08 | `feat/phase6-client` | [보고서](../../docs/reports/phase6-client.md) |
+| Tests | 일반 텍스트 복사 | 미완료 | — | — | Backend 연결 후 OS/저장소 검증 |
+| Tests | 동일 텍스트 반복 복사 | 미완료 | — | — | Backend 연결 후 OS/저장소 검증 |
+| Tests | 프로그램 전환 직후 복사 | 미완료 | — | — | Backend 연결 후 OS/저장소 검증 |
+| Tests | 민감 문자열 복사 | 미완료 | — | — | Backend 연결 후 OS/저장소 검증 |
+| Tests | 기록 일시정지 중 복사 | 미완료 | — | — | Backend 연결 후 OS/저장소 검증 |
 | 완료 조건 | 복사 텍스트가 현재 작업과 연결된다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 민감 텍스트는 저장되지 않는다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 중복 복사로 기록이 불필요하게 증가하지 않는다. | 미완료 | — | — | 미착수 |

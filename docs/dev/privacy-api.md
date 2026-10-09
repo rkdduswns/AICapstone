@@ -91,3 +91,6 @@ Backend는 정확한 필드/타입을 검사하고 다른 설정을 유지한다
 가상 서버의 상태 전환은 실제 보호 계층을 대체하지 않는다. Backend 연결 전까지 Phase 5 전체 완료 조건은 미충족이다.
 
 구현 참고: [Qt 비동기 PUT](https://doc.qt.io/qtforpython-6/PySide6/QtNetwork/QNetworkAccessManager.html).
+
+Phase 6은 선택 `settings.clipboard_enabled`와 `PUT /privacy/clipboard`를 추가한다.
+누락/null은 기능 미지원이며 기존 Phase 5 필드의 의미는 유지한다. [클립보드 계약](clipboard-api.md)을 따른다.

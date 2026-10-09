@@ -266,3 +266,49 @@ def test_recheck_and_close_cancel_late_privacy(app, window, server):
     window.close()
     assert privacy.client.reply is None and not privacy.client.poll_timer.isActive()
     assert not privacy.toggle.isEnabled()
+
+
+@pytest.mark.parametrize("value", [0, 1, "false", [], {}])
+def test_clipboard_setting_rejects_non_boolean(value):
+    """클립보드 설정은 명시적 boolean 또는 미지원 null만 허용한다."""
+    body = deepcopy(GOOD)
+    body["data"]["settings"]["clipboard_enabled"] = value
+    with pytest.raises(ValueError):
+        read_privacy(json.dumps(body).encode())
+
+
+def test_legacy_clipboard_unsupported_and_independent_toggle(app, window, server):
+    """기존 설정은 유지하고 지원 필드가 있을 때만 클립보드 목표값을 전송한다."""
+    del server[1]["state"]["data"]["settings"]["clipboard_enabled"]
+    privacy = connect(app, window)
+    assert privacy.state.settings.clipboard_enabled is None
+    assert "미지원" in privacy.clipboard_status.text()
+    assert not privacy.clipboard_toggle.isEnabled() and privacy.toggle.isEnabled()
+    data = server[1]["state"]["data"]
+    data["settings"].update(clipboard_enabled=False, paused=True)
+    data["recording"] = {"allowed": False, "reason": "paused"}
+    privacy.client.refresh()
+    wait_for(app, lambda: privacy.clipboard_toggle.isEnabled())
+    assert "꺼짐" in privacy.clipboard_status.text()
+    privacy.editor.setPlainText("draft.exe")
+    privacy.clipboard_toggle.click()
+    assert privacy.state is None and not privacy.clipboard_toggle.isEnabled()
+    wait_for(app, lambda: privacy.state is not None)
+    assert privacy.state.settings.clipboard_enabled and privacy.state.settings.paused
+    assert privacy.dirty and privacy.editor.toPlainText() == "draft.exe"
+    assert server[1]["writes"] == [
+        ("/privacy/clipboard", {"clipboard_enabled": True}, "desktop")]
+    privacy.clipboard_toggle.click()
+    wait_for(app, lambda: privacy.state is not None)
+    assert privacy.state.settings.clipboard_enabled is False
+
+
+def test_clipboard_change_requires_confirmation(app, window, server):
+    """설정 PUT이 성공해도 요청한 값이 반영되지 않았으면 켜짐으로 표시하지 않는다."""
+    server[1]["state"]["data"]["settings"]["clipboard_enabled"] = False
+    server[1]["apply"] = False
+    privacy = connect(app, window)
+    privacy.clipboard_toggle.click()
+    wait_for(app, lambda: "적용 여부 미확인" in privacy.notice.text())
+    assert "미확인" in privacy.clipboard_status.text()
+    assert not privacy.clipboard_toggle.isEnabled()
