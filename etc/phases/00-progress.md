@@ -1,7 +1,7 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-09 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
-Client Phase 2~4 병합 상태에 Phase 5~7 Client의 가상 HTTP 구현·검증 결과를 반영했다.
+기준일: **2026-10-10 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
+Client Phase 2~4 병합 상태에 Phase 5~8 Client의 가상 HTTP 구현·검증 결과를 반영했다.
 
 ## 읽는 방법과 갱신 규칙
 
@@ -25,7 +25,7 @@ Client Phase 2~4 병합 상태에 Phase 5~7 Client의 가상 HTTP 구현·검증
 | [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 7/20 | 2026-10-07 | `feat/phase5-client` | — |
 | [006](phase006.md) | 클립보드 수집 | IN_PROGRESS · Client DONE | 6/20 | 2026-10-08 | `feat/phase6-client` | — |
 | [007](phase007.md) | 브라우저 기본 연동 | IN_PROGRESS · Client DONE | 6/26 | 2026-10-09 | `feat/phase7-client` | — |
-| [008](phase008.md) | 웹페이지 본문 수집 | NOT_STARTED | 0/18 | — | — | — |
+| [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 5/23 | 2026-10-10 | `feat/phase8-client` | — |
 | [009](phase009.md) | 로컬 문서 내용 수집 | NOT_STARTED | 0/18 | — | — | — |
 | [010](phase010.md) | 검색 데이터 구축 | NOT_STARTED | 0/18 | — | — | — |
 | [011](phase011.md) | 조건 검색 | NOT_STARTED | 0/23 | — | — | — |
@@ -33,8 +33,8 @@ Client Phase 2~4 병합 상태에 Phase 5~7 Client의 가상 HTTP 구현·검증
 | [013](phase013.md) | 근거 기반 RAG | NOT_STARTED | 0/25 | — | — | — |
 | [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
 
-Phase 2~7의 실제 감지·시간 계산·저장·보호 검사·클립보드/브라우저 수집 및 통합 검증은 아직 남아 있다.
-Phase 5~7의 실제 수집/저장/차단 테스트는 Backend 연결 후 수행한다.
+Phase 2~8의 실제 감지·시간 계산·저장·보호 검사·클립보드/브라우저 본문 수집 및 통합 검증은 아직 남아 있다.
+Phase 5~8의 실제 수집/저장/차단 테스트는 Backend 연결 후 수행한다.
 
 ## 작업 이력
 
@@ -48,6 +48,7 @@ Phase 5~7의 실제 수집/저장/차단 테스트는 Backend 연결 후 수행�
 | 2026-10-07 | Phase 5 Client | `feat/phase5-client` | 제어 화면·Shared 계약·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase5-client.md). 실제 보호 검증은 Backend 연결 후 진행 |
 | 2026-10-08 | Phase 6 Client | `feat/phase6-client` | 미병합 Phase 5 기반. 클립보드 설정·작업별 복사 상세·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase6-client.md) |
 | 2026-10-09 | Phase 7 Client | `feat/phase7-client` | 미병합 Phase 6 기반. 브라우저 출처·URL 차단 설정·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase7-client.md) |
+| 2026-10-10 | Phase 8 Client | `feat/phase8-client` | 미병합 Phase 7 기반. 저장 웹 본문 상세·출처 대조·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase8-client.md) |
 
 문서 관리 이력: 2026-10-02 `docs/phase-progress`에서 통합 체크리스트와 세 자리 Phase 파일명을 적용했다
 ([PR #6](https://github.com/rkdduswns/AICapstone/pull/6) 병합). 같은 날 `docs/project-doc-cleanup`에서
@@ -258,6 +259,11 @@ Phase 5~7의 실제 수집/저장/차단 테스트는 Backend 연결 후 수행�
 | Backend | 동일 페이지 중복 텍스트 제거 | 미완료 | — | — | 미착수 |
 | Backend | URL / 제목 / 본문 연결 | 미완료 | — | — | 미착수 |
 | Backend | 원본 작업 기록과 연결 | 미완료 | — | — | 미착수 |
+| Client | 최근 작업에서 저장된 웹 본문·수집 시각·출처 확인 | 완료 | 2026-10-10 | `feat/phase8-client` | [보고서](../../docs/reports/phase8-client.md) · 저장 결과 확인 범위 추가 |
+| Client | 미수집·길이 제한·조회 오류 상태 표시 | 완료 | 2026-10-10 | `feat/phase8-client` | [보고서](../../docs/reports/phase8-client.md) · Client/가상 응답 범위 |
+| Shared | 작업별 웹 본문과 출처를 연결하는 조회 계약 | 완료 | 2026-10-10 | `feat/phase8-client` | [웹 본문 API](../../docs/dev/web-content-api.md) |
+| Tests | 가상 HTTP 본문 조회·선택 전환·오류·취소·복구 | 완료 | 2026-10-10 | `feat/phase8-client` | [보고서](../../docs/reports/phase8-client.md) |
+| Tests | 본문 응답 검증·출처 대조·길이 및 빈 결과 검사 | 완료 | 2026-10-10 | `feat/phase8-client` | [보고서](../../docs/reports/phase8-client.md) |
 | Tests | 일반 기사 페이지 | 미완료 | — | — | 미착수 |
 | Tests | 문서형 페이지 | 미완료 | — | — | 미착수 |
 | Tests | SPA 페이지 전환 | 미완료 | — | — | 미착수 |

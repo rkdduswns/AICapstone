@@ -195,3 +195,24 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 가상 HTTP 검증 및 기존 기능 회귀에는 기존 pytest/Ruff/pip check 명령을 사용한다.
 실제 클립보드 수집·중복 방지·작업 전환 연결·민감정보/일시정지 차단·저장은 Backend 연결 후 검증한다.
 [클립보드 API 계약](clipboard-api.md)과 [Phase 6 보고서](../reports/phase6-client.md)를 따른다.
+
+## Phase 8 Client 확인
+
+`feat/phase8-client`는 미병합 Phase 7 Client에 의존한다. 추가 의존성은 없다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/preview_phase8_client.py
+.\.venv\Scripts\python.exe tools/preview_phase8_client.py --web-state truncated
+```
+
+각 명령은 하나씩 실행한다. 기본 화면은 최근 기록의 `웹 본문` 상세다.
+
+- 페이지 제목·URL·수집 시각과 저장 본문을 확인한다. `<b>` 같은 태그도 글자로 표시되어야 한다.
+- `--web-state empty`는 본문 없음, `truncated`는 길이 제한 안내와 50,000자 스크롤을 확인한다.
+- `--web-state unsupported`는 API 미지원, `denied`는 조회 거부를 확인한다.
+- `--snapshot <PNG 경로>`는 해당 결과를 화면 이미지로 저장하고 종료한다.
+- 현재 실제 Backend에는 새 endpoint가 없으며 가상 미리보기만 본문을 제공한다.
+- 실제 브라우저·외부 URL·저장소를 읽지 않는다. 화면 성공은 실제 수집/저장/차단 검증과 별개다.
+
+검증 명령은 기존 pytest/Ruff/pip check와 동일하다.
+[웹 본문 API 계약](web-content-api.md)과 [Phase 8 보고서](../reports/phase8-client.md)를 따른다.

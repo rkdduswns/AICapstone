@@ -1,5 +1,7 @@
 # Phase 7 브라우저 출처 및 URL 설정 계약
 
+저장된 페이지 본문과 수집 시각을 확인하는 후속 기능은 [Phase 8 웹 본문 계약](web-content-api.md)을 따른다.
+
 상태: Client/Shared 및 가상 HTTP 검증 완료. Browser 확장, Backend 수집·연결·차단·저장은 미구현이다.
 이 문서는 Client가 사용할 조회/설정 계약이며 Browser → Backend 전송 방식은 별도 구현 시 정한다.
 기획의 `ContextRecord.url` 개념을 브라우저 종류·페이지 제목·URL을 가진 선택적 `browser` 객체로 구체화했다.

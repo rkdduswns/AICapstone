@@ -20,14 +20,24 @@ from shared.clipboard import ClipboardEntry, RecordClipboard, RecordClipboardRes
 from shared.privacy import PrivacyResponse, PrivacySettings, PrivacyState, RecordingStatus
 from shared.protocol import HealthResponse, HealthStatus
 from shared.records import ContextRecord, RecentRecords, RecentRecordsResponse
+from shared.web_content import (
+    MAX_WEB_CONTENT_LENGTH,
+    RecordWebContent,
+    RecordWebContentResponse,
+    WebContent,
+)
 
 
-def main(clipboard: bool = False, browser: bool = False) -> int:
+def main(clipboard: bool = False, browser: bool = False, web_content: bool = False) -> int:
     """메모리의 가상 설정을 바꾸며 화면을 확인한다. 브라우저 수집/URL 매칭은 하지 않는다."""
-    phase = 7 if browser else 6 if clipboard else 5
+    phase = 8 if web_content else 7 if browser else 6 if clipboard else 5
     parser = argparse.ArgumentParser(description=f"Phase {phase} Client 가상 미리보기")
-    parser.add_argument("--snapshot", type=Path, help="선택 화면의 첫 정상 응답을 저장하고 종료")
+    parser.add_argument("--snapshot", type=Path, help="선택 화면의 첫 결과를 저장하고 종료")
     parser.add_argument("--settings", action="store_true", help="개인정보 설정 탭으로 시작")
+    if web_content:
+        parser.add_argument("--web-state", default="ready",
+                            choices=("ready", "empty", "truncated", "unsupported", "denied"),
+                            help="가상 웹 본문의 정상/빈 결과/길이 제한/미지원/거부 상태")
     parser.add_argument("--reason", default="allowed", choices=(
         "allowed", "sensitive_content", "no_active_window", "unsupported", "error"),
         help="가상 판정 사유. 일시정지 및 chrome.exe 차단은 이 값보다 우선")
@@ -36,6 +46,8 @@ def main(clipboard: bool = False, browser: bool = False) -> int:
                 "clipboard_enabled": False if clipboard else None,
                 "blocked_urls": [] if browser else None}
     lock = threading.Lock()
+    page = BrowserPage("chrome", "가상 페이지 — <b>원문 제목</b>",
+                       "https://example.com/research?topic=sample#intro")
 
     class Handler(BaseHTTPRequestHandler):
         def privacy_response(self):
@@ -49,7 +61,7 @@ def main(clipboard: bool = False, browser: bool = False) -> int:
                 RecordingStatus(reason == "allowed", reason)))
 
         def do_GET(self):
-            """기존 화면도 사용할 수 있도록 가상의 상태/현재 창/빈 기록을 제공한다."""
+            """상태·기록·복사/웹 본문을 가상 데이터로 제공한다. 외부 페이지에 접근하지 않는다."""
             if self.path == "/privacy":
                 with lock:
                     response = self.privacy_response()
@@ -60,10 +72,10 @@ def main(clipboard: bool = False, browser: bool = False) -> int:
                     "Google Chrome", "chrome.exe", 1234, "가상 자료 — 개인정보 설정 확인")))
             elif self.path == "/records/recent?limit=20":
                 records = [ContextRecord(
-                    "sample-record", "Google Chrome", "chrome.exe", "가상 클립보드 자료 조사",
+                    "sample-record", "Google Chrome", "chrome.exe",
+                    "가상 웹 자료 조사" if web_content else "가상 클립보드 자료 조사",
                     "2026-10-08T10:00:00+09:00", "2026-10-08T10:20:00+09:00", 120000, 1,
-                    BrowserPage("chrome", "가상 페이지 — <b>원문 제목</b>",
-                                "https://example.com/research?topic=sample#intro") if browser else None,
+                    page if browser else None,
                 )] if clipboard else []
                 response = RecentRecordsResponse(RecentRecords(records))
             elif clipboard and urlsplit(self.path).path == "/records/clipboard":
@@ -77,6 +89,23 @@ def main(clipboard: bool = False, browser: bool = False) -> int:
                                    "가상 복사 텍스트\n이 내용은 실제 클립보드에서 읽은 정보가 아닙니다.\n"
                                    "<b>일반 텍스트 그대로 표시합니다.</b>"),
                 ], False))
+            elif web_content and urlsplit(self.path).path == "/records/web-content":
+                identifier = parse_qs(urlsplit(self.path).query).get("record_id", [""])[0]
+                if identifier != "sample-record" or args.web_state == "unsupported":
+                    self.send_error(404)
+                    return
+                if args.web_state == "denied":
+                    self.send_error(403)
+                    return
+                text = ("가상 웹페이지 본문입니다. 실제 브라우저에서 수집하지 않았습니다.\n\n"
+                        "<b>태그 형태의 내용도 일반 텍스트로 표시합니다.</b>\n"
+                        "페이지 제목·URL·수집 시각과 연결된 저장 본문을 확인합니다.")
+                truncated = args.web_state == "truncated"
+                if truncated:
+                    text = ("가상 페이지의 긴 문장입니다.\n" * 3000)[:MAX_WEB_CONTENT_LENGTH]
+                content = (None if args.web_state == "empty" else
+                           WebContent(page, "2026-10-08T10:10:00+09:00", text, truncated))
+                response = RecordWebContentResponse(RecordWebContent(identifier, content))
             else:
                 self.send_error(404)
                 return
@@ -145,30 +174,40 @@ def main(clipboard: bool = False, browser: bool = False) -> int:
         + (" URL 차단 판정은 고정 예시입니다." if browser else "")))
     show_records = clipboard and not args.settings
     show_clipboard = show_records and not browser
+    show_web = show_records and web_content
     if show_records:
         window.tabs.setCurrentWidget(window.recent)
         if show_clipboard:
             window.recent.detail_tabs.setCurrentWidget(window.recent.clipboard)
+        elif show_web:
+            window.recent.detail_tabs.setCurrentWidget(window.recent.web_content)
     else:
         window.tabs.setCurrentWidget(window.privacy)
         if browser:
             window.privacy.rule_tabs.setCurrentWidget(window.privacy.urls)
-    received_signal = (window.recent.clipboard.client.entries_received if show_clipboard
-                       else window.recent.client.records_received if show_records
-                       else window.privacy.client.state_received)
+    # 오류 상태 미리보기도 캡처할 수 있도록 웹 본문은 성공/실패 신호를 모두 기다린다.
+    if show_web:
+        snapshot_signals = (window.recent.web_content.client.content_received,
+                            window.recent.web_content.client.content_failed)
+    else:
+        snapshot_signals = (window.recent.clipboard.client.entries_received if show_clipboard
+                            else window.recent.client.records_received if show_records
+                            else window.privacy.client.state_received,)
 
     def save_snapshot():
         """첫 응답이 배치된 앱 위젯만 저장하고 서버를 종료한다."""
         saved = window.grab().save(str(args.snapshot), "PNG")
         app.exit(0 if saved else 1)
 
-    def received(*args):
-        """선택 화면의 정상 응답을 한 번만 캡처한다."""
-        received_signal.disconnect(received)
+    def received(*_signal_args):
+        """선택 화면의 첫 결과를 한 번만 캡처하고 다른 결과 신호는 연결 해제한다."""
+        for signal in snapshot_signals:
+            signal.disconnect(received)
         QTimer.singleShot(100, save_snapshot)
 
     if args.snapshot:
-        received_signal.connect(received)
+        for signal in snapshot_signals:
+            signal.connect(received)
         QTimer.singleShot(5000, lambda: app.exit(1))
     window.show()
     window.check()
