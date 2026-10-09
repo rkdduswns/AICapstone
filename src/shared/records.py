@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from shared.browser import BrowserPage
 from shared.protocol import API_VERSION, SERVICE_NAME
 
 RECENT_RECORDS_PATH = "/records/recent"
@@ -21,6 +22,8 @@ class ContextRecord:
     last_active_at: str
     active_duration_ms: int
     foreground_count: int
+    # 기존 응답의 필드 생략/null은 브라우저 출처 없음이다. 창 제목에서 URL을 추정하지 않는다.
+    browser: BrowserPage | None = None
 
 
 @dataclass(frozen=True)

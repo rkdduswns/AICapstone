@@ -7,11 +7,13 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSizePolicy,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from client.privacy_client import PrivacyClient, normalize_processes
+from client.url_rules_widget import UrlRulesWidget
 from shared.privacy import PrivacyState
 
 
@@ -60,17 +62,26 @@ class PrivacyWidget(QWidget):
         clipboard_row.addWidget(self.clipboard_toggle)
         layout.addLayout(clipboard_row)
         layout.addWidget(plain_label("클립보드 기록을 켜도 전체 일시정지와 차단 설정이 우선합니다."))
-        layout.addWidget(plain_label("차단 프로그램 · 실행 파일 이름을 한 줄에 하나씩 입력"))
+        # 프로그램과 URL 초안은 독립적으로 적용한다. 안쪽 탭으로 나눠 창 높이를 유지한다.
+        self.rule_tabs = QTabWidget()
+        programs = QWidget()
+        program_layout = QVBoxLayout(programs)
+        self.rule_tabs.addTab(programs, "프로그램 차단")
+        self.urls = UrlRulesWidget()
+        self.urls.apply_requested.connect(self.client.set_blocked_urls)
+        self.rule_tabs.addTab(self.urls, "URL 차단")
+        layout.addWidget(self.rule_tabs, 1)
+        program_layout.addWidget(plain_label("차단 프로그램 · 실행 파일 이름을 한 줄에 하나씩 입력"))
         self.editor = QPlainTextEdit()
         self.editor.setPlaceholderText("예: chrome.exe\n비밀번호관리자.exe")
         self.editor.setTabChangesFocus(True)
         self.editor.setMaximumHeight(180)
         self.editor.textChanged.connect(self._edited)
-        layout.addWidget(self.editor, 1)
+        program_layout.addWidget(self.editor, 1)
         self.draft_status = plain_label("서버 설정을 확인한 뒤 적용할 수 있습니다.")
         self.validation = plain_label("")
-        layout.addWidget(self.draft_status)
-        layout.addWidget(self.validation)
+        program_layout.addWidget(self.draft_status)
+        program_layout.addWidget(self.validation)
         buttons = QHBoxLayout()
         self.apply_button = QPushButton("차단 목록 적용")
         self.apply_button.clicked.connect(self._apply)
@@ -78,10 +89,9 @@ class PrivacyWidget(QWidget):
         self.reset_button.clicked.connect(self._reset_draft)
         buttons.addWidget(self.apply_button)
         buttons.addWidget(self.reset_button)
-        layout.addLayout(buttons)
+        program_layout.addLayout(buttons)
         self.notice = plain_label("Backend 연결을 확인해 주세요.")
         layout.addWidget(self.notice)
-        layout.addStretch()
         self._update_controls()
 
     def set_connected(self, connected: bool) -> None:
@@ -154,6 +164,7 @@ class PrivacyWidget(QWidget):
     def _show_state(self, state: PrivacyState, operation: str) -> None:
         """확인된 설정·판정만 표시하고 별도 필드 변경 중의 입력 초안은 보존한다."""
         self.state = state
+        self.urls.show_rules(state.settings.blocked_urls, operation)
         self.applied_text = "\n".join(state.settings.blocked_processes)
         if not self.dirty or operation == "blocked":
             self._set_editor(self.applied_text)
@@ -161,6 +172,7 @@ class PrivacyWidget(QWidget):
         messages = {
             "allowed": "기록 가능", "paused": "기록 일시정지됨",
             "blocked_program": "기록 차단 · 차단 프로그램",
+            "blocked_url": "기록 차단 · 차단 URL",
             "sensitive_content": "기록 차단 · 민감 문자열",
             "no_active_window": "기록 대기 · 활성 창 없음",
             "unsupported": "기록 불가 · 미지원 환경", "error": "기록 불가 · 보호 검사 오류",
@@ -184,6 +196,8 @@ class PrivacyWidget(QWidget):
         """설정 쓰기 중 입력을 잠그고 유효한 서버 상태가 있을 때만 변경을 허용한다."""
         writing = self.client.operation != "read"
         confirmed = self.connected and self.state is not None and not writing
+        self.urls.set_availability(confirmed,
+                                   self.state is not None and self.state.settings.blocked_urls is not None)
         self.toggle.setEnabled(confirmed)
         self.editor.setEnabled(self.connected and not writing)
         self.refresh_button.setEnabled(self.connected and not writing)

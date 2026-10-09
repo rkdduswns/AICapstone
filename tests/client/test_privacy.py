@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QApplication
 
 from client.privacy_client import normalize_processes, read_privacy
 from client.window import MainWindow
+from shared.browser import UrlBlockRule
 from shared.privacy import PrivacyResponse, PrivacySettings, PrivacyState, RecordingStatus
 from shared.protocol import HealthResponse, HealthStatus
 
@@ -118,6 +119,108 @@ def connect(app, window):
     window.check()
     wait_for(app, lambda: window.privacy.state is not None)
     return window.privacy
+
+
+def test_url_rules_draft_independent_apply_and_clear(app, window, server):
+    """폴링/다른 설정 변경은 초안을 보존하고 URL 전용 요청은 명시적 적용 때만 보낸다."""
+    server[1]["state"]["data"]["settings"].update(blocked_urls=[], clipboard_enabled=False)
+    privacy = connect(app, window)
+    window.tabs.setCurrentWidget(privacy)
+    privacy.rule_tabs.setCurrentWidget(privacy.urls)
+    urls = privacy.urls
+    urls.value.setText(" EXAMPLE.COM ")
+    urls.add_button.click()
+    assert urls.dirty and not server[1]["writes"]
+    urls.value.setText("example.com")
+    urls.add_button.click()
+    assert len(urls.draft) == 1
+    privacy.editor.setPlainText("draft.exe")
+    privacy.clipboard_toggle.click()
+    wait_for(app, lambda: privacy.state is not None)
+    assert urls.dirty and urls.draft == [UrlBlockRule("domain", "example.com")]
+    count = server[1]["gets"]
+    privacy.client.refresh()
+    wait_for(app, lambda: server[1]["gets"] > count and privacy.client.reply is None)
+    assert urls.dirty
+    urls.value.setText("unfinished.example.com")
+    urls.apply_button.click()
+    assert "추가" in urls.validation.text() and len(server[1]["writes"]) == 1
+    urls.value.clear()
+    server[1]["put_delay"] = 0.1
+    urls.apply_button.click()
+    assert not urls.apply_button.isEnabled() and privacy.state is None
+    wait_for(app, lambda: privacy.state is not None)
+    assert not urls.dirty and privacy.dirty and privacy.editor.toPlainText() == "draft.exe"
+    assert server[1]["writes"][-1] == ("/privacy/blocked-urls", {
+        "blocked_urls": [{"kind": "domain", "value": "example.com"}]}, "desktop")
+    urls.table.selectRow(0)
+    urls.remove_button.click()
+    assert urls.dirty
+    urls.reset_button.click()
+    assert len(urls.draft) == 1 and len(server[1]["writes"]) == 2
+    urls.table.selectRow(0)
+    urls.remove_button.click()
+    urls.apply_button.click()
+    wait_for(app, lambda: privacy.state is not None)
+    assert privacy.state.settings.blocked_urls == [] and not urls.dirty
+    assert window.width() == 620
+
+
+def test_url_unsupported_and_reconnect_preserves_draft(app, window, server):
+    """기능 생략 시 다른 제어는 유지하고 재연결 중의 URL 초안은 다시 확인할 때 복원한다."""
+    settings = server[1]["state"]["data"]["settings"]
+    del settings["blocked_urls"]
+    privacy = connect(app, window)
+    assert "미지원" in privacy.urls.status.text() and privacy.toggle.isEnabled()
+    assert not privacy.urls.add_button.isEnabled()
+    settings["blocked_urls"] = []
+    privacy.client.refresh()
+    wait_for(app, lambda: privacy.urls.add_button.isEnabled())
+    privacy.urls.value.setText("example.com")
+    privacy.urls.add_button.click()
+    window.check()
+    wait_for(app, lambda: privacy.state is not None)
+    assert privacy.urls.dirty and len(privacy.urls.draft) == 1
+    privacy.urls.value.setText("https://not-a-domain.example")
+    privacy.urls.add_button.click()
+    assert privacy.urls.validation.text() and not server[1]["writes"]
+
+
+@pytest.mark.parametrize("failure", ["echo", "timeout", "http"])
+def test_url_write_failure_keeps_draft_and_never_retries(app, window, server, failure):
+    """응답 누락/불일치/서버 오류를 적용 성공으로 표시하지 않고 GET으로만 복구한다."""
+    server[1]["state"]["data"]["settings"]["blocked_urls"] = []
+    privacy = connect(app, window)
+    privacy.urls.value.setText("example.com")
+    privacy.urls.add_button.click()
+    if failure == "echo":
+        server[1]["apply"] = False
+    elif failure == "timeout":
+        server[1]["put_delay"] = 0.2
+        privacy.client.timer.setInterval(60)
+    else:
+        server[1]["put_status"] = 500
+    privacy.urls.apply_button.click()
+    wait_for(app, lambda: "적용 여부 미확인" in privacy.notice.text())
+    assert privacy.urls.dirty and not privacy.urls.apply_button.isEnabled()
+    privacy.client.timer.setInterval(3000)
+    privacy.refresh_button.click()
+    wait_for(app, lambda: privacy.state is not None)
+    assert len(server[1]["writes"]) == 1
+    assert privacy.urls.dirty == (failure != "timeout")
+
+
+def test_blocked_url_status_requires_configured_rule(app, window, server):
+    """차단 성공은 Backend 사유에만 따르며 차단 규칙 없는 모순 응답은 거부한다."""
+    data = server[1]["state"]["data"]
+    data["settings"]["blocked_urls"] = [{"kind": "domain", "value": "example.com"}]
+    data["recording"] = {"allowed": False, "reason": "blocked_url"}
+    privacy = connect(app, window)
+    assert "차단 URL" in privacy.summary.text()
+    data["settings"]["blocked_urls"] = []
+    privacy.client.refresh()
+    wait_for(app, lambda: privacy.state is None)
+    assert "호환되지 않는" in privacy.notice.text()
 
 
 @pytest.mark.parametrize("reason", [

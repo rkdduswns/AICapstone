@@ -129,6 +129,51 @@ def open_records(app, window):
     wait_for(app, lambda: window.recent.button.isEnabled())
 
 
+@pytest.mark.parametrize("browser", ["chrome", "edge"])
+def test_browser_details_and_selection_clear(app, window, fake_server, browser):
+    """브라우저 출처는 원문으로 표시하고 다음 일반 기록 선택/오류에서 이전 URL을 지운다."""
+    url = "HTTPS://EXAMPLE.COM/Path?q=Ab%20C#Top"
+    fake_server[1]["body"]["data"]["records"][1]["browser"] = {
+        "browser": browser, "page_title": "<b>가상 제목</b>", "url": url}
+    open_records(app, window)
+    detail = window.recent.detail
+    assert url in detail.toPlainText() and "<b>가상 제목</b>" in detail.toPlainText()
+    fake_server[1]["body"]["data"]["records"][1]["browser"].update(page_title="", url=None)
+    window.recent.button.click()
+    wait_for(app, lambda: window.recent.button.isEnabled())
+    assert "새 탭·내부 페이지" in detail.toPlainText() and url not in detail.toPlainText()
+    window.recent.table.selectRow(1)
+    assert url not in detail.toPlainText() and "서버 미제공" in detail.toPlainText()
+    fake_server[1]["status"] = 500
+    window.recent.button.click()
+    wait_for(app, lambda: window.recent.button.isEnabled())
+    assert not detail.toPlainText()
+
+
+def test_blank_browser_tab_and_legacy_source():
+    """새 탭의 null URL·빈 제목과 구형 응답의 출처 누락을 구분한다."""
+    body = deepcopy(GOOD)
+    body["data"]["records"][1]["browser"] = {"browser": "edge", "page_title": "", "url": None}
+    records = read_recent_records(json.dumps(body).encode())
+    assert records[0].browser.url is None and records[0].browser.page_title == ""
+    assert records[1].browser is None
+
+
+@pytest.mark.parametrize("source", [
+    [], {"browser": "firefox", "page_title": "a", "url": None},
+    {"browser": "chrome", "page_title": 1, "url": None},
+    {"browser": "chrome", "page_title": "a"},
+    *[{"browser": "chrome", "page_title": "a", "url": url}
+      for url in (False, "", "chrome://newtab", "https://a\nb.com/", "https://a.com:99999/")],
+])
+def test_invalid_browser_source_rejects_entire_response(source):
+    """출처가 잘못된 기록을 정상 URL처럼 표시하지 않고 목록 전체를 실패 처리한다."""
+    body = deepcopy(GOOD)
+    body["data"]["records"][1]["browser"] = source
+    with pytest.raises(ValueError):
+        read_recent_records(json.dumps(body).encode())
+
+
 @pytest.mark.parametrize("payload", [b"bad", b"[]", b"null", b"\xff", b"{}"])
 def test_malformed_records_rejected(payload):
     """형식 오류가 비동기 화면 처리까지 전달되지 않게 거부한다."""

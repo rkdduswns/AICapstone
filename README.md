@@ -23,11 +23,14 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [Phase 5 Client 구현 및 검증](docs/reports/phase5-client.md)
 - [Phase 6 클립보드 규격](docs/dev/clipboard-api.md)
 - [Phase 6 Client 구현 및 검증](docs/reports/phase6-client.md)
+- [Phase 7 브라우저 출처·URL 설정 규격](docs/dev/browser-api.md)
+- [Phase 7 Client 구현 및 검증](docs/reports/phase7-client.md)
+- [현재 기술 스택](docs/dev/technology-stack.md)
 
 Phase 1 실행 골격 및 Client–Backend 연결을 완료했습니다(2026-09-24).
 Linux 및 Windows 자동 테스트와 사용자 실행 확인을 근거로 완료 처리했습니다.
-Phase 2–6는 Client 현재 창·시간·최근 기록·개인정보/클립보드 설정·복사 텍스트 화면과 Shared 구조를 먼저 구현했습니다.
-Backend의 Windows 감지, 시간 추적, 로컬 저장, 보호 검사 및 실제 통합은 미완료입니다.
+Phase 2–7는 Client 현재 창·시간·최근 기록·개인정보/클립보드/URL 설정·복사 텍스트·브라우저 출처 화면과 Shared 구조를 먼저 구현했습니다.
+Browser 확장, Backend의 Windows 감지, 시간 추적, 로컬 저장, 보호 검사 및 실제 통합은 미완료입니다.
 최신 진행 상태와 검증 근거는 [개발 Phase](etc/phases/README.md)에 기록합니다.
 
 설치 후 `python -m backend`로 Backend를 실행하고 `http://127.0.0.1:8765/health`에서 확인합니다.
@@ -92,3 +95,8 @@ Phase 5 Client는 어느 탭에서나 일시정지·재개를 요청하고, 개�
 Phase 6 Client는 개인정보 보호 탭에서 클립보드 기록 사용 여부를 설정하고, 최근 작업 상세의 복사 텍스트를 조회합니다.
 가상 미리보기: `python tools/preview_phase6_client.py`. 설정 화면으로 시작하려면 `--settings`를 추가합니다.
 실제 클립보드는 읽지 않으며, 실제 수집·작업 연결·중복 방지·저장 검증은 Backend 연결 후 진행합니다.
+
+Phase 7 Client는 최근 작업에 연결된 브라우저 페이지 제목·URL과 URL 차단 규칙 입력을 제공합니다.
+가상 미리보기: `python tools/preview_phase7_client.py`. URL 설정 화면은 `--settings`를 추가합니다.
+도메인·전체 URL·URL 시작 부분 규칙을 편집하고 명시적으로 적용합니다.
+실제 Chrome/Edge 확장과 URL 수집·차단·저장 검증은 Backend 연결 후 진행합니다.
