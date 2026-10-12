@@ -27,11 +27,13 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [Phase 7 Client 구현 및 검증](docs/reports/phase7-client.md)
 - [Phase 8 저장 웹 본문 규격](docs/dev/web-content-api.md)
 - [Phase 8 Client 구현 및 검증](docs/reports/phase8-client.md)
+- [Phase 9 문서 출처·저장 본문 규격](docs/dev/document-content-api.md)
+- [Phase 9 Client 구현 및 검증](docs/reports/phase9-client.md)
 - [현재 기술 스택](docs/dev/technology-stack.md)
 
 Phase 1 실행 골격 및 Client–Backend 연결을 완료했습니다(2026-09-24).
 Linux 및 Windows 자동 테스트와 사용자 실행 확인을 근거로 완료 처리했습니다.
-Phase 2–8은 Client 현재 창·시간·최근 기록·개인정보/클립보드/URL 설정·복사 텍스트·브라우저 출처·저장 웹 본문 화면과 Shared 구조를 먼저 구현했습니다.
+Phase 2–9는 Client 현재 창·시간·최근 기록·개인정보/클립보드/URL 설정·복사 텍스트·브라우저 출처·저장 웹/문서 본문·파일 출처 화면과 Shared 구조를 먼저 구현했습니다.
 Browser 확장, Backend의 Windows 감지, 시간 추적, 로컬 저장, 보호 검사 및 실제 통합은 미완료입니다.
 최신 진행 상태와 검증 근거는 [개발 Phase](etc/phases/README.md)에 기록합니다.
 
@@ -107,3 +109,8 @@ Phase 8 Client는 최근 기록의 `웹 본문` 탭에서 저장된 텍스트·�
 가상 미리보기: `python tools/preview_phase8_client.py`.
 `--web-state empty|truncated|unsupported|denied` 중 하나로 빈 본문·일부 저장·미지원·조회 거부를 확인할 수 있습니다.
 실제 웹페이지 수집/정제/중복 제거/차단/저장은 Browser·Backend 연결 후 검증합니다.
+
+Phase 9 Client는 파일 경로·유형과 저장 문서 본문·추출 시각을 확인합니다.
+가상 미리보기: python tools/preview_phase9_client.py.
+--file-type pdf|docx, --document-state empty|truncated|unsupported|denied|gone을 지원합니다.
+실제 PDF/DOCX 파일 감지·추출·저장 검증은 Backend 연결 후 진행합니다.

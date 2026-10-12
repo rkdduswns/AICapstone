@@ -17,6 +17,13 @@ from client.window import MainWindow, display_label
 from shared.activity import ActiveWindow, CurrentActivity, CurrentActivityResponse
 from shared.browser import BrowserPage
 from shared.clipboard import ClipboardEntry, RecordClipboard, RecordClipboardResponse
+from shared.document import (
+    MAX_DOCUMENT_CONTENT_LENGTH,
+    DocumentContent,
+    LocalDocument,
+    RecordDocumentContent,
+    RecordDocumentContentResponse,
+)
 from shared.privacy import PrivacyResponse, PrivacySettings, PrivacyState, RecordingStatus
 from shared.protocol import HealthResponse, HealthStatus
 from shared.records import ContextRecord, RecentRecords, RecentRecordsResponse
@@ -28,9 +35,10 @@ from shared.web_content import (
 )
 
 
-def main(clipboard: bool = False, browser: bool = False, web_content: bool = False) -> int:
-    """메모리의 가상 설정을 바꾸며 화면을 확인한다. 브라우저 수집/URL 매칭은 하지 않는다."""
-    phase = 8 if web_content else 7 if browser else 6 if clipboard else 5
+def main(clipboard: bool = False, browser: bool = False, web_content: bool = False,
+         document_content: bool = False) -> int:
+    """가상 설정·저장 본문 화면을 확인한다. 실제 브라우저나 로컬 파일은 읽지 않는다."""
+    phase = 9 if document_content else 8 if web_content else 7 if browser else 6 if clipboard else 5
     parser = argparse.ArgumentParser(description=f"Phase {phase} Client 가상 미리보기")
     parser.add_argument("--snapshot", type=Path, help="선택 화면의 첫 결과를 저장하고 종료")
     parser.add_argument("--settings", action="store_true", help="개인정보 설정 탭으로 시작")
@@ -38,6 +46,12 @@ def main(clipboard: bool = False, browser: bool = False, web_content: bool = Fal
         parser.add_argument("--web-state", default="ready",
                             choices=("ready", "empty", "truncated", "unsupported", "denied"),
                             help="가상 웹 본문의 정상/빈 결과/길이 제한/미지원/거부 상태")
+    if document_content:
+        parser.add_argument("--document-state", default="ready",
+                            choices=("ready", "empty", "truncated", "unsupported", "denied", "gone"),
+                            help="가상 문서의 정상/빈 결과/일부 저장/미지원/거부/출처 유실 상태")
+        parser.add_argument("--file-type", default="pdf", choices=("pdf", "docx"),
+                            help="표시할 가상 파일 유형")
     parser.add_argument("--reason", default="allowed", choices=(
         "allowed", "sensitive_content", "no_active_window", "unsupported", "error"),
         help="가상 판정 사유. 일시정지 및 chrome.exe 차단은 이 값보다 우선")
@@ -48,6 +62,9 @@ def main(clipboard: bool = False, browser: bool = False, web_content: bool = Fal
     lock = threading.Lock()
     page = BrowserPage("chrome", "가상 페이지 — <b>원문 제목</b>",
                        "https://example.com/research?topic=sample#intro")
+    document = (LocalDocument(r"C:\가상 자료\참고 문서." + args.file_type, args.file_type)
+                if document_content else None)
+    record_date = "2026-10-12" if document_content else "2026-10-08"
 
     class Handler(BaseHTTPRequestHandler):
         def privacy_response(self):
@@ -61,7 +78,7 @@ def main(clipboard: bool = False, browser: bool = False, web_content: bool = Fal
                 RecordingStatus(reason == "allowed", reason)))
 
         def do_GET(self):
-            """상태·기록·복사/웹 본문을 가상 데이터로 제공한다. 외부 페이지에 접근하지 않는다."""
+            """저장 본문을 메모리의 가상 데이터로 제공하며 외부 페이지·파일에 접근하지 않는다."""
             if self.path == "/privacy":
                 with lock:
                     response = self.privacy_response()
@@ -72,12 +89,29 @@ def main(clipboard: bool = False, browser: bool = False, web_content: bool = Fal
                     "Google Chrome", "chrome.exe", 1234, "가상 자료 — 개인정보 설정 확인")))
             elif self.path == "/records/recent?limit=20":
                 records = [ContextRecord(
-                    "sample-record", "Google Chrome", "chrome.exe",
+                    "sample-record", "가상 문서 앱" if document_content else "Google Chrome",
+                    "sample.exe" if document_content else "chrome.exe",
+                    "가상 문서 열람" if document_content else
                     "가상 웹 자료 조사" if web_content else "가상 클립보드 자료 조사",
-                    "2026-10-08T10:00:00+09:00", "2026-10-08T10:20:00+09:00", 120000, 1,
-                    page if browser else None,
+                    f"{record_date}T10:00:00+09:00", f"{record_date}T10:20:00+09:00", 120000, 1,
+                    page if browser and not document_content else None, document,
                 )] if clipboard else []
                 response = RecentRecordsResponse(RecentRecords(records))
+            elif document_content and urlsplit(self.path).path == "/records/document-content":
+                identifier = parse_qs(urlsplit(self.path).query).get("record_id", [""])[0]
+                status = {"unsupported": 404, "denied": 403, "gone": 410}.get(args.document_state)
+                if identifier != "sample-record" or status:
+                    self.send_error(status or 404)
+                    return
+                text = ("가상 문서의 첫 페이지입니다. 실제 파일에서 추출하지 않았습니다.\n\n"
+                        "<b>원문 태그도 일반 글자로 표시합니다.</b>\n\n"
+                        "두 번째 페이지의 가상 내용입니다.\n파일 경로·유형·추출 시각을 확인합니다.")
+                truncated = args.document_state == "truncated"
+                if truncated:
+                    text = ("가상 문서의 긴 문장입니다.\n" * 4000)[:MAX_DOCUMENT_CONTENT_LENGTH]
+                content = (None if args.document_state == "empty" else DocumentContent(
+                    document, "2026-10-12T10:10:00+09:00", text, truncated))
+                response = RecordDocumentContentResponse(RecordDocumentContent(identifier, content))
             elif clipboard and urlsplit(self.path).path == "/records/clipboard":
                 identifier = parse_qs(urlsplit(self.path).query).get("record_id", [""])[0]
                 if identifier != "sample-record":
@@ -171,13 +205,16 @@ def main(clipboard: bool = False, browser: bool = False, web_content: bool = Fal
     window.setWindowTitle(f"ContextTrace — Phase {phase} 미리보기 (가상 데이터)")
     window.layout().insertWidget(0, display_label(
         "가상 설정 미리보기 · 실제 작업 정보는 수집하거나 저장하지 않습니다."
-        + (" URL 차단 판정은 고정 예시입니다." if browser else "")))
+        + (" URL 차단 판정은 고정 예시입니다." if browser and not document_content else "")))
     show_records = clipboard and not args.settings
     show_clipboard = show_records and not browser
-    show_web = show_records and web_content
+    show_document = show_records and document_content
+    show_web = show_records and web_content and not show_document
     if show_records:
         window.tabs.setCurrentWidget(window.recent)
-        if show_clipboard:
+        if show_document:
+            window.recent.detail_tabs.setCurrentWidget(window.recent.document_content)
+        elif show_clipboard:
             window.recent.detail_tabs.setCurrentWidget(window.recent.clipboard)
         elif show_web:
             window.recent.detail_tabs.setCurrentWidget(window.recent.web_content)
@@ -185,8 +222,11 @@ def main(clipboard: bool = False, browser: bool = False, web_content: bool = Fal
         window.tabs.setCurrentWidget(window.privacy)
         if browser:
             window.privacy.rule_tabs.setCurrentWidget(window.privacy.urls)
-    # 오류 상태 미리보기도 캡처할 수 있도록 웹 본문은 성공/실패 신호를 모두 기다린다.
-    if show_web:
+    # 오류 화면도 캡처할 수 있도록 본문은 성공/실패 신호를 모두 기다린다.
+    if show_document:
+        snapshot_signals = (window.recent.document_content.client.content_received,
+                            window.recent.document_content.client.content_failed)
+    elif show_web:
         snapshot_signals = (window.recent.web_content.client.content_received,
                             window.recent.web_content.client.content_failed)
     else:
