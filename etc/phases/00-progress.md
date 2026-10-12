@@ -1,7 +1,7 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-10 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
-Client Phase 2~4 병합 상태에 Phase 5~8 Client의 가상 HTTP 구현·검증 결과를 반영했다.
+기준일: **2026-10-12 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
+Client Phase 2~4 병합 상태에 Phase 5~9 Client의 가상 HTTP 구현·검증 결과를 반영했다.
 
 ## 읽는 방법과 갱신 규칙
 
@@ -26,15 +26,15 @@ Client Phase 2~4 병합 상태에 Phase 5~8 Client의 가상 HTTP 구현·검증
 | [006](phase006.md) | 클립보드 수집 | IN_PROGRESS · Client DONE | 6/20 | 2026-10-08 | `feat/phase6-client` | — |
 | [007](phase007.md) | 브라우저 기본 연동 | IN_PROGRESS · Client DONE | 6/26 | 2026-10-09 | `feat/phase7-client` | — |
 | [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 5/23 | 2026-10-10 | `feat/phase8-client` | — |
-| [009](phase009.md) | 로컬 문서 내용 수집 | NOT_STARTED | 0/18 | — | — | — |
+| [009](phase009.md) | 로컬 문서 내용 수집 | IN_PROGRESS · Client DONE | 5/21 | 2026-10-12 | feat/phase9-client | — |
 | [010](phase010.md) | 검색 데이터 구축 | NOT_STARTED | 0/18 | — | — | — |
 | [011](phase011.md) | 조건 검색 | NOT_STARTED | 0/23 | — | — | — |
 | [012](phase012.md) | 의미 검색 및 혼합 검색 | NOT_STARTED | 0/20 | — | — | — |
 | [013](phase013.md) | 근거 기반 RAG | NOT_STARTED | 0/25 | — | — | — |
 | [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
 
-Phase 2~8의 실제 감지·시간 계산·저장·보호 검사·클립보드/브라우저 본문 수집 및 통합 검증은 아직 남아 있다.
-Phase 5~8의 실제 수집/저장/차단 테스트는 Backend 연결 후 수행한다.
+Phase 2~9의 실제 감지·시간 계산·저장·보호 검사·클립보드/브라우저 본문 수집 및 통합 검증은 아직 남아 있다.
+Phase 5~9의 실제 수집/추출/저장/차단 테스트는 Backend 연결 후 수행한다.
 
 ## 작업 이력
 
@@ -49,6 +49,8 @@ Phase 5~8의 실제 수집/저장/차단 테스트는 Backend 연결 후 수행�
 | 2026-10-08 | Phase 6 Client | `feat/phase6-client` | 미병합 Phase 5 기반. 클립보드 설정·작업별 복사 상세·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase6-client.md) |
 | 2026-10-09 | Phase 7 Client | `feat/phase7-client` | 미병합 Phase 6 기반. 브라우저 출처·URL 차단 설정·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase7-client.md) |
 | 2026-10-10 | Phase 8 Client | `feat/phase8-client` | 미병합 Phase 7 기반. 저장 웹 본문 상세·출처 대조·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase8-client.md) |
+
+| 2026-10-12 | Phase 9 Client | feat/phase9-client | 미병합 Phase 8 기반. 파일 출처·저장 문서 본문·Shared 계약·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase9-client.md) |
 
 문서 관리 이력: 2026-10-02 `docs/phase-progress`에서 통합 체크리스트와 세 자리 Phase 파일명을 적용했다
 ([PR #6](https://github.com/rkdduswns/AICapstone/pull/6) 병합). 같은 날 `docs/project-doc-cleanup`에서
@@ -280,24 +282,27 @@ Phase 5~8의 실제 수집/저장/차단 테스트는 Backend 연결 후 수행�
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Backend | 열려 있는 파일 경로 식별 | 미완료 | — | — | 미착수 |
-| Backend | 지원 파일 유형 판별 | 미완료 | — | — | 미착수 |
-| Backend | PDF 텍스트 추출 | 미완료 | — | — | 미착수 |
-| Backend | DOCX 텍스트 추출 | 미완료 | — | — | 미착수 |
-| Backend | 문서 내용과 파일 경로 연결 | 미완료 | — | — | 미착수 |
-| Backend | 열람 시각과 작업 기록 연결 | 미완료 | — | — | 미착수 |
-| Backend | 동일 파일 재처리 최소화 | 미완료 | — | — | 미착수 |
-| Client | 최근 기록에서 파일 경로 표시 | 미완료 | — | — | 미착수 |
-| Client | 파일 출처 상세보기 | 미완료 | — | — | 미착수 |
-| Tests | 일반 PDF | 미완료 | — | — | 미착수 |
-| Tests | 여러 페이지 PDF | 미완료 | — | — | 미착수 |
-| Tests | 일반 DOCX | 미완료 | — | — | 미착수 |
-| Tests | 내용 없는 문서 | 미완료 | — | — | 미착수 |
-| Tests | 이동/삭제된 파일 | 미완료 | — | — | 미착수 |
-| Tests | 동일 파일 재열람 | 미완료 | — | — | 미착수 |
-| 완료 조건 | PDF 내용을 추출할 수 있다. | 미완료 | — | — | 미착수 |
-| 완료 조건 | DOCX 내용을 추출할 수 있다. | 미완료 | — | — | 미착수 |
-| 완료 조건 | 추출된 내용에서 실제 파일 경로로 역추적할 수 있다. | 미완료 | — | — | 미착수 |
+| Backend | 열려 있는 파일 경로 식별 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Backend | 지원 파일 유형 판별 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Backend | PDF 텍스트 추출 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Backend | DOCX 텍스트 추출 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Backend | 문서 내용과 파일 경로 연결 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Backend | 열람 시각과 작업 기록 연결 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Backend | 동일 파일 재처리 최소화 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Client | 최근 기록에서 파일 경로 표시 | 완료 | 2026-10-12 | feat/phase9-client | [검증 보고서](../../docs/reports/phase9-client.md) · Client/가상 응답 범위 |
+| Client | 파일 출처 상세보기 | 완료 | 2026-10-12 | feat/phase9-client | [검증 보고서](../../docs/reports/phase9-client.md) · Client/가상 응답 범위 |
+| Shared | 문서 출처와 작업별 저장 본문 조회 계약 | 완료 | 2026-10-12 | feat/phase9-client | [검증 보고서](../../docs/reports/phase9-client.md) · Client/가상 응답 범위 |
+| Tests | 가상 HTTP 문서 조회·선택 전환·오류·취소·복구 | 완료 | 2026-10-12 | feat/phase9-client | [검증 보고서](../../docs/reports/phase9-client.md) · Client/가상 응답 범위 |
+| Tests | Windows 파일 출처·본문 계약·길이·구형 응답 검증 | 완료 | 2026-10-12 | feat/phase9-client | [검증 보고서](../../docs/reports/phase9-client.md) · Client/가상 응답 범위 |
+| Tests | 일반 PDF | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Tests | 여러 페이지 PDF | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Tests | 일반 DOCX | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Tests | 내용 없는 문서 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Tests | 이동/삭제된 파일 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Tests | 동일 파일 재열람 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| 완료 조건 | PDF 내용을 추출할 수 있다. | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| 완료 조건 | DOCX 내용을 추출할 수 있다. | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| 완료 조건 | 추출된 내용에서 실제 파일 경로로 역추적할 수 있다. | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
 
 ## Phase 010 — 검색 데이터 구축
 

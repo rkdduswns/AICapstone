@@ -50,3 +50,10 @@ Phase 7~8에서는 새 외부 의존성을 추가하지 않았다.
 - 웹 UI framework, WebSocket: 현재 Client는 Qt Widgets와 HTTP/JSON을 사용한다.
 
 기획 문서의 예시 기술은 실제 채택으로 간주하지 않는다. 새 Phase에서 채택할 때 이 문서와 의존성을 갱신한다.
+
+## Phase 9 확인 (2026-10-12)
+
+파일 출처·저장 문서 본문 Shared 계약과 Client 상세를 추가했다. 새 외부 의존성이나 추출 라이브러리는 추가하지 않았다.
+이번 검증은 Linux x86_64 / Python 3.12.14 / PySide6·Qt 6.12.0 / pytest 9.1.1 / Ruff 0.17.0이다.
+위 Phase 8 Windows 확인 버전은 당시 검증 기록이며 이번 Linux 검증 버전과 구분한다.
+Windows 검증은 GitHub CI 결과를 PR에 기록한다. Backend PDF/DOCX 추출·영속 저장·검색은 미구현이다.
