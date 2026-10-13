@@ -1,7 +1,7 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-12 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
-Client Phase 2~4 병합 상태에 Phase 5~9 Client의 가상 HTTP 구현·검증 결과를 반영했다.
+기준일: **2026-10-14 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
+Client Phase 2~4 병합 상태에 Phase 5~9 Client의 가상 HTTP 검증과 Phase 10 Shared·Client 수신 계약 검증 결과를 반영했다.
 
 ## 읽는 방법과 갱신 규칙
 
@@ -27,7 +27,7 @@ Client Phase 2~4 병합 상태에 Phase 5~9 Client의 가상 HTTP 구현·검증
 | [007](phase007.md) | 브라우저 기본 연동 | IN_PROGRESS · Client DONE | 6/26 | 2026-10-09 | `feat/phase7-client` | — |
 | [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 5/23 | 2026-10-10 | `feat/phase8-client` | — |
 | [009](phase009.md) | 로컬 문서 내용 수집 | IN_PROGRESS · Client DONE | 5/21 | 2026-10-12 | feat/phase9-client | — |
-| [010](phase010.md) | 검색 데이터 구축 | NOT_STARTED | 0/18 | — | — | — |
+| [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE | 4/20 | 2026-10-14 | feat/phase10-shared | — |
 | [011](phase011.md) | 조건 검색 | NOT_STARTED | 0/23 | — | — | — |
 | [012](phase012.md) | 의미 검색 및 혼합 검색 | NOT_STARTED | 0/20 | — | — | — |
 | [013](phase013.md) | 근거 기반 RAG | NOT_STARTED | 0/25 | — | — | — |
@@ -35,6 +35,7 @@ Client Phase 2~4 병합 상태에 Phase 5~9 Client의 가상 HTTP 구현·검증
 
 Phase 2~9의 실제 감지·시간 계산·저장·보호 검사·클립보드/브라우저 본문 수집 및 통합 검증은 아직 남아 있다.
 Phase 5~9의 실제 수집/추출/저장/차단 테스트는 Backend 연결 후 수행한다.
+Phase 10의 실제 정규화·분할·임베딩·검색 데이터 저장/삭제 및 역추적 통합 검증은 남아 있다.
 
 ## 작업 이력
 
@@ -49,8 +50,8 @@ Phase 5~9의 실제 수집/추출/저장/차단 테스트는 Backend 연결 후 
 | 2026-10-08 | Phase 6 Client | `feat/phase6-client` | 미병합 Phase 5 기반. 클립보드 설정·작업별 복사 상세·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase6-client.md) |
 | 2026-10-09 | Phase 7 Client | `feat/phase7-client` | 미병합 Phase 6 기반. 브라우저 출처·URL 차단 설정·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase7-client.md) |
 | 2026-10-10 | Phase 8 Client | `feat/phase8-client` | 미병합 Phase 7 기반. 저장 웹 본문 상세·출처 대조·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase8-client.md) |
-
 | 2026-10-12 | Phase 9 Client | feat/phase9-client | 미병합 Phase 8 기반. 파일 출처·저장 문서 본문·Shared 계약·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase9-client.md) |
+| 2026-10-14 | Phase 10 Shared | feat/phase10-shared | 미병합 Phase 9 기반. 검색 조각·출처 계약·Client 수신 검증 완료, [보고서](../../docs/reports/phase10-shared.md) |
 
 문서 관리 이력: 2026-10-02 `docs/phase-progress`에서 통합 체크리스트와 세 자리 Phase 파일명을 적용했다
 ([PR #6](https://github.com/rkdduswns/AICapstone/pull/6) 병합). 같은 날 `docs/project-doc-cleanup`에서
@@ -310,24 +311,26 @@ Phase 5~9의 실제 수집/추출/저장/차단 테스트는 Backend 연결 후 
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Backend | 텍스트 정규화 | 미완료 | — | — | 미착수 |
-| Backend | 긴 문서 분할 | 미완료 | — | — | 미착수 |
-| Backend | 짧은/불필요한 조각 제거 | 미완료 | — | — | 미착수 |
-| Backend | 각 조각에 원본 작업 ID 연결 | 미완료 | — | — | 미착수 |
-| Backend | 의미 검색용 데이터 생성 | 미완료 | — | — | 미착수 |
-| Backend | 검색용 데이터 저장 | 미완료 | — | — | 미착수 |
-| Backend | 원본 삭제 시 검색 데이터 처리 | 미완료 | — | — | 미착수 |
-| Shared | 검색 문서 조각 구조 정의 | 미완료 | — | — | 미착수 |
-| Shared | 출처 메타데이터 구조 정의 | 미완료 | — | — | 미착수 |
-| Tests | 긴 웹페이지 분할 | 미완료 | — | — | 미착수 |
-| Tests | 긴 PDF 분할 | 미완료 | — | — | 미착수 |
-| Tests | 아주 짧은 텍스트 | 미완료 | — | — | 미착수 |
-| Tests | 중복 조각 | 미완료 | — | — | 미착수 |
-| Tests | 검색 조각 → 원본 URL 복원 | 미완료 | — | — | 미착수 |
-| Tests | 검색 조각 → 원본 파일 경로 복원 | 미완료 | — | — | 미착수 |
-| 완료 조건 | 웹/문서 내용을 동일한 검색 단위로 다룰 수 있다. | 미완료 | — | — | 미착수 |
-| 완료 조건 | 모든 검색 단위가 실제 원본 작업과 연결된다. | 미완료 | — | — | 미착수 |
-| 완료 조건 | 의미 검색에 사용할 데이터가 준비된다. | 미완료 | — | — | 미착수 |
+| Backend | 텍스트 정규화 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Backend | 긴 문서 분할 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Backend | 짧은/불필요한 조각 제거 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Backend | 각 조각에 원본 작업 ID 연결 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Backend | 의미 검색용 데이터 생성 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Backend | 검색용 데이터 저장 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Backend | 원본 삭제 시 검색 데이터 처리 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Shared | 검색 문서 조각 구조 정의 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
+| Shared | 출처 메타데이터 구조 정의 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
+| Tests | 가상 웹/PDF/DOCX 조각의 JSON 직렬화·검증·출처 복원 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
+| Tests | 작업 ID·출처·시각·본문 계약 오류 거부 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
+| Tests | 긴 웹페이지 분할 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Tests | 긴 PDF 분할 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Tests | 아주 짧은 텍스트 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Tests | 중복 조각 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Tests | 검색 조각 → 원본 URL 복원 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Tests | 검색 조각 → 원본 파일 경로 복원 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| 완료 조건 | 웹/문서 내용을 동일한 검색 단위로 다룰 수 있다. | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| 완료 조건 | 모든 검색 단위가 실제 원본 작업과 연결된다. | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| 완료 조건 | 의미 검색에 사용할 데이터가 준비된다. | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
 
 ## Phase 011 — 조건 검색
 

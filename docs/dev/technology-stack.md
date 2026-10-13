@@ -57,3 +57,9 @@ Phase 7~8에서는 새 외부 의존성을 추가하지 않았다.
 이번 검증은 Linux x86_64 / Python 3.12.14 / PySide6·Qt 6.12.0 / pytest 9.1.1 / Ruff 0.17.0이다.
 위 Phase 8 Windows 확인 버전은 당시 검증 기록이며 이번 Linux 검증 버전과 구분한다.
 Windows 검증은 GitHub CI 결과를 PR에 기록한다. Backend PDF/DOCX 추출·영속 저장·검색은 미구현이다.
+
+## Phase 10 확인 (2026-10-14)
+
+Shared 검색 조각·출처 데이터와 Client JSON 수신 검증을 추가했다. 기존 URL/파일/시각 검증을 재사용한다.
+새 의존성·UI·Backend 실행 코드 변경은 없고 임베딩 모델·검색 저장소는 미도입이다.
+Phase 11 검색 응답에서 이 계약을 사용하며 실제 데이터 구축은 Backend에서 진행한다.
