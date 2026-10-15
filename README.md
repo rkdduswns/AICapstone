@@ -31,6 +31,8 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [Phase 9 Client 구현 및 검증](docs/reports/phase9-client.md)
 - [Phase 10 검색 데이터 계약](docs/dev/search-data-contract.md)
 - [Phase 10 Shared 구현 및 검증](docs/reports/phase10-shared.md)
+- [Phase 11 조건 검색 API](docs/dev/search-api.md)
+- [Phase 11 Client 구현 및 검증](docs/reports/phase11-client.md)
 - [현재 기술 스택](docs/dev/technology-stack.md)
 
 Phase 1 실행 골격 및 Client–Backend 연결을 완료했습니다(2026-09-24).
@@ -120,3 +122,7 @@ Phase 9 Client는 파일 경로·유형과 저장 문서 본문·추출 시각�
 Phase 10은 검색 문서 조각과 확보 당시 출처의 Shared 계약 및 Client 수신 검증을 제공합니다.
 원본 작업 ID·URL/파일 경로·열람/본문 확보 시각을 유지합니다.
 실제 정규화·문서 분할·임베딩·저장/삭제는 Backend 작업이며, 검색 화면은 Phase 11에서 구현합니다.
+
+Phase 11 Client는 조건 검색 탭에서 제목·프로세스명·출처·날짜 조건을 제출하고 결과 목록/상세를 확인합니다.
+가상 미리보기: python tools/preview_phase11_client.py. --source 및 --state 옵션으로 결과와 오류를 확인합니다.
+실제 저장소 검색은 Backend 연결 후 구현·검증합니다.

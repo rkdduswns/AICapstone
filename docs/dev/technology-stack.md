@@ -63,3 +63,9 @@ Windows 검증은 GitHub CI 결과를 PR에 기록한다. Backend PDF/DOCX 추�
 Shared 검색 조각·출처 데이터와 Client JSON 수신 검증을 추가했다. 기존 URL/파일/시각 검증을 재사용한다.
 새 의존성·UI·Backend 실행 코드 변경은 없고 임베딩 모델·검색 저장소는 미도입이다.
 Phase 11 검색 응답에서 이 계약을 사용하며 실제 데이터 구축은 Backend에서 진행한다.
+
+## Phase 11 확인 (2026-10-15)
+
+Qt Widgets 검색 폼·표·상세와 기존 QtNetwork GET을 사용한다. 기록 행 검증은 최근 조회와 공통으로 사용한다.
+새 외부 의존성·Backend 검색 실행 코드 변경은 없고 실제 저장소 조건 검색·의미 검색은 미구현이다.
+Windows CI는 미병합 Shared 브랜치 기준 PR에도 실행하도록 대상 브랜치를 확장했다.

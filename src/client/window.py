@@ -19,6 +19,7 @@ from client.activity_client import ActivityClient
 from client.backend_client import BackendClient
 from client.privacy_widget import PrivacyWidget
 from client.recent_records import RecentRecordsWidget
+from client.search_widget import SearchWidget
 from client.time_values import format_duration, format_timestamp
 from shared.activity import CurrentActivity
 from shared.protocol import DEFAULT_PORT
@@ -84,6 +85,8 @@ class MainWindow(QWidget):
         self.recent = RecentRecordsWidget(port, self)
         self.tabs.addTab(self.recent, "최근 기록")
         self.tabs.addTab(self.privacy, "개인정보 보호")
+        self.search = SearchWidget(port, self)
+        self.tabs.addTab(self.search, "조건 검색")
         self.tabs.currentChanged.connect(self._tab_changed)
         layout.addWidget(self.tabs, 1)
 
@@ -102,6 +105,7 @@ class MainWindow(QWidget):
         self.activity.stop()
         self.recent.set_connected(False)
         self.privacy.set_connected(False)
+        self.search.set_connected(False)
         self._clear_activity("대기 — Backend 연결 확인 중")
         self.status.setText("연결 중")
         self.button.setEnabled(False)
@@ -117,6 +121,7 @@ class MainWindow(QWidget):
         """표시 문구를 분석하는 대신 검증 결과로 자동 조회 여부를 결정한다."""
         self.recent.set_connected(connected)
         self.privacy.set_connected(connected)
+        self.search.set_connected(connected)
         if connected:
             self._clear_activity("확인 중 — 현재 창 정보를 기다리고 있습니다.")
             self.activity.start()
@@ -180,4 +185,5 @@ class MainWindow(QWidget):
         self.backend.close()
         self.recent.set_connected(False)
         self.privacy.set_connected(False)
+        self.search.set_connected(False)
         super().closeEvent(event)

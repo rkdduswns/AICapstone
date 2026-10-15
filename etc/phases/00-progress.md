@@ -1,7 +1,7 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-14 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
-Client Phase 2~4 병합 상태에 Phase 5~9 Client의 가상 HTTP 검증과 Phase 10 Shared·Client 수신 계약 검증 결과를 반영했다.
+기준일: **2026-10-15 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
+Client Phase 2~4 병합 상태에 Phase 5~11 Client/Shared 선행 개발·가상 응답·계약 검증 결과를 반영했다.
 
 ## 읽는 방법과 갱신 규칙
 
@@ -28,7 +28,7 @@ Client Phase 2~4 병합 상태에 Phase 5~9 Client의 가상 HTTP 검증과 Phas
 | [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 5/23 | 2026-10-10 | `feat/phase8-client` | — |
 | [009](phase009.md) | 로컬 문서 내용 수집 | IN_PROGRESS · Client DONE | 5/21 | 2026-10-12 | feat/phase9-client | — |
 | [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE | 4/20 | 2026-10-14 | feat/phase10-shared | — |
-| [011](phase011.md) | 조건 검색 | NOT_STARTED | 0/23 | — | — | — |
+| [011](phase011.md) | 조건 검색 | IN_PROGRESS · Client DONE | 9/25 | 2026-10-15 | feat/phase11-client | — |
 | [012](phase012.md) | 의미 검색 및 혼합 검색 | NOT_STARTED | 0/20 | — | — | — |
 | [013](phase013.md) | 근거 기반 RAG | NOT_STARTED | 0/25 | — | — | — |
 | [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
@@ -36,6 +36,7 @@ Client Phase 2~4 병합 상태에 Phase 5~9 Client의 가상 HTTP 검증과 Phas
 Phase 2~9의 실제 감지·시간 계산·저장·보호 검사·클립보드/브라우저 본문 수집 및 통합 검증은 아직 남아 있다.
 Phase 5~9의 실제 수집/추출/저장/차단 테스트는 Backend 연결 후 수행한다.
 Phase 10의 실제 정규화·분할·임베딩·검색 데이터 저장/삭제 및 역추적 통합 검증은 남아 있다.
+Phase 11의 실제 저장소 조건 검색·정렬·보호 정책 적용 및 통합 검증은 남아 있다.
 
 ## 작업 이력
 
@@ -52,6 +53,7 @@ Phase 10의 실제 정규화·분할·임베딩·검색 데이터 저장/삭제 
 | 2026-10-10 | Phase 8 Client | `feat/phase8-client` | 미병합 Phase 7 기반. 저장 웹 본문 상세·출처 대조·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase8-client.md) |
 | 2026-10-12 | Phase 9 Client | feat/phase9-client | 미병합 Phase 8 기반. 파일 출처·저장 문서 본문·Shared 계약·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase9-client.md) |
 | 2026-10-14 | Phase 10 Shared | feat/phase10-shared | 미병합 Phase 9 기반. 검색 조각·출처 계약·Client 수신 검증 완료, [보고서](../../docs/reports/phase10-shared.md) |
+| 2026-10-15 | Phase 11 Client | feat/phase11-client | 미병합 Phase 10 기반. 명시적 조건 검색 화면·Shared 계약·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase11-client.md) |
 
 문서 관리 이력: 2026-10-02 `docs/phase-progress`에서 통합 체크리스트와 세 자리 Phase 파일명을 적용했다
 ([PR #6](https://github.com/rkdduswns/AICapstone/pull/6) 병합). 같은 날 `docs/project-doc-cleanup`에서
@@ -338,29 +340,31 @@ Phase 10의 실제 정규화·분할·임베딩·검색 데이터 저장/삭제 
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Client | 검색 입력 화면 | 미완료 | — | — | 미착수 |
-| Client | 검색 결과 목록 | 미완료 | — | — | 미착수 |
-| Client | 결과 제목 / 출처 / 열람 시각 표시 | 미완료 | — | — | 미착수 |
-| Client | 결과 상세보기 | 미완료 | — | — | 미착수 |
-| Backend | 시간 범위 조건 처리 | 미완료 | — | — | 미착수 |
-| Backend | 프로그램 조건 처리 | 미완료 | — | — | 미착수 |
-| Backend | 웹 / 파일 출처 유형 조건 처리 | 미완료 | — | — | 미착수 |
-| Backend | 제목 키워드 검색 | 미완료 | — | — | 미착수 |
-| Backend | 복수 조건 결합 | 미완료 | — | — | 미착수 |
-| Backend | 결과 시간순 / 최근순 정렬 | 미완료 | — | — | 미착수 |
-| Shared | 검색 요청 구조 | 미완료 | — | — | 미착수 |
-| Shared | 검색 결과 구조 | 미완료 | — | — | 미착수 |
-| Shared | 출처 정보 구조 | 미완료 | — | — | 미착수 |
-| Tests | 오늘 기록 검색 | 미완료 | — | — | 미착수 |
-| Tests | 특정 날짜 범위 | 미완료 | — | — | 미착수 |
-| Tests | Chrome 기록만 검색 | 미완료 | — | — | 미착수 |
-| Tests | PDF 기록만 검색 | 미완료 | — | — | 미착수 |
-| Tests | 시간 + 프로그램 조건 | 미완료 | — | — | 미착수 |
-| Tests | 결과 없음 | 미완료 | — | — | 미착수 |
-| 완료 조건 | 시간 조건으로 기록을 찾을 수 있다. | 미완료 | — | — | 미착수 |
-| 완료 조건 | 프로그램 조건으로 기록을 찾을 수 있다. | 미완료 | — | — | 미착수 |
-| 완료 조건 | 웹/파일 출처를 구분해 검색할 수 있다. | 미완료 | — | — | 미착수 |
-| 완료 조건 | 결과에서 실제 출처와 열람 시각을 확인할 수 있다. | 미완료 | — | — | 미착수 |
+| Client | 검색 입력 화면 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
+| Client | 검색 결과 목록 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
+| Client | 결과 제목 / 출처 / 열람 시각 표시 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
+| Client | 결과 상세보기 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
+| Backend | 시간 범위 조건 처리 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Backend | 프로그램 조건 처리 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Backend | 웹 / 파일 출처 유형 조건 처리 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Backend | 제목 키워드 검색 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Backend | 복수 조건 결합 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Backend | 결과 시간순 / 최근순 정렬 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Shared | 검색 요청 구조 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
+| Shared | 검색 결과 구조 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
+| Shared | 출처 정보 구조 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
+| Tests | 가상 HTTP 조건 전달·결과/상세·빈 결과·오류·취소·복구 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
+| Tests | 입력·응답 조건 확인·정렬·기록 계약 검증 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
+| Tests | 오늘 기록 검색 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Tests | 특정 날짜 범위 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Tests | Chrome 기록만 검색 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Tests | PDF 기록만 검색 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Tests | 시간 + 프로그램 조건 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Tests | 결과 없음 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| 완료 조건 | 시간 조건으로 기록을 찾을 수 있다. | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| 완료 조건 | 프로그램 조건으로 기록을 찾을 수 있다. | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| 완료 조건 | 웹/파일 출처를 구분해 검색할 수 있다. | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| 완료 조건 | 결과에서 실제 출처와 열람 시각을 확인할 수 있다. | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
 
 ## Phase 012 — 의미 검색 및 혼합 검색
 

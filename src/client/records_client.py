@@ -22,8 +22,16 @@ def read_recent_records(payload: bytes) -> list[ContextRecord]:
     if (not isinstance(data, dict) or data.get("service") != SERVICE_NAME
             or type(data.get("api_version")) is not int or data["api_version"] != API_VERSION):
         raise ValueError("Incompatible service")
-    rows = data.get("records")
-    if not isinstance(rows, list) or len(rows) > RECENT_RECORDS_LIMIT:
+    records = read_context_records(data.get("records"))
+    # 문자열 순서는 서로 다른 시간대를 비교할 수 없다. 동일 시각은 ID순으로 고정한다.
+    records.sort(key=lambda record: record.id)
+    records.sort(key=lambda record: parse_timestamp(record.last_active_at), reverse=True)
+    return records
+
+
+def read_context_records(rows: object, limit: int = RECENT_RECORDS_LIMIT) -> list[ContextRecord]:
+    """최근 기록과 검색에서 공통으로 쓰는 행 검증. 응답 순서는 호출자가 결정한다."""
+    if not isinstance(rows, list) or len(rows) > limit:
         raise ValueError("Invalid records list")
     records = []
     identifiers = set()
@@ -49,9 +57,6 @@ def read_recent_records(payload: bytes) -> list[ContextRecord]:
             "id", "application", "process_name", "window_title", "started_at",
             "last_active_at", "active_duration_ms", "foreground_count",
         )}, browser=read_browser(row.get("browser")), document=read_document(row.get("document"))))
-    # 문자열 순서는 서로 다른 시간대를 비교할 수 없다. 동일 시각은 ID순으로 고정한다.
-    records.sort(key=lambda record: record.id)
-    records.sort(key=lambda record: parse_timestamp(record.last_active_at), reverse=True)
     return records
 
 
