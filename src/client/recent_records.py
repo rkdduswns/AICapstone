@@ -9,12 +9,16 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from client.clipboard_widget import ClipboardWidget
+from client.document_content_widget import DocumentContentWidget
 from client.records_client import RecordsClient
 from client.time_values import format_duration, format_timestamp, parse_timestamp
+from client.web_content_widget import WebContentWidget
 from shared.records import RECENT_RECORDS_LIMIT, ContextRecord
 
 
@@ -41,8 +45,8 @@ class RecentRecordsWidget(QWidget):
         self.button.setEnabled(False)
         self.button.clicked.connect(self.refresh)
         layout.addWidget(self.button)
-        self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["프로그램", "창 제목", "마지막 활성", "활성 시간"])
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(["프로그램", "창 제목", "마지막 활성", "활성 시간", "파일 출처"])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -51,7 +55,7 @@ class RecentRecordsWidget(QWidget):
         self.table.verticalHeader().hide()
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        for column, width in ((0, 125), (2, 120), (3, 80)):
+        for column, width in ((0, 125), (2, 120), (3, 80), (4, 140)):
             self.table.setColumnWidth(column, width)
         self.table.itemSelectionChanged.connect(self._show_selection)
         layout.addWidget(self.table, 1)
@@ -59,8 +63,18 @@ class RecentRecordsWidget(QWidget):
         self.detail.setReadOnly(True)
         self.detail.setTabChangesFocus(True)
         self.detail.setPlaceholderText("기록을 선택하면 전체 제목과 시간 정보를 확인할 수 있습니다.")
-        self.detail.setMaximumHeight(130)
-        layout.addWidget(self.detail)
+        self.detail_tabs = QTabWidget()
+        self.detail_tabs.addTab(self.detail, "작업 정보")
+        self.clipboard = ClipboardWidget(port, self)
+        self.detail_tabs.addTab(self.clipboard, "복사 텍스트")
+        self.web_content = WebContentWidget(port, self)
+        self.detail_tabs.addTab(self.web_content, "웹 본문")
+        self.document_content = DocumentContentWidget(port, self)
+        self.detail_tabs.addTab(self.document_content, "문서 본문")
+        self.detail_tabs.setMinimumHeight(220)
+        self.detail_tabs.setMaximumHeight(260)
+        self.detail_tabs.currentChanged.connect(self._detail_tab_changed)
+        layout.addWidget(self.detail_tabs)
         self.updated_at = QLabel("마지막 정상 조회: 없음")
         layout.addWidget(self.updated_at)
 
@@ -101,10 +115,15 @@ class RecentRecordsWidget(QWidget):
                 selected = row
             values = (record.application, record.window_title or "(제목 없음)",
                       parse_timestamp(record.last_active_at).astimezone().strftime("%m-%d %H:%M:%S"),
-                      format_duration(record.active_duration_ms))
+                      format_duration(record.active_duration_ms),
+                      record.document.file_path if record.document else "—")
             for column, value in enumerate(values):
                 # 기본 표 항목은 문자열을 HTML로 해석하지 않는다. 원문은 아래 상세란에 보존한다.
-                self.table.setItem(row, column, QTableWidgetItem(value))
+                item = QTableWidgetItem(value)
+                # 긴 경로는 가로 스크롤·툴팁과 작업 상세에서 원문 전체를 확인한다.
+                if column == 4 and record.document:
+                    item.setToolTip(record.document.file_path)
+                self.table.setItem(row, column, item)
         self.loaded = True
         self.status.setText(f"최근 기록 {len(records)}건" if records else "저장된 작업 기록이 없습니다.")
         self.updated_at.setText("마지막 정상 조회: "
@@ -114,25 +133,58 @@ class RecentRecordsWidget(QWidget):
             self.table.selectRow(selected)
 
     def _show_selection(self) -> None:
-        """선택 기록의 긴 제목과 시작/마지막 활성 시각을 일반 텍스트로 표시한다."""
+        """선택 기록의 시간과 브라우저/파일 출처를 일반 텍스트로 표시한다.
+
+        페이지 제목과 Windows 창 제목은 다른 출처이므로 구분한다. URL을 HTML 링크로
+        해석하거나 자동 실행하지 않아 긴 주소와 태그 모양의 제목도 그대로 확인할 수 있다.
+        """
         row = self.table.currentRow()
         if not 0 <= row < len(self.records):
             self.detail.clear()
+            self.clipboard.set_record(None)
+            self.web_content.set_record(None)
+            self.document_content.set_record(None)
             return
         record = self.records[row]
+        self.clipboard.set_record(record.id)
+        self.web_content.set_record(record)
+        self.document_content.set_record(record)
+        self._detail_tab_changed(self.detail_tabs.currentIndex())
+        browser_text = "\n브라우저 출처: 없음 / 서버 미제공"
+        if record.browser is not None:
+            page = record.browser
+            browser_name = "Google Chrome" if page.browser == "chrome" else "Microsoft Edge"
+            browser_text = (f"\n브라우저: {browser_name}\n페이지 제목: {page.page_title or '(제목 없음)'}"
+                            f"\nURL: {page.url or '없음 (새 탭·내부 페이지 등)'}")
+        document_text = "\n파일 출처: 없음 / 서버 미제공"
+        if record.document is not None:
+            document_text = (f"\n문서 유형: {record.document.file_type.upper()}"
+                             f"\n파일 경로: {record.document.file_path}")
         self.detail.setPlainText(
             f"프로그램: {record.application} · 프로세스: {record.process_name}\n"
             f"시작: {format_timestamp(record.started_at)}\n"
             f"마지막 활성: {format_timestamp(record.last_active_at)}\n"
             f"활성 시간: {format_duration(record.active_duration_ms)}"
             f" · 재방문: {record.foreground_count - 1}회\n"
-            f"창 제목: {record.window_title or '(제목 없음)'}")
+            f"창 제목: {record.window_title or '(제목 없음)'}" + browser_text + document_text)
+
+    def _detail_tab_changed(self, index: int) -> None:
+        """복사 텍스트·웹/문서 본문은 사용자가 해당 상세 탭을 열 때만 별도로 조회한다."""
+        if self.detail_tabs.widget(index) is self.clipboard:
+            self.clipboard.load_if_needed()
+        elif self.detail_tabs.widget(index) is self.web_content:
+            self.web_content.load_if_needed()
+        elif self.detail_tabs.widget(index) is self.document_content:
+            self.document_content.load_if_needed()
 
     def _clear_rows(self) -> None:
         """이전 응답과 선택된 상세 내용이 새 결과에 섞이지 않도록 비운다."""
         self.records = []
         self.table.setRowCount(0)
         self.detail.clear()
+        self.clipboard.set_record(None)
+        self.web_content.set_record(None)
+        self.document_content.set_record(None)
 
     def _show_error(self, message: str) -> None:
         """빈 목록과 오류를 구분하며 수동 새로고침으로 복구할 수 있게 한다."""

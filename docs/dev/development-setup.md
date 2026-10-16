@@ -154,3 +154,65 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 전체 검증 명령은 위의 pytest/Ruff/pip check와 동일하다.
 [최근 기록 API 계약](recent-records-api.md)과 [Phase 4 검증 보고서](../reports/phase4-client.md)를 참고한다.
 가상 미리보기 성공은 실제 저장소나 재시작 후 기록 유지 검증을 의미하지 않는다.
+
+## Phase 5 Client 확인
+
+추가 의존성 없이 `feat/phase5-client`의 제어 화면과 가상 HTTP 응답을 확인한다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/preview_phase5_client.py
+```
+
+- 어느 탭에서나 상단 `기록 일시정지`/`기록 재개` 버튼을 사용할 수 있다.
+- 개인정보 보호 탭에서 `chrome.exe`를 한 줄에 입력하고 `차단 목록 적용`을 누르면 가상 차단 상태가 표시된다.
+- 빈 목록을 적용하면 차단 목록을 비운다. `입력 되돌리기`는 서버에 쓰지 않고 초안만 복원한다.
+- `--reason sensitive_content`로 가상 민감 문자열 차단 표시를, `--snapshot <PNG 경로>`로 화면 저장을 확인한다.
+- 미리보기 입력은 프로세스 메모리에만 존재하고 창을 닫으면 사라진다. 실제 작업은 수집/필터/저장하지 않는다.
+
+자동 검증은 기존 pytest/Ruff/pip check 명령을 사용한다. 신규 검증 범위는 Client 계약·UI·가상 HTTP 요청이다.
+실제 일시정지 중 저장 방지, 차단 프로그램/민감 문자열 차단, 재개 후 저장 및 기존 기록 불변은 Backend 연결 후 수행한다.
+정상 실행에서 기존 Backend에 연결하면 보호 상태 `미확인`과 `기능 준비 중`이 표시되며 변경 버튼은 비활성화된다.
+[개인정보 API 계약](privacy-api.md)과 [검증 보고서](../reports/phase5-client.md)를 따른다.
+
+## Phase 6 Client 확인
+
+`feat/phase6-client`는 미병합 Phase 5 Client에 의존한다. 추가 의존성은 없다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/preview_phase6_client.py
+.\.venv\Scripts\python.exe tools/preview_phase6_client.py --settings
+```
+
+각 명령을 하나씩 실행한다. 기본 화면은 최근 작업의 `복사 텍스트` 상세이며 `--settings`는 개인정보 설정 탭을 연다.
+`--snapshot <PNG 경로>`로 첫 유효 응답을 화면 이미지로 저장하고 종료할 수 있다.
+
+- 개인정보 보호 탭에서 초기 `꺼짐`을 확인하고 켜기/끄기를 요청한다. 전체 일시정지 상태와 입력 중 차단 목록이 유지되는지 확인한다.
+- 최근 기록에서 작업을 선택하고 복사 텍스트 탭을 열어 복사 시각별 원문과 줄바꿈을 확인한다.
+- 가상 저장 항목은 기록 설정을 꺼도 그대로 조회된다. 꺼짐은 이후 수집 설정이며 기존 기록 삭제 기능이 아니다.
+- 미리보기는 고정된 가상 데이터만 제공한다. OS 클립보드 읽기·쓰기·감시나 파일 저장은 수행하지 않는다.
+- 기존 Phase 5 응답에 클립보드 설정이 없으면 `기능 미지원`으로 표시하고 클립보드 변경 버튼만 잠근다.
+
+가상 HTTP 검증 및 기존 기능 회귀에는 기존 pytest/Ruff/pip check 명령을 사용한다.
+실제 클립보드 수집·중복 방지·작업 전환 연결·민감정보/일시정지 차단·저장은 Backend 연결 후 검증한다.
+[클립보드 API 계약](clipboard-api.md)과 [Phase 6 보고서](../reports/phase6-client.md)를 따른다.
+
+## Phase 8 Client 확인
+
+`feat/phase8-client`는 미병합 Phase 7 Client에 의존한다. 추가 의존성은 없다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/preview_phase8_client.py
+.\.venv\Scripts\python.exe tools/preview_phase8_client.py --web-state truncated
+```
+
+각 명령은 하나씩 실행한다. 기본 화면은 최근 기록의 `웹 본문` 상세다.
+
+- 페이지 제목·URL·수집 시각과 저장 본문을 확인한다. `<b>` 같은 태그도 글자로 표시되어야 한다.
+- `--web-state empty`는 본문 없음, `truncated`는 길이 제한 안내와 50,000자 스크롤을 확인한다.
+- `--web-state unsupported`는 API 미지원, `denied`는 조회 거부를 확인한다.
+- `--snapshot <PNG 경로>`는 해당 결과를 화면 이미지로 저장하고 종료한다.
+- 현재 실제 Backend에는 새 endpoint가 없으며 가상 미리보기만 본문을 제공한다.
+- 실제 브라우저·외부 URL·저장소를 읽지 않는다. 화면 성공은 실제 수집/저장/차단 검증과 별개다.
+
+검증 명령은 기존 pytest/Ruff/pip check와 동일하다.
+[웹 본문 API 계약](web-content-api.md)과 [Phase 8 보고서](../reports/phase8-client.md)를 따른다.

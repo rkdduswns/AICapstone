@@ -3,7 +3,7 @@ on:
   push:
     branches: [main, chore/phase1-preparation]
   pull_request:
-    branches: [main, 'feat/phase*-client']
+    branches: [main, 'feat/phase*-client', 'feat/phase*-shared']
   workflow_dispatch:
 permissions:
   contents: read

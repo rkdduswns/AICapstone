@@ -1,5 +1,8 @@
 # Phase 4 최근 기록 API 계약
 
+Phase 7 확장: 선택적 브라우저 종류·페이지 제목·URL은 [브라우저 출처 계약](browser-api.md)을 따른다.
+Phase 8 확장: 선택 작업의 저장 웹 본문은 [별도 상세 조회 계약](web-content-api.md)을 따른다.
+
 상태: Client/Shared 구현 및 가상 HTTP 검증 완료. Backend 저장소와 endpoint는 미구현이다.
 이 문서를 Backend 구현 기준으로 사용하며, Phase 4 전체는 실제 저장·재시작 복원 검증 전까지 IN_PROGRESS다.
 
@@ -89,3 +92,11 @@
 6. 기존 API의 [접근 제어 검토 사항](health-api.md)과 저장 전 개인정보 보호 원칙을 따른다.
 
 현재 가상 HTTP 테스트와 미리보기는 실제 DB 저장·재방문 계산·Backend 재시작 복원의 증거가 아니다.
+
+Phase 6 복사 텍스트는 최근 목록 응답에 포함하지 않고 선택한 작업 ID로 별도 조회한다.
+[클립보드 상세 계약](clipboard-api.md)을 따른다.
+
+## Phase 9 파일 출처 확장
+
+최근 기록의 선택적 document 필드와 별도 저장 본문 조회는 [문서 출처·본문 계약](document-content-api.md)을 따릅니다.
+생략/null인 기존 응답은 출처 없음으로 호환합니다. 실제 경로 식별과 저장은 Backend 책임입니다.
