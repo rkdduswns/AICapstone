@@ -3,18 +3,24 @@
 복잡한 코드를 원본과 분리해 복사하고, 단계별 상세 설명을 요청하는 공간입니다.
 이 폴더의 코드는 학습 당시의 사본이며 실제 프로젝트 구현 기준이 아닙니다.
 
+## Phase별 학습 자료
+
+학습 자료는 `chore/study-workspace` 브랜치에 모아 관리합니다.
+**[Phase 순서로 전체 학습 자료 열기](00-learning-path.md)**
+
+| Phase | 주제 |
+|---|---|
+| 001 | [HTTP와 FastAPI](phase001-01-health-api/explanation.md) |
+| 002 | [비동기 HTTP](phase002-01-async-http/explanation.md), [응답 검증](phase002-02-response-validation/explanation.md) |
+| 003 | [Python 데이터 구조](phase003-01-python-data/explanation.md) |
+| 004 | [Qt 이벤트](phase004-01-qt-events/explanation.md), [클라이언트 테스트](phase004-02-client-tests/explanation.md) |
+
 ## 주제별 구성
 
 설명이 필요할 때에만 아래 형태로 주제 폴더를 추가합니다.
 
-```text
-etc/study/
-  README.md
-  TEMPLATE.md
-  001-backend-health/       # 예시: 요청 시 생성
-    source.py              # 선택한 원본의 학습용 사본
-    explanation.md         # TEMPLATE.md를 복사해 작성
-```
+`phaseNNN-SS-주제/` 아래에 `explanation.md`와 원본 상대 경로를 유지한 코드 사본을 둡니다.
+예: `phase001-01-health-api/src/backend/app.py`.
 
 1. 최신 `src/` 또는 `tests/` 원본을 먼저 확인합니다.
 2. 요청한 코드만 주제 폴더에 복사합니다. 외부 비밀값·실제 사용자 데이터는 복사하지 않습니다.
@@ -25,7 +31,7 @@ etc/study/
 
 ## 설명 요청 예시
 
-> src/client/backend_client.py를 etc/study/001-backend-connection에 복사하고,
+> src/client/backend_client.py를 etc/study/phase002-02-response-validation에 복사하고,
 > 각 함수의 역할, 호출 순서, Qt 이벤트 루프, timeout과 예외 처리를 단계별로 설명해줘.
 > 학습용 사본에 상세한 한국어 주석을 달고 원본은 수정하지 마.
 
