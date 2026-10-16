@@ -50,7 +50,7 @@ def test_internal_error_is_sanitized_and_recovers(monkeypatch):
         assert response.status_code == 500
         assert response.json() == {
             "ok": False, "data": None,
-            "error": {"code": "INTERNAL_ERROR", "message": "상태 확인 중 오류가 발생했습니다."},
+            "error": {"code": "INTERNAL_ERROR", "message": "요청 처리 중 오류가 발생했습니다."},
         }
         monkeypatch.setattr(backend_app, "get_health", original)
         assert client.get("/health").status_code == 200
