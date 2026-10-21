@@ -39,7 +39,8 @@ def test_standalone_http_and_shutdown(tmp_path):
     # The short gap between reservation and child bind is unavoidable for this CLI test.
     with (tmp_path / "server.log").open("w+") as log:
         process = subprocess.Popen(
-            [sys.executable, "-m", "backend", "--port", str(port)], stdout=log, stderr=log
+            [sys.executable, "-m", "backend", "--port", str(port),
+             "--db-path", str(tmp_path / "activity.db")], stdout=log, stderr=log
         )
         try:
             with httpx.Client(base_url=f"http://127.0.0.1:{port}",

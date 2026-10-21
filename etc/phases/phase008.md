@@ -1,5 +1,11 @@
 # Phase 8 - 웹페이지 본문 수집
 
+## 2026-10-21 통합 상태
+
+main의 본문 수신 API에 공유 일시정지·민감 패턴 검사를 적용했다. 작업 ID 연결과 Client의 작업별 본문 조회 API는 미구현이다.
+브랜치: `feat/client-backend-integration`. [통합 검증](../../docs/reports/client-backend-integration.md).
+아래 기존 날짜의 범위 설명은 최초 Client 선행 개발 시점의 기록이다. 전체 Phase는 IN_PROGRESS다.
+
 ## 목표
 URL과 제목뿐 아니라 사용자가 실제로 본 웹페이지의 검색 가능한 텍스트를 확보한다.
 

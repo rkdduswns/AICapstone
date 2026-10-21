@@ -1,15 +1,17 @@
 
 """Local HTTP boundary for health, activity, browser, and document APIs."""
 
+import asyncio
 import hmac
 import logging
 import os
 import tempfile
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path, PureWindowsPath
-from typing import Literal
+from typing import Callable, Literal
 
 from fastapi import FastAPI, File, Header, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
@@ -19,6 +21,8 @@ from starlette.exceptions import HTTPException
 
 from backend.activity_store import ActivityStore
 from backend.activity_tracker import ActivityTracker
+from backend.client_api import install_client_routes
+from backend.clipboard_collector import ClipboardCollector
 from backend.document_extractor import (
     MAX_DOCUMENT_SIZE,
     SUPPORTED_EXTENSIONS,
@@ -83,22 +87,80 @@ def create_app(
     browser_token: str | None = None,
     activity_store: ActivityStore | None = None,
     privacy_policy: PrivacyPolicy | None = None,
+    clipboard_reader: Callable[[], str | None] | None = None,
+    collection_interval: float | None = 1.0,
 ) -> FastAPI:
-    """Create the FastAPI application with injectable dependencies."""
+    """추적·설정·업로드가 같은 정책/저장소를 사용하며 수집 수명은 서버가 관리한다.
+
+    테스트는 감지기와 저장소를 주입하고 collection_interval=None으로 자동 폴링을 끈다.
+    실제 실행은 Client 탭/연결과 관계없이 수집하며 정상 종료 시 마지막 세션을 저장한다.
+    """
+    if collection_interval is not None and collection_interval <= 0:
+        raise ValueError("collection_interval must be positive")
+    tracker = activity_tracker or ActivityTracker()
+    policy = privacy_policy or tracker.privacy_policy
+    tracker.configure(store=activity_store, privacy_policy=policy)
+    collector = ClipboardCollector(tracker, privacy_policy=policy, clipboard_reader=clipboard_reader)
+
+    def sample_activity():
+        """한 스냅샷을 공유하고 클립보드 실패가 현재 창 조회를 중단하지 않게 한다."""
+        activity = tracker.get_current_activity()
+        try:
+            collector.collect_once(activity)
+        except Exception as exc:
+            logger.warning("Clipboard collection failed (%s)", type(exc).__name__)
+        return activity
+
+    async def collect_loop():
+        """동일 이벤트 루프에서 설정 변경과 직렬화하여 변경 완료 후 옛 정책으로 쓰지 않는다."""
+        while True:
+            sample_activity()
+            await asyncio.sleep(collection_interval)
+
+    @asynccontextmanager
+    async def lifespan(app):
+        """서버 시작 시 수집을 예약하고 종료 시 타이머와 마지막 기록을 정리한다."""
+        task = asyncio.create_task(collect_loop()) if collection_interval is not None else None
+        try:
+            yield
+        finally:
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass  # 정상 종료 시 취소한 수집 루프의 완료를 기다린 결과다.
+            tracker.finish()
+
     app = FastAPI(
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
         redirect_slashes=False,
+        lifespan=lifespan,
     )
-    app.state.activity_tracker = activity_tracker or ActivityTracker()
+    app.state.activity_tracker = tracker
+    app.state.clipboard_collector = collector
+    app.state.clipboard_enabled = False
     app.state.browser_token = (
         browser_token
         if browser_token is not None
         else os.environ.get("CONTEXTTRACE_BROWSER_TOKEN", "")
     )
     app.state.activity_store = activity_store
-    app.state.browser_privacy_policy = privacy_policy or PrivacyPolicy()
+    app.state.browser_privacy_policy = policy
+    install_client_routes(app)
+
+    def get_store():
+        """추적기와 업로드 API가 같은 저장소를 지연 생성해 사용한다."""
+        store = tracker.store
+        app.state.activity_store = store
+        return store
+
+    def check_collection(text: str | None = None) -> None:
+        """수신 시작과 저장 직전에 같은 정책을 확인하여 일시정지 중 새 자료를 쓰지 않는다."""
+        if policy.collection_paused or (text is not None and policy.contains_sensitive_data(text)):
+            raise HTTPException(403)
 
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
@@ -106,7 +168,7 @@ def create_app(
 
     @app.get(ACTIVITY_PATH)
     async def current_activity():
-        activity = app.state.activity_tracker.get_current_activity()
+        activity = sample_activity()
         return asdict(activity_response(activity))
 
     @app.get(ACTIVITY_HISTORY_PATH)
@@ -120,7 +182,7 @@ def create_app(
 
     @app.get(RECENT_RECORDS_PATH)
     async def recent_records(
-    limit: int = Query(default=RECENT_RECORDS_LIMIT, ge=1, le=200),
+        limit: int = Query(default=RECENT_RECORDS_LIMIT, ge=1, le=RECENT_RECORDS_LIMIT),
     ):
         records = app.state.activity_tracker.get_recent_records(limit)
 
@@ -149,6 +211,7 @@ def create_app(
     @app.post("/documents", status_code=201)
     async def upload_document(file: UploadFile = File(...)):
         """Extract and persist an uploaded PDF or DOCX document."""
+        check_collection()
         original_filename = PureWindowsPath(file.filename or "").name
 
         if not original_filename or original_filename in {".", ".."}:
@@ -204,10 +267,8 @@ def create_app(
 
         captured_at = datetime.now(timezone.utc).isoformat()
 
-        store = app.state.activity_store
-        if store is None:
-            store = ActivityStore()
-            app.state.activity_store = store
+        store = get_store()
+        check_collection(extracted_text)
 
         try:
             document_id = store.save_document_record(
@@ -238,10 +299,7 @@ def create_app(
         limit: int = Query(default=50, ge=1, le=200),
     ):
         """Return recently uploaded documents."""
-        store = app.state.activity_store
-        if store is None:
-            store = ActivityStore()
-            app.state.activity_store = store
+        store = get_store()
 
         records = store.get_recent_document_records(limit)
 
@@ -287,6 +345,7 @@ def create_app(
             )
 
         policy = app.state.browser_privacy_policy
+        check_collection()
         try:
             sanitized_url = policy.sanitize_browser_url(url)
         except ValueError as exc:
@@ -298,10 +357,7 @@ def create_app(
         sanitized_title = policy.sanitize_title(page_title)
         captured_at = datetime.now(timezone.utc).isoformat()
 
-        store = app.state.activity_store
-        if store is None:
-            store = ActivityStore()
-            app.state.activity_store = store
+        store = get_store()
 
         record_id = store.save_browser_source_record(
             browser=payload.browser,
@@ -350,16 +406,14 @@ def create_app(
             )
 
         content_text = payload.content_text.strip()
+        check_collection(content_text)
         if not content_text:
             raise HTTPException(
                 status_code=422,
                 detail="Page content must not be empty",
             )
 
-        store = app.state.activity_store
-        if store is None:
-            store = ActivityStore()
-            app.state.activity_store = store
+        store = get_store()
 
         captured_at = datetime.now(timezone.utc).isoformat()
 

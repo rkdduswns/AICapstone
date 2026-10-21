@@ -11,6 +11,7 @@ class JsonRequest(QObject):
 
     received = Signal(bytes)
     failed = Signal(str, int)
+    success_statuses = (200,)
 
     def __init__(self, port: int = DEFAULT_PORT, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -69,7 +70,7 @@ class JsonRequest(QObject):
             status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
             if self.timed_out:
                 self.failed.emit("timeout", 0)
-            elif status is not None and status != 200:
+            elif status is not None and status not in self.success_statuses:
                 self.failed.emit("http", status)
             elif reply.error() != QNetworkReply.NetworkError.NoError:
                 self.failed.emit("network", 0)

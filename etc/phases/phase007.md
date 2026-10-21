@@ -1,5 +1,11 @@
 # Phase 7 - 브라우저 기본 연동
 
+## 2026-10-21 통합 상태
+
+main의 브라우저 수신/저장 API에 공유 일시정지 정책을 연결했다. Browser 확장·작업 ID 연결·URL 차단은 미구현이다.
+브랜치: `feat/client-backend-integration`. [통합 검증](../../docs/reports/client-backend-integration.md).
+아래 기존 날짜의 범위 설명은 최초 Client 선행 개발 시점의 기록이다. 전체 Phase는 IN_PROGRESS다.
+
 ## 목표
 Chrome/Edge의 현재 탭 제목과 URL을 Windows 작업 기록에 연결한다.
 

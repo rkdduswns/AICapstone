@@ -198,7 +198,7 @@ class ActivityStore:
                     ended_at,
                     active_duration_ms
                 FROM activity_records
-                ORDER BY started_at DESC, id DESC
+                ORDER BY julianday(ended_at) DESC, id DESC
                 LIMIT ?
                 """,
                 (limit,),
@@ -219,6 +219,40 @@ class ActivityStore:
             )
             for row in rows
         ]
+
+    def get_record(self, record_id: int) -> ActivityRecord | None:
+        """목록 제한과 무관하게 실제 저장 ID 하나를 조회한다. 외부 값을 SQL에 보간하지 않는다."""
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT * FROM activity_records WHERE id = ?", (record_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        return ActivityRecord(**dict(row)) if row is not None else None
+
+    def get_record_clipboard(self, record: ActivityRecord, limit: int) -> list[ClipboardRecord]:
+        """기존 DB의 애플리케이션·세션 시작 키로 연결된 복사 항목만 조회한다.
+
+        과거 스키마에 작업 외래 키가 없으므로 동일 키의 작업이 여러 개면 연결을 추측하지
+        않는다. 제목이나 단순한 시간 근접도로 다른 작업의 텍스트를 가져오지 않는다.
+        """
+        connection = self._connect()
+        try:
+            count = connection.execute(
+                "SELECT count(*) FROM activity_records WHERE application = ? AND started_at = ?",
+                (record.application, record.started_at),
+            ).fetchone()[0]
+            if count != 1:
+                return []
+            rows = connection.execute(
+                "SELECT * FROM clipboard_records WHERE application = ? AND activity_started_at = ? "
+                "ORDER BY julianday(captured_at) DESC, id DESC LIMIT ?",
+                (record.application, record.started_at, limit),
+            ).fetchall()
+        finally:
+            connection.close()
+        return [ClipboardRecord(**dict(row)) for row in rows]
 
     def save_clipboard_record(
         self,

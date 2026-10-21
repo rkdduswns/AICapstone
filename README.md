@@ -38,12 +38,33 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 Phase 1 실행 골격 및 Client–Backend 연결을 완료했습니다(2026-09-24).
 Linux 및 Windows 자동 테스트와 사용자 실행 확인을 근거로 완료 처리했습니다.
 Phase 2–9는 Client 현재 창·시간·최근 기록·개인정보/클립보드/URL 설정·복사 텍스트·브라우저 출처·저장 웹/문서 본문·파일 출처 화면과 Shared 구조를 먼저 구현했습니다.
-Browser 확장, Backend의 Windows 감지, 시간 추적, 로컬 저장, 보호 검사 및 실제 통합은 미완료입니다.
+main에 Backend의 Windows 감지·세션 저장·브라우저 수신·문서 추출 구현이 반영됐습니다.
+통합 작업 브랜치에서는 현재 창·기록·개인정보/클립보드 설정과 문서 가져오기를 실제 API에 연결합니다.
+Windows 수동 검증, 재방문 집계, 브라우저/문서의 작업 출처 연결과 실제 검색은 남아 있습니다.
 최신 진행 상태와 검증 근거는 [개발 Phase](etc/phases/README.md)에 기록합니다.
 
 설치 후 `python -m backend`로 Backend를 실행하고 `http://127.0.0.1:8765/health`에서 확인합니다.
 검증 명령: `python -m pytest -q`, `python -m ruff check src tests`.
 [1A 구현 및 검증 결과](docs/reports/phase1-backend.md)를 참고하세요.
+
+## 실제 Client–Backend 실행
+
+의존성을 설치한 뒤 프로젝트 루트의 PowerShell 두 개에서 각각 실행합니다.
+
+```powershell
+# 첫 번째 터미널: 실행 중 작업을 수집하고 정상 종료 시 마지막 세션을 저장합니다.
+.\.venv\Scripts\python.exe -m backend
+```
+
+```powershell
+# 두 번째 터미널: 연결 확인 후 현재 작업·최근 기록·설정·문서 가져오기를 사용합니다.
+.\.venv\Scripts\python.exe -m client
+```
+
+`문서 가져오기`는 선택한 PDF·DOCX의 실제 본문을 추출·저장합니다. 원본 열람 이력과는 구분합니다.
+설정은 서버 재실행 시 초기화되며 클립보드 수집은 기본 꺼짐입니다.
+[통합 범위·검증·남은 기능](docs/reports/client-backend-integration.md)을 확인하세요.
+아래 Phase별 preview 명령은 가상 데이터 확인용입니다.
 
 ## 디렉토리 구조
 

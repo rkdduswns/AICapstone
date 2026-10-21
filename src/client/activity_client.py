@@ -21,7 +21,7 @@ def read_activity(payload: bytes) -> CurrentActivity:
             or type(data.get("api_version")) is not int or data["api_version"] != API_VERSION):
         raise ValueError("Incompatible service")
     status = data.get("collection_status")
-    if status not in ("collecting", "no_active_window", "unsupported", "error"):
+    if status not in ("collecting", "no_active_window", "unsupported", "error", "paused", "blocked"):
         raise ValueError("Invalid collection status")
     if "window" not in data:
         raise ValueError("Missing window field")

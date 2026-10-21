@@ -21,7 +21,8 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m ruff check src tests
 ```
 
-Phase 1 및 Phase 2–4 Client가 통합된 최신 main을 사용한다.
+Client Phase 2–11과 Backend 구현이 통합된 main을 기준으로 한다.
+실제 연결 작업은 `feat/client-backend-integration` 브랜치에서 진행한다.
 가상환경 활성화 없이 해당 Python을 직접 사용하므로 PowerShell 실행 정책 변경이 필요 없다.
 이미 clone했다면 작업 중인 변경을 저장하고 `git fetch origin`, `git switch main`, `git pull --ff-only origin main`으로 갱신한다.
 
@@ -60,6 +61,10 @@ Backend, Client Qt 이벤트 루프, 실제 HTTP 연결 및 실패/복구를 검
 
 ## Backend 실행 및 확인 (1A)
 
+현재 통합 브랜치의 실제 실행도 아래 두 터미널 명령을 사용한다. 과거 Phase 1 범위와
+현재 연결 상태의 차이는 [통합 검증 보고서](../reports/client-backend-integration.md)를 따른다.
+Windows에서는 창 감지가 동작하며 Linux에서는 `unsupported`가 정상이다.
+
 저장소 루트에서 설치를 마친 뒤 실행한다.
 
 ```powershell
@@ -76,6 +81,8 @@ Invoke-RestMethod http://127.0.0.1:8765/health | ConvertTo-Json -Depth 4
 Linux에서는 `.venv/bin/python -m backend`를 사용한다.
 포트 변경: `python -m backend --port 8766`. 1–65535 범위만 허용한다.
 기본 호스트는 127.0.0.1이며 외부 인터페이스로 변경하는 옵션은 제공하지 않는다.
+검증용 DB를 분리하려면 `--db-path "$env:TEMP\contexttrace-check\activity.db"`를 지정한다.
+생략하면 사용자 홈의 `.contexttrace/activity.db`를 사용하며 저장소 안에 DB를 만들지 않는다.
 종료는 Ctrl+C. 사용 중인 포트로 실행하면 오류 로그와 비정상 종료 코드가 반환된다.
 Windows 자동 실행 검증과 사용자 확인 결과는 [검증 보고서](../reports/phase1-client-windows.md)를 따른다.
 
@@ -88,6 +95,11 @@ Backend와 별도의 터미널에서 실행한다.
 ```
 
 서버 포트를 변경했다면 Client에도 동일하게 `--port 8766`을 지정한다.
+연결 확인 후 현재 창·최근 기록·개인정보 설정을 사용한다. 최근 기록은 종료된 세션만 표시하므로
+다른 창으로 전환한 다음 새로고침한다. 클립보드는 개인정보 보호 탭에서 명시적으로 켠다.
+`문서 가져오기` 탭에서는 PDF/DOCX 선택, 업로드, 목록 새로고침, 저장 본문을 확인한다.
+이 시각은 가져온 시각이며 원본 열람 시각이 아니다. 일시정지 상태에서는 새 업로드도 거부된다.
+설정은 현재 프로세스 메모리에서 관리하며 Backend를 재실행하면 기본값으로 초기화된다.
 Linux 자동 검증은 Qt offscreen을 사용하며 Windows에서는 기본 Windows Qt 플랫폼을 사용한다.
 
 ## Windows 10/11 수동 검증

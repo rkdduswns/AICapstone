@@ -7,6 +7,20 @@ from shared.protocol import API_VERSION, SERVICE_NAME
 
 RECORD_DOCUMENT_CONTENT_PATH = "/records/document-content"
 MAX_DOCUMENT_CONTENT_LENGTH = 50000
+DOCUMENTS_PATH = "/documents"
+MAX_DOCUMENT_UPLOAD_BYTES = 20 * 1024 * 1024
+DOCUMENT_LIST_LIMIT = 20
+
+
+@dataclass(frozen=True)
+class ImportedDocument:
+    """명시적으로 가져온 문서. 저장 시각만 알며 원본 경로나 작업 열람 시각을 추정하지 않는다."""
+
+    id: int
+    file_name: str
+    file_type: Literal["pdf", "docx"]
+    captured_at: str
+    extracted_text: str
 
 
 @dataclass(frozen=True)

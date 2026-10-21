@@ -21,19 +21,19 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | Phase 13 | 근거 기반 RAG | 검색 기록 기반 답변과 출처 제공 |
 | Phase 14 | 작업 세션·타임라인·안정화 | 세션 구성, 전체 통합, 최종 검증 |
 
-현재 상태 (2026-10-15):
+현재 상태 (2026-10-21, `feat/client-backend-integration` 검증 포함):
 
 | Phase | Client·Shared 선행 상태 | 전체 상태 / 남은 작업 |
 |---|---|---|
 | 1 | DONE | DONE |
-| 2 | DONE · 현재 창 표시/자동 조회 | IN_PROGRESS · Backend Windows 감지, 실제 창 전환 통합 |
-| 3 | DONE · 시작 시각/누적 활성 시간 표시 | IN_PROGRESS · Backend 시간/종료/재방문 계산과 통합 |
-| 4 | DONE · 최근 기록 조회/새로고침 | IN_PROGRESS · Backend 저장/갱신/조회, 재시작 복원과 통합 |
-| 5 | DONE · 일시정지/차단 목록/기록 상태 | IN_PROGRESS · Backend 저장 전 보호 검사 및 실제 차단·재개 검증 |
-| 6 | DONE · 클립보드 기록 설정/복사 텍스트 상세 | IN_PROGRESS · Backend 감지·작업 연결·중복 방지·필터·실제 저장 검증 |
+| 2 | DONE · 현재 창 표시/자동 조회 | IN_PROGRESS · 실제 API 연결 완료, Windows 창 전환 수동 검증 잔여 |
+| 3 | DONE · 시작 시각/누적 활성 시간 표시 | IN_PROGRESS · 세션 시간/종료 저장 연결, 재방문 집계 잔여 |
+| 4 | DONE · 최근 기록 조회/새로고침 | IN_PROGRESS · 실제 SQLite 저장/조회·DB 재조회 검증, 갱신/재방문/Windows 수동 검증 잔여 |
+| 5 | DONE · 일시정지/차단 목록/기록 상태 | IN_PROGRESS · 실제 설정 API/수집기 연결, 설정 영속화·Windows 수동 검증 잔여 |
+| 6 | DONE · 클립보드 기록 설정/복사 텍스트 상세 | IN_PROGRESS · 실제 수집기/DB/조회 연결, Windows 실제 복사 수동 검증 잔여 |
 | 7 | DONE · 브라우저 출처/URL 차단 설정 | IN_PROGRESS · 확장·Backend 작업 연결·URL 차단·실제 저장 검증 |
 | 8 | DONE · 저장 웹 본문/수집 시각/출처 상세 | IN_PROGRESS · Browser 추출·Backend 정제/중복 제거·실제 저장/차단 검증 |
-| 9 | DONE · 파일 출처/저장 문서 본문/추출 시각 | IN_PROGRESS · Backend 파일 감지·PDF/DOCX 추출·실제 저장/차단 검증 |
+| 9 | DONE · 파일 출처/저장 본문 및 문서 가져오기 | IN_PROGRESS · 실제 PDF/DOCX 추출·업로드 연결, 자동 감지/원본 경로·작업 연결 잔여 |
 | 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 정규화·분할·임베딩·저장/삭제·역추적 통합 |
 | 11 | Client DONE · 명시적 조건 검색·목록·출처 상세 | IN_PROGRESS · Backend 실제 필터·조회·정렬·통합 |
 
@@ -42,31 +42,19 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 [Phase 5](../../docs/reports/phase5-client.md), [Phase 6](../../docs/reports/phase6-client.md),
 [Phase 7](../../docs/reports/phase7-client.md), [Phase 8](../../docs/reports/phase8-client.md), [Phase 9](../../docs/reports/phase9-client.md),
 [Phase 10](../../docs/reports/phase10-shared.md), [Phase 11](../../docs/reports/phase11-client.md).
-Client Phase 2–4는 2026-10-02 main에 병합했다. 후속 Client 개발은 최신 main을 기준으로 한다.
-Backend 감지·시간 추적·저장 구현은 별도 진행하며 통합 시 main의 Shared/API 계약을 반영한다.
-Phase 5 Client는 최신 main에서 분기한 `feat/phase5-client`에 있다. 가상 HTTP로 화면과 요청을 확인했으며,
-실제 수집·저장 차단 테스트는 Backend 연결 후 진행한다.
-Phase 6 Client는 미병합 Phase 5에 의존하여 `feat/phase5-client`에서 분기한 `feat/phase6-client`에 있다.
-실제 클립보드 수집/저장 테스트 역시 Backend 연결 후 진행한다.
-Phase 7 Client는 미병합 Phase 6에 의존하여 `feat/phase6-client`에서 분기한 `feat/phase7-client`에 있다.
-실제 브라우저 수집·작업 연결·URL 차단 검증은 Browser/Backend 연결 후 진행한다.
-Phase 8은 Client 선행 범위로 저장 웹 본문 확인 화면과 조회 계약을 추가했다.
-`feat/phase8-client`는 미병합 `feat/phase7-client`에서 분기했다. 실제 추출·정제·저장 검증은 남아 있다.
-
-Phase 9 Client는 미병합 feat/phase8-client에서 분기한 feat/phase9-client에 있다.
-파일 경로·유형과 저장 문서 본문 조회를 구현했다. 실제 PDF/DOCX 추출은 기획대로 핵심 검색 안정화 후 확장한다.
-
-Phase 10은 별도 화면 없이 검색 문서 조각·출처 공통 구조와 Client 수신 검증을 먼저 구현했다.
-feat/phase10-shared는 미병합 feat/phase9-client에서 분기했다. 실제 검색 데이터 구축은 Backend에 남아 있다.
-Phase 11 Client는 feat/phase10-shared에서 분기한 feat/phase11-client에 있다.
-제목·프로세스·출처·날짜 조건과 결과 상세를 가상 HTTP로 검증했다. 실제 저장소 검색은 Backend에 남아 있다.
+Client Phase 2–4는 2026-10-02, Phase 5–11 Client/Shared는 2026-10-16 main에 병합했다.
+Backend 활성 창·세션 저장·브라우저 수신·PDF/DOCX 추출 구현은 2026-10-21 main에 반영됐다.
+`feat/client-backend-integration`에서 실제 HTTP/Qt/SQLite 통합과 문서 가져오기를 검증한다.
+[통합 보고서](../../docs/reports/client-backend-integration.md)에 연결 범위·검증 결과·제한을 기록한다.
+브라우저/문서의 작업 ID 연결, URL 차단, 검색 데이터/조건 검색 API, LLM은 여전히 미구현이다.
+가상 OS 입력을 실제 Backend로 처리한 검증과 Windows 데스크톱 수동 검증을 구분한다.
 
 매 작업의 구현·검증·미완료 항목을 코드·문서·PR에 기록하고, 최신 브랜치와 검증 근거로 완료 상태를 판단한다.
 
 ## 단계별 선행조건
 
-- Phase 4 저장 기능은 가상 데이터로 검증한다. 실제 사용자 기록을 저장하기 전 Phase 5의 저장 전 개인정보 보호 검사를 적용한다.
-- 기획에서 PDF/DOCX는 핵심 기능 안정화 후 확장 범위다. Phase 9 Client는 출처 표시·저장 결과 조회만 먼저 구현했고, 실제 추출은 검색 기능(Phase 10–12) 안정화 후 진행한다.
+- 실제 Backend 저장 흐름은 가상 OS 입력과 SQLite로 자동 검증한다. 실제 Windows 데이터 수집 전 저장 전 개인정보 정책과 수동 검증을 확인한다.
+- PDF/DOCX 수동 가져오기·추출·저장은 구현됐다. 자동 파일 감지와 원본 경로/열람 이력 연결은 검색 흐름과 함께 후속 통합한다.
 
 ## 진행 원칙
 

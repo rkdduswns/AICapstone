@@ -40,6 +40,27 @@ class ActivityTracker:
         self._start_tick: float | None = None
         self._privacy_policy = privacy_policy or PrivacyPolicy()
 
+    def configure(self, store=None, privacy_policy: PrivacyPolicy | None = None) -> None:
+        """API·수집기가 동일한 저장소와 정책을 사용하도록 앱 시작 시 의존성을 연결한다."""
+        if store is not None:
+            self._store = store
+        if privacy_policy is not None:
+            self._privacy_policy = privacy_policy
+
+    @property
+    def privacy_policy(self) -> PrivacyPolicy:
+        """주입된 추적기의 정책을 API에서도 공유하여 설정과 실제 판정이 어긋나지 않게 한다."""
+        return self._privacy_policy
+
+    @property
+    def store(self):
+        """필요할 때만 DB를 열고 모든 API에 같은 저장소 인스턴스를 제공한다."""
+        return self._get_store()
+
+    def finish(self) -> None:
+        """종료 또는 설정 변경 경계까지 허용된 작업을 저장하고 다음 세션과 분리한다."""
+        self._finish_current()
+
     def _get_detector(self) -> object | None:
         if self._detector is not None:
             return self._detector
