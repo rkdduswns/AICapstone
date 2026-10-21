@@ -1,6 +1,6 @@
 """최근 저장 기록 목록과 새로고침 화면. DB를 직접 읽거나 쓰지 않는다."""
 
-from PySide6.QtCore import QDateTime, Qt
+from PySide6.QtCore import QDateTime, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -25,6 +25,8 @@ from shared.records import RECENT_RECORDS_LIMIT, ContextRecord
 class RecentRecordsWidget(QWidget):
     """목록은 응답 단위로 교체하고 조회 실패 시 이전 기록을 비운다."""
 
+    document_requested = Signal(object)
+
     def __init__(self, port: int, parent: QWidget | None = None) -> None:
         """독립적인 기록 요청과 읽기 전용 목록/상세 화면을 준비한다."""
         super().__init__(parent)
@@ -45,6 +47,10 @@ class RecentRecordsWidget(QWidget):
         self.button.setEnabled(False)
         self.button.clicked.connect(self.refresh)
         layout.addWidget(self.button)
+        self.attach_button = QPushButton("선택한 작업에 문서 연결")
+        self.attach_button.setEnabled(False)
+        self.attach_button.clicked.connect(self._attach_document)
+        layout.addWidget(self.attach_button)
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["프로그램", "창 제목", "마지막 활성", "활성 시간", "파일 출처"])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -139,6 +145,7 @@ class RecentRecordsWidget(QWidget):
         해석하거나 자동 실행하지 않아 긴 주소와 태그 모양의 제목도 그대로 확인할 수 있다.
         """
         row = self.table.currentRow()
+        self.attach_button.setEnabled(self.connected and 0 <= row < len(self.records))
         if not 0 <= row < len(self.records):
             self.detail.clear()
             self.clipboard.set_record(None)
@@ -168,6 +175,12 @@ class RecentRecordsWidget(QWidget):
             f" · 재방문: {record.foreground_count - 1}회\n"
             f"창 제목: {record.window_title or '(제목 없음)'}" + browser_text + document_text)
 
+    def _attach_document(self) -> None:
+        """선택된 실제 저장 기록을 연결 대상으로 전달하고 파일 내용을 직접 추출하지 않는다."""
+        row = self.table.currentRow()
+        if self.connected and 0 <= row < len(self.records):
+            self.document_requested.emit(self.records[row])
+
     def _detail_tab_changed(self, index: int) -> None:
         """복사 텍스트·웹/문서 본문은 사용자가 해당 상세 탭을 열 때만 별도로 조회한다."""
         if self.detail_tabs.widget(index) is self.clipboard:
@@ -180,6 +193,7 @@ class RecentRecordsWidget(QWidget):
     def _clear_rows(self) -> None:
         """이전 응답과 선택된 상세 내용이 새 결과에 섞이지 않도록 비운다."""
         self.records = []
+        self.attach_button.setEnabled(False)
         self.table.setRowCount(0)
         self.detail.clear()
         self.clipboard.set_record(None)

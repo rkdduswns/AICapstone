@@ -47,6 +47,8 @@ class CurrentActivity:
     service: str = SERVICE_NAME
     api_version: int = API_VERSION
     timing: ActivityTiming | None = None
+    # 수집 중에도 유지되는 실제 저장 ID. 구형 응답과 비수집 상태에서는 None이다.
+    record_id: str | None = None
 
 
 @dataclass(frozen=True)

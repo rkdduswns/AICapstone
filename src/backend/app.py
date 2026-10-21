@@ -5,6 +5,7 @@ import asyncio
 import hmac
 import logging
 import os
+import sqlite3
 import tempfile
 from contextlib import asynccontextmanager
 from dataclasses import asdict
@@ -13,7 +14,7 @@ from importlib.metadata import version
 from pathlib import Path, PureWindowsPath
 from typing import Callable, Literal
 
-from fastapi import FastAPI, File, Header, Query, Request, UploadFile
+from fastapi import FastAPI, File, Form, Header, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -28,6 +29,12 @@ from backend.document_extractor import (
     SUPPORTED_EXTENSIONS,
     extract_document_text,
 )
+from backend.history_sources import (
+    context_record,
+    install_source_routes,
+    require_browser_activity,
+    save_linked_browser,
+)
 from backend.privacy import PrivacyPolicy
 from shared.activity import (
     ACTIVITY_HISTORY_PATH,
@@ -35,6 +42,7 @@ from shared.activity import (
     BROWSER_CONTENT_PATH,
     BROWSER_SOURCE_PATH,
 )
+from shared.document import read_document
 from shared.protocol import (
     API_VERSION,
     SERVICE_NAME,
@@ -54,6 +62,8 @@ class BrowserSourceRequest(BaseModel):
     browser: Literal["chrome", "edge"]
     url: str = Field(min_length=1, max_length=4096)
     page_title: str = Field(min_length=1, max_length=500)
+    # 기존 수신 전용 요청은 None이다. 새 연결 요청은 관측한 실제 작업 ID를 반드시 보낸다.
+    record_id: int | None = Field(default=None, ge=1, le=2**63 - 1)
 
 
 class BrowserContentRequest(BaseModel):
@@ -150,6 +160,7 @@ def create_app(
     app.state.activity_store = activity_store
     app.state.browser_privacy_policy = policy
     install_client_routes(app)
+    install_source_routes(app)
 
     def get_store():
         """추적기와 업로드 API가 같은 저장소를 지연 생성해 사용한다."""
@@ -191,26 +202,19 @@ def create_app(
             "data": {
                 "service": SERVICE_NAME,
                 "api_version": API_VERSION,
-                "records": [
-                    {
-                        "id": str(record.id),
-                        "application": record.application,
-                        "process_name": record.process_name,
-                        "window_title": record.window_title,
-                        "started_at": record.started_at,
-                        "last_active_at": record.ended_at,
-                        "active_duration_ms": record.active_duration_ms,
-                        "foreground_count": 1,
-                    }
-                    for record in records
-                ],
+                "records": [asdict(context_record(get_store(), record)) for record in records],
             },
             "error": None,
         }
 
     @app.post("/documents", status_code=201)
-    async def upload_document(file: UploadFile = File(...)):
-        """Extract and persist an uploaded PDF or DOCX document."""
+    async def upload_document(
+        request: Request,
+        file: UploadFile = File(...),
+        record_id: int | None = Form(default=None, ge=1, le=2**63 - 1),
+        file_path: str | None = Form(default=None, max_length=8192),
+    ):
+        """선택한 문서를 추출하고 명시된 작업에만 경로와 함께 연결한다. 경로로 파일을 읽지 않는다."""
         check_collection()
         original_filename = PureWindowsPath(file.filename or "").name
 
@@ -226,6 +230,21 @@ def create_app(
                 status_code=415,
                 detail="Only PDF and DOCX files are supported",
             )
+
+        if record_id is not None:
+            if (request.headers.get("origin") is not None
+                    or request.headers.get("x-contexttrace-client") != "desktop"):
+                raise HTTPException(403)
+            if get_store().get_record(record_id) is None:
+                raise HTTPException(404)
+            try:
+                source = read_document({"file_path": file_path, "file_type": suffix[1:]})
+                if PureWindowsPath(source.file_path).name.casefold() != original_filename.casefold():
+                    raise ValueError("Filename does not match source")
+            except ValueError as exc:
+                raise HTTPException(422) from exc
+        else:
+            file_path = None  # 연결 없는 기존 업로드에는 출처 경로를 임의로 부여하지 않는다.
 
         temporary_path: Path | None = None
 
@@ -272,10 +291,13 @@ def create_app(
 
         try:
             document_id = store.save_document_record(
-                file_path=original_filename,
+                file_path=file_path or original_filename,
                 extracted_text=extracted_text,
                 captured_at=captured_at,
+                activity_record_id=record_id,
             )
+        except sqlite3.IntegrityError as exc:
+            raise HTTPException(404) from exc
         except ValueError as exc:
             raise HTTPException(
                 status_code=422,
@@ -290,6 +312,8 @@ def create_app(
                 "file_type": suffix,
                 "extracted_text": extracted_text,
                 "captured_at": captured_at,
+                "activity_record_id": record_id,
+                "file_path": file_path,
             },
             "error": None,
         }
@@ -298,14 +322,15 @@ def create_app(
     async def list_documents(
         limit: int = Query(default=50, ge=1, le=200),
     ):
-        """Return recently uploaded documents."""
+        """최근 가져온 문서와 실제로 연결된 작업 ID를 함께 반환한다."""
         store = get_store()
 
         records = store.get_recent_document_records(limit)
 
         return {
             "ok": True,
-            "data": {"documents": [asdict(record) for record in records]},
+            "data": {"documents": [dict(asdict(record),
+                activity_record_id=store.source_record_id("document", record.id)) for record in records]},
             "error": None,
         }
 
@@ -359,12 +384,14 @@ def create_app(
 
         store = get_store()
 
-        record_id = store.save_browser_source_record(
-            browser=payload.browser,
-            url=sanitized_url,
-            page_title=sanitized_title,
-            captured_at=captured_at,
-        )
+        linked_record_id = payload.record_id
+        if linked_record_id is not None:
+            record_id, linked_record_id = save_linked_browser(
+                tracker, linked_record_id, payload.browser, sanitized_url, sanitized_title, captured_at)
+            captured_at = store.get_record_browser(linked_record_id).captured_at
+        else:
+            record_id = store.save_browser_source_record(
+                payload.browser, sanitized_url, sanitized_title, captured_at)
 
         return {
             "ok": True,
@@ -374,6 +401,7 @@ def create_app(
                 "url": sanitized_url,
                 "page_title": sanitized_title,
                 "captured_at": captured_at,
+                "activity_record_id": str(linked_record_id) if linked_record_id is not None else None,
             },
             "error": None,
         }
@@ -416,6 +444,13 @@ def create_app(
         store = get_store()
 
         captured_at = datetime.now(timezone.utc).isoformat()
+
+        linked_record_id = store.source_record_id("browser", payload.browser_source_id)
+        if linked_record_id is not None:
+            page = store.get_record_browser(linked_record_id)
+            if page is None or page.id != payload.browser_source_id:
+                raise HTTPException(409)
+            require_browser_activity(tracker, linked_record_id, page.browser)
 
         try:
             content_id = store.save_browser_content_record(

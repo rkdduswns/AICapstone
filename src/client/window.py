@@ -90,6 +90,8 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.search, "조건 검색")
         self.documents = DocumentsWidget(port, self)
         self.tabs.addTab(self.documents, "문서 가져오기")
+        self.recent.document_requested.connect(self._select_document_target)
+        self.documents.record_linked.connect(lambda record_id: self.recent.refresh())
         self.tabs.currentChanged.connect(self._tab_changed)
         layout.addWidget(self.tabs, 1)
 
@@ -140,6 +142,11 @@ class MainWindow(QWidget):
             self.recent.load_if_needed()
         elif self.tabs.widget(index) is self.documents:
             self.documents.load_if_needed()
+
+    def _select_document_target(self, record) -> None:
+        """최근 기록에서 선택한 작업을 문서 탭의 명시적인 연결 대상으로 옮긴다."""
+        if self.documents.set_target_record(record):
+            self.tabs.setCurrentWidget(self.documents)
 
     def _show_activity(self, activity: CurrentActivity) -> None:
         """새 스냅샷으로 교체하며 비수집 상태에서는 이전 프로그램/제목을 지운다."""

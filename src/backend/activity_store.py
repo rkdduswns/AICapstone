@@ -2,7 +2,7 @@
 """SQLite persistence for activity records."""
 
 import sqlite3
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from shared.activity import (
     ActiveWindow,
@@ -135,6 +135,15 @@ class ActivityStore:
                     ON document_records(captured_at DESC, id DESC)
                     """
                 )
+                # 기존 데이터를 추측해 연결하지 않고 명시적인 연결만 새 테이블에 보존한다.
+                for kind, source_table in (("browser", "browser_source_records"),
+                                           ("document", "document_records")):
+                    connection.execute(
+                        f"CREATE TABLE IF NOT EXISTS record_{kind}_sources ("
+                        "record_id INTEGER NOT NULL REFERENCES activity_records(id) ON DELETE CASCADE, "
+                        f"source_id INTEGER NOT NULL UNIQUE REFERENCES {source_table}(id) "
+                        "ON DELETE CASCADE, PRIMARY KEY(record_id, source_id))"
+                    )
         finally:
             connection.close()
 
@@ -219,6 +228,57 @@ class ActivityStore:
             )
             for row in rows
         ]
+
+    def update_record(self, record_id: int, ended_at: str, active_duration_ms: int) -> None:
+        """수집 중 저장 ID를 유지하며 마지막 관측 시각과 경과 시간만 갱신한다."""
+        if active_duration_ms < 0:
+            raise ValueError("Invalid duration")
+        connection = self._connect()
+        try:
+            with connection:
+                cursor = connection.execute(
+                    "UPDATE activity_records SET ended_at = ?, active_duration_ms = ? WHERE id = ?",
+                    (ended_at, active_duration_ms, record_id),
+                )
+                if cursor.rowcount != 1:
+                    raise ValueError("Activity record not found")
+        finally:
+            connection.close()
+
+    def _linked_source(self, kind: str, record_id: int):
+        """고정된 내부 테이블 이름과 매개변수화한 실제 ID로 최신 출처를 조회한다."""
+        table, model = {"browser": ("browser_source_records", BrowserSourceRecord),
+                        "document": ("document_records", DocumentRecord)}[kind]
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                f"SELECT source.* FROM {table} AS source JOIN record_{kind}_sources AS link "
+                "ON link.source_id = source.id WHERE link.record_id = ? "
+                "ORDER BY source.id DESC LIMIT 1", (record_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        return model(**dict(row)) if row is not None else None
+
+    def get_record_browser(self, record_id: int) -> BrowserSourceRecord | None:
+        """실제 외래 키로 연결된 브라우저 출처만 반환한다."""
+        return self._linked_source("browser", record_id)
+
+    def get_record_document(self, record_id: int) -> DocumentRecord | None:
+        """명시적으로 연결한 문서 중 최신 항목을 반환한다. 이전 연결도 DB에 보존한다."""
+        return self._linked_source("document", record_id)
+
+    def source_record_id(self, kind: str, source_id: int) -> int | None:
+        """출처가 속한 작업을 확인하여 늦은 본문이 다른 작업에 저장되지 않게 한다."""
+        if kind not in ("browser", "document"):
+            raise ValueError("Invalid source kind")
+        connection = self._connect()
+        try:
+            row = connection.execute(f"SELECT record_id FROM record_{kind}_sources WHERE source_id = ?",
+                                     (source_id,)).fetchone()
+        finally:
+            connection.close()
+        return row[0] if row else None
 
     def get_record(self, record_id: int) -> ActivityRecord | None:
         """목록 제한과 무관하게 실제 저장 ID 하나를 조회한다. 외부 값을 SQL에 보간하지 않는다."""
@@ -333,8 +393,9 @@ class ActivityStore:
         url: str,
         page_title: str,
         captured_at: str,
+        activity_record_id: int | None = None,
     ) -> int:
-        """Save one browser page record and return its database ID."""
+        """브라우저 출처를 저장하고 명시한 작업 연결도 같은 트랜잭션에서 확정한다."""
         if not browser.strip():
             raise ValueError("browser must not be empty")
         if not url.strip():
@@ -359,7 +420,11 @@ class ActivityStore:
                     """,
                     (browser, url, page_title, captured_at),
                 )
-                return int(cursor.lastrowid)
+                source_id = int(cursor.lastrowid)
+                if activity_record_id is not None:
+                    connection.execute("INSERT INTO record_browser_sources VALUES (?, ?)",
+                                       (activity_record_id, source_id))
+                return source_id
         finally:
             connection.close()
 
@@ -413,7 +478,7 @@ class ActivityStore:
         connection = self._connect()
         try:
             with connection:
-                cursor = connection.execute(
+                connection.execute(
                     """
                     INSERT INTO browser_content_records (
                         browser_source_id,
@@ -421,10 +486,15 @@ class ActivityStore:
                         captured_at
                     )
                     VALUES (?, ?, ?)
+                    ON CONFLICT(browser_source_id) DO UPDATE SET
+                        content_text = excluded.content_text, captured_at = excluded.captured_at
                     """,
                     (browser_source_id, content_text, captured_at),
                 )
-                return int(cursor.lastrowid)
+                return connection.execute(
+                    "SELECT id FROM browser_content_records WHERE browser_source_id = ?",
+                    (browser_source_id,),
+                ).fetchone()[0]
         finally:
             connection.close()
 
@@ -465,9 +535,11 @@ class ActivityStore:
         file_path: str | Path,
         extracted_text: str,
         captured_at: str,
+        activity_record_id: int | None = None,
     ) -> int:
-        """Save document metadata and extracted text."""
-        path = Path(file_path)
+        """원문 경로·추출 본문을 보존하고 명시한 작업 연결도 함께 저장한다."""
+        windows_path = PureWindowsPath(file_path)
+        path = windows_path if windows_path.is_absolute() else Path(file_path)
 
         if not str(file_path).strip():
             raise ValueError("file_path must not be empty")
@@ -491,14 +563,18 @@ class ActivityStore:
                     VALUES (?, ?, ?, ?, ?)
                     """,
                     (
-                        str(path),
+                        str(file_path),
                         path.name,
                         path.suffix.lower(),
                         extracted_text,
                         captured_at,
                     ),
                 )
-                return int(cursor.lastrowid)
+                source_id = int(cursor.lastrowid)
+                if activity_record_id is not None:
+                    connection.execute("INSERT INTO record_document_sources VALUES (?, ?)",
+                                       (activity_record_id, source_id))
+                return source_id
         finally:
             connection.close()
 

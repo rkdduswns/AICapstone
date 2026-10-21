@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import httpx
 import pytest
 import uvicorn
 from docx import Document
@@ -51,7 +52,7 @@ def live_backend(tmp_path):
         now=lambda: datetime(2026, 10, 21, tzinfo=timezone.utc) + timedelta(seconds=state.tick),
     )
     backend = create_app(activity_tracker=tracker, activity_store=store, collection_interval=None,
-                         clipboard_reader=lambda: "가상 복사 원문")
+                         clipboard_reader=lambda: "가상 복사 원문", browser_token="live-test-token")
     server = uvicorn.Server(uvicorn.Config(backend, log_level="warning", access_log=False))
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -116,15 +117,15 @@ def test_recent_records_and_clipboard_read_real_storage(app, window, live_backen
     window.recent.client.records_received.connect(received.append)
     window.tabs.setCurrentWidget(window.recent)
     wait_for(app, lambda: bool(received))
-    assert received[0][0].process_name == "chrome.exe"
-    assert received[0][0].active_duration_ms == 2000
+    record = next(row for row in received[0] if row.process_name == "chrome.exe")
+    assert record.active_duration_ms == 2000
     # 실제 저장 ID로 별도의 Qt 클라이언트에서도 같은 복사 내용을 조회한다.
     from client.clipboard_client import ClipboardClient
 
     client = ClipboardClient(live_backend[0], window)
     entries = []
     client.entries_received.connect(entries.append)
-    client.fetch(received[0][0].id)
+    client.fetch(record.id)
     wait_for(app, lambda: bool(entries))
     assert entries[0].entries[0].text == "가상 복사 원문"
     client.close()
@@ -163,3 +164,59 @@ def test_document_import_denied_while_paused(app, window, tmp_path):
     wait_for(app, lambda: not window.documents.busy)
     assert "허용되지" in window.documents.notice.text()
     assert window.documents.rows == []
+
+
+def test_manual_document_link_reaches_recent_detail(app, window, tmp_path):
+    """작업 선택→문서 연결→실제 업로드→최근 기록의 저장 본문 조회를 끝까지 실행한다."""
+    window.tabs.setCurrentWidget(window.recent)
+    wait_for(app, lambda: bool(window.recent.records))
+    record_id = window.recent.records[0].id
+    window.recent.table.selectRow(0)
+    window.recent.attach_button.click()
+    assert window.tabs.currentWidget() is window.documents
+    assert window.documents.target_record_id == record_id
+    wait_for(app, lambda: window.documents.loaded and not window.documents.busy)
+    path = tmp_path / "연결 검증.docx"
+    document = Document()
+    document.add_paragraph("작업에 연결한 가상 <b>원문</b>")
+    document.save(path)
+    # Linux에서는 파일 바이트와 Windows 선택 경로만 분리 주입하고 HTTP/추출/저장은 실제 사용한다.
+    source_path = r"C:\가상 자료\연결 검증.docx"
+    window.documents.upload(str(path), source_path=source_path)
+    wait_for(app, lambda: bool(window.documents.rows) and not window.documents.busy)
+    assert window.documents.rows[0].record_id == record_id
+    assert window.documents.rows[0].file_path == source_path
+    wait_for(app, lambda: any(row.id == record_id and row.document is not None
+                             for row in window.recent.records))
+    window.tabs.setCurrentWidget(window.recent)
+    index = next(i for i, row in enumerate(window.recent.records) if row.id == record_id)
+    window.recent.table.selectRow(index)
+    window.recent.detail_tabs.setCurrentWidget(window.recent.document_content)
+    wait_for(app, lambda: window.recent.document_content.text.toPlainText()
+             == "작업에 연결한 가상 <b>원문</b>")
+    assert source_path in window.recent.document_content.source.toPlainText()
+
+
+def test_browser_capture_reaches_recent_web_detail(app, window, live_backend):
+    """실제 브라우저 수신 HTTP에 보낸 출처와 본문을 Qt 상세 화면까지 같은 ID로 조회한다."""
+    with httpx.Client(base_url=f"http://127.0.0.1:{live_backend[0]}", trust_env=False) as client:
+        rid = client.get("/activity/current").json()["data"]["record_id"]
+        headers = {"Authorization": "Bearer live-test-token"}
+        response = client.post("/browser/source", headers=headers,
+            json={"browser": "chrome", "record_id": rid, "page_title": "가상 조사 자료",
+                  "url": "https://example.test/research?private=query"})
+        assert response.status_code == 200
+        sid = response.json()["data"]["id"]
+        assert client.post("/browser/content", headers=headers,
+            json={"browser_source_id": sid, "content_text": "저장한 가상 웹 <b>본문</b>"}
+        ).status_code == 200
+    window.tabs.setCurrentWidget(window.recent)
+    wait_for(app, lambda: any(row.id == rid and row.browser is not None
+                             for row in window.recent.records))
+    index = next(i for i, row in enumerate(window.recent.records) if row.id == rid)
+    window.recent.table.selectRow(index)
+    window.recent.detail_tabs.setCurrentWidget(window.recent.web_content)
+    wait_for(app, lambda: window.recent.web_content.text.toPlainText()
+             == "저장한 가상 웹 <b>본문</b>")
+    assert "https://example.test/research" in window.recent.web_content.source.toPlainText()
+    assert "private=query" not in window.recent.web_content.source.toPlainText()

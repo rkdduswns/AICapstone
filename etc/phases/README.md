@@ -21,19 +21,19 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | Phase 13 | 근거 기반 RAG | 검색 기록 기반 답변과 출처 제공 |
 | Phase 14 | 작업 세션·타임라인·안정화 | 세션 구성, 전체 통합, 최종 검증 |
 
-현재 상태 (2026-10-21, `feat/client-backend-integration` 검증 포함):
+현재 상태 (2026-10-22, `feat/client-backend-integration` 검증 포함):
 
 | Phase | Client·Shared 선행 상태 | 전체 상태 / 남은 작업 |
 |---|---|---|
 | 1 | DONE | DONE |
 | 2 | DONE · 현재 창 표시/자동 조회 | IN_PROGRESS · 실제 API 연결 완료, Windows 창 전환 수동 검증 잔여 |
 | 3 | DONE · 시작 시각/누적 활성 시간 표시 | IN_PROGRESS · 세션 시간/종료 저장 연결, 재방문 집계 잔여 |
-| 4 | DONE · 최근 기록 조회/새로고침 | IN_PROGRESS · 실제 SQLite 저장/조회·DB 재조회 검증, 갱신/재방문/Windows 수동 검증 잔여 |
+| 4 | DONE · 최근 기록 조회/새로고침 | IN_PROGRESS · 실제 SQLite 저장/조회·DB 재조회 검증, 진행 중 갱신 완료, 재방문/Windows 수동 검증 잔여 |
 | 5 | DONE · 일시정지/차단 목록/기록 상태 | IN_PROGRESS · 실제 설정 API/수집기 연결, 설정 영속화·Windows 수동 검증 잔여 |
 | 6 | DONE · 클립보드 기록 설정/복사 텍스트 상세 | IN_PROGRESS · 실제 수집기/DB/조회 연결, Windows 실제 복사 수동 검증 잔여 |
-| 7 | DONE · 브라우저 출처/URL 차단 설정 | IN_PROGRESS · 확장·Backend 작업 연결·URL 차단·실제 저장 검증 |
-| 8 | DONE · 저장 웹 본문/수집 시각/출처 상세 | IN_PROGRESS · Browser 추출·Backend 정제/중복 제거·실제 저장/차단 검증 |
-| 9 | DONE · 파일 출처/저장 본문 및 문서 가져오기 | IN_PROGRESS · 실제 PDF/DOCX 추출·업로드 연결, 자동 감지/원본 경로·작업 연결 잔여 |
+| 7 | DONE · 브라우저 출처/URL 차단 설정 | IN_PROGRESS · 수동 확장/작업 ID 연결 완료, 자동 탭 이벤트·URL 차단·Windows 수동 검증 잔여 |
+| 8 | DONE · 저장 웹 본문/수집 시각/출처 상세 | IN_PROGRESS · 수동 캡처/저장 본문 조회/재전송 갱신 완료, 정제·자동 갱신·URL 차단 잔여 |
+| 9 | DONE · 파일 출처/저장 본문 및 문서 가져오기 | IN_PROGRESS · 실제 추출·명시적 작업/선택 경로 연결 완료, 자동 파일 감지·Windows 수동 검증 잔여 |
 | 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 정규화·분할·임베딩·저장/삭제·역추적 통합 |
 | 11 | Client DONE · 명시적 조건 검색·목록·출처 상세 | IN_PROGRESS · Backend 실제 필터·조회·정렬·통합 |
 
@@ -46,7 +46,8 @@ Client Phase 2–4는 2026-10-02, Phase 5–11 Client/Shared는 2026-10-16 main�
 Backend 활성 창·세션 저장·브라우저 수신·PDF/DOCX 추출 구현은 2026-10-21 main에 반영됐다.
 `feat/client-backend-integration`에서 실제 HTTP/Qt/SQLite 통합과 문서 가져오기를 검증한다.
 [통합 보고서](../../docs/reports/client-backend-integration.md)에 연결 범위·검증 결과·제한을 기록한다.
-브라우저/문서의 작업 ID 연결, URL 차단, 검색 데이터/조건 검색 API, LLM은 여전히 미구현이다.
+브라우저 수동 캡처·문서 선택 경로의 실제 작업 ID 연결과 저장 본문 조회를 추가했다.
+자동 탭/파일 감지, URL 차단, 검색 데이터/조건 검색 API, LLM은 미구현이다.
 가상 OS 입력을 실제 Backend로 처리한 검증과 Windows 데스크톱 수동 검증을 구분한다.
 
 매 작업의 구현·검증·미완료 항목을 코드·문서·PR에 기록하고, 최신 브랜치와 검증 근거로 완료 상태를 판단한다.
@@ -54,7 +55,7 @@ Backend 활성 창·세션 저장·브라우저 수신·PDF/DOCX 추출 구현�
 ## 단계별 선행조건
 
 - 실제 Backend 저장 흐름은 가상 OS 입력과 SQLite로 자동 검증한다. 실제 Windows 데이터 수집 전 저장 전 개인정보 정책과 수동 검증을 확인한다.
-- PDF/DOCX 수동 가져오기·추출·저장은 구현됐다. 자동 파일 감지와 원본 경로/열람 이력 연결은 검색 흐름과 함께 후속 통합한다.
+- PDF/DOCX 수동 가져오기·추출·저장은 구현됐다. 선택한 작업과 실제 선택 경로를 명시적으로 연결한다. 자동 열린 파일 식별은 후속 범위다.
 
 ## 진행 원칙
 

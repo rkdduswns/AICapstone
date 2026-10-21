@@ -1,8 +1,8 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-21 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
+기준일: **2026-10-22 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
 main에 Client Phase 2~11 및 Backend 구현이 포함돼 있다. 현재 브랜치의 실제 HTTP·SQLite 통합 검증 결과를 추가했다.
-Windows 실제 작업·복사 수동 검증과 출처 연결·검색은 미완료다. [통합 보고서](../../docs/reports/client-backend-integration.md)를 따른다.
+브라우저 수동 캡처·명시적 문서 연결과 저장 본문 조회를 추가했다. Windows 실제 수동 검증·자동 탭/파일 감지·검색은 미완료다. [통합 보고서](../../docs/reports/client-backend-integration.md)를 따른다.
 
 ## 읽는 방법과 갱신 규칙
 
@@ -22,12 +22,12 @@ Windows 실제 작업·복사 수동 검증과 출처 연결·검색은 미완�
 | [001](phase001.md) | 실행 골격 및 Client-Backend 연결 | DONE | 17/17 | 2026-09-19 ~ 2026-09-24 | `chore/phase1-preparation` | 2026-09-24 |
 | [002](phase002.md) | Windows 활성 창 감지 | IN_PROGRESS · Client DONE | 6/20 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` / `feat/phase2-backend`(준비·미병합) | 2026-10-02 (Client) |
 | [003](phase003.md) | 작업 시간 및 재방문 추적 | IN_PROGRESS · Client DONE | 2/17 | 2026-10-01 | `feat/phase3-client` | 2026-10-02 (Client) |
-| [004](phase004.md) | 작업 기록 저장 및 조회 | IN_PROGRESS · Client DONE | 15/21 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-02 (Client) |
+| [004](phase004.md) | 작업 기록 저장 및 조회 | IN_PROGRESS · Client DONE | 17/21 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-02 (Client) |
 | [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 13/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [006](phase006.md) | 클립보드 수집 | IN_PROGRESS · Client DONE | 9/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
-| [007](phase007.md) | 브라우저 기본 연동 | IN_PROGRESS · Client DONE | 6/26 | 2026-10-09 | `feat/phase7-client` | 2026-10-16 (Client) |
-| [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 5/23 | 2026-10-10 | `feat/phase8-client` | 2026-10-16 (Client) |
-| [009](phase009.md) | 로컬 문서 내용 수집 | IN_PROGRESS · Client DONE | 13/21 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
+| [007](phase007.md) | 브라우저 기본 연동 | IN_PROGRESS · Client DONE | 10/26 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
+| [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 8/23 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
+| [009](phase009.md) | 로컬 문서 내용 수집 | IN_PROGRESS · Client DONE | 16/21 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE | 4/20 | 2026-10-14 | feat/phase10-shared | 2026-10-16 (Shared) |
 | [011](phase011.md) | 조건 검색 | IN_PROGRESS · Client DONE | 9/25 | 2026-10-15 | feat/phase11-client | 2026-10-16 (Client) |
 | [012](phase012.md) | 의미 검색 및 혼합 검색 | NOT_STARTED | 0/20 | — | — | — |
@@ -35,21 +35,23 @@ Windows 실제 작업·복사 수동 검증과 출처 연결·검색은 미완�
 | [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
 
 Phase 2~9는 가상 OS 입력과 실제 Backend HTTP·SQLite·문서 추출 라이브러리를 사용해 부분 통합했다.
-실제 Windows 작업/복사 및 Browser 확장, 원본 작업과 출처 연결의 수동/통합 검증은 남아 있다.
+작업 ID 기반 출처 연결은 가상 OS 입력과 실제 HTTP·SQLite·Qt로 검증했다. 실제 Windows 작업/복사 및 확장 설치 후 수동 검증은 남아 있다.
 Phase 10의 실제 정규화·분할·임베딩·검색 데이터 저장/삭제 및 역추적 통합 검증은 남아 있다.
 Phase 11의 실제 저장소 조건 검색·정렬·보호 정책 적용 및 통합 검증은 남아 있다.
 
-## 2026-10-21 통합 범위
+## 2026-10-22 통합 범위
 
 현재 창·시간·최근 기록, 일시정지/차단/클립보드 설정 및 저장 조회, 수동 문서 가져오기를 실제 Backend와 연결했다.
 Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜치는 main 미병합 상태다.
-클립보드·설정 영속화, 실제 Windows 수동 검증, 브라우저/문서의 작업 출처 연결, 실제 검색은 잔여 범위다.
-문서 수동 업로드를 자동 파일 감지·원본 절대 경로 역추적 완료로 확대하지 않는다.
+브라우저 수동 캡처와 문서의 명시적 작업 ID/Windows 경로 연결, 저장 본문 조회를 추가했다.
+설정 영속화, 실제 Windows 수동 검증, 자동 탭/파일 감지·URL 차단·실제 검색은 잔여 범위다.
+문서의 선택 경로를 보존하지만 수동 연결을 자동 열람 감지 완료로 확대하지 않는다.
 
 ## 작업 이력
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
 |---|---|---|---|
+| 2026-10-22 | 웹·문서 작업 이력 연결 | `feat/client-backend-integration` | 실제 FK/본문 조회·명시적 경로·수동 확장, Python 529·Node 8 통과. [실행/제한](../../docs/dev/history-source-linking.md), [검증](../../docs/reports/client-backend-integration.md). main 미병합 |
 | 2026-10-21 | Client–Backend 부분 통합 | `feat/client-backend-integration` | 실제 HTTP/Qt/SQLite·문서 추출 연결, [통합 검증](../../docs/reports/client-backend-integration.md). Windows 수동 검증 및 출처 연결/검색 잔여 |
 | 2026-09-24 | Phase 1 전체 | `chore/phase1-preparation` | 자동 검증 + 사용자 확인, [PR #1](https://github.com/rkdduswns/AICapstone/pull/1) 병합 |
 | 2026-09-24 / 2026-10-01 | Phase 2 Client | `feat/phase2-client` | 구현 및 재검증 완료, 2026-10-02 [PR #2](https://github.com/rkdduswns/AICapstone/pull/2) 병합 |
@@ -152,7 +154,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Client | 최근 작업 기록 간단 조회 화면 | 완료 | 2026-10-02 | `feat/phase4-client` | [검증 보고서](../../docs/reports/phase4-client.md) · Client/가상 응답 범위 |
 | Client | 최근 기록 새로고침 | 완료 | 2026-10-02 | `feat/phase4-client` | [검증 보고서](../../docs/reports/phase4-client.md) · Client/가상 응답 범위 |
 | Backend | 작업 기록 생성 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
-| Backend | 작업 기록 갱신 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
+| Backend | 작업 기록 갱신 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 |
 | Backend | 활성 시간 저장 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Backend | 재방문 횟수 저장 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
 | Backend | 최근 기록 조회 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
@@ -160,7 +162,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Shared | 작업 기록 조회 구조 확정 (DB 스키마는 Backend에서 결정) | 완료 | 2026-10-02 | `feat/phase4-client` | [검증 보고서](../../docs/reports/phase4-client.md) · Client/가상 응답 범위 |
 | Shared | 최근 기록 응답 구조 정의 | 완료 | 2026-10-02 | `feat/phase4-client` | [검증 보고서](../../docs/reports/phase4-client.md) · Client/가상 응답 범위 |
 | Tests | 새 기록 생성 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
-| Tests | 기존 기록 갱신 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
+| Tests | 기존 기록 갱신 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 |
 | Tests | 재시작 후 기록 조회 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Tests | Client 시간 순 정렬 (시간대 포함 실제 순간 및 동일 시각 ID순) | 완료 | 2026-10-02 | `feat/phase4-client` | [검증 보고서](../../docs/reports/phase4-client.md) · Client/가상 응답 범위 |
 | Tests | Client 잘못된/누락된 값 처리 | 완료 | 2026-10-02 | `feat/phase4-client` | [검증 보고서](../../docs/reports/phase4-client.md) · Client/가상 응답 범위 |
@@ -237,10 +239,10 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Browser | URL 수집 | 미완료 | — | — | 미착수 |
 | Browser | 탭 변경 이벤트 감지 | 미완료 | — | — | 미착수 |
 | Browser | Backend로 정보 전달 | 미완료 | — | — | 미착수 |
-| Backend | 브라우저 정보 수신 | 미완료 | — | — | 미착수 |
-| Backend | Windows 활성 브라우저 작업과 연결 | 미완료 | — | — | 미착수 |
-| Backend | URL 변경 처리 | 미완료 | — | — | 미착수 |
-| Backend | 브라우저 작업 기록 갱신 | 미완료 | — | — | 미착수 |
+| Backend | 브라우저 정보 수신 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 |
+| Backend | Windows 활성 브라우저 작업과 연결 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 |
+| Backend | URL 변경 처리 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 |
+| Backend | 브라우저 작업 기록 갱신 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 |
 | Backend | URL 차단 검사 | 미완료 | — | — | 미착수 |
 | Client | 최근 작업 기록에 URL 표시 | 완료 | 2026-10-09 | `feat/phase7-client` | [보고서](../../docs/reports/phase7-client.md) · 가상 응답 범위 |
 | Client | 차단 URL 설정 입력 | 완료 | 2026-10-09 | `feat/phase7-client` | [보고서](../../docs/reports/phase7-client.md) · 실제 차단은 Backend 책임 |
@@ -270,9 +272,9 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Browser | 텍스트 크기 제한 | 미완료 | — | — | 미착수 |
 | Browser | 차단 URL에서 본문 수집 금지 | 미완료 | — | — | 미착수 |
 | Backend | 수신한 웹 텍스트 정리 | 미완료 | — | — | 미착수 |
-| Backend | 동일 페이지 중복 텍스트 제거 | 미완료 | — | — | 미착수 |
-| Backend | URL / 제목 / 본문 연결 | 미완료 | — | — | 미착수 |
-| Backend | 원본 작업 기록과 연결 | 미완료 | — | — | 미착수 |
+| Backend | 동일 페이지 중복 텍스트 제거 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 · 같은 출처 재전송은 갱신 |
+| Backend | URL / 제목 / 본문 연결 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 |
+| Backend | 원본 작업 기록과 연결 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 |
 | Client | 최근 작업에서 저장된 웹 본문·수집 시각·출처 확인 | 완료 | 2026-10-10 | `feat/phase8-client` | [보고서](../../docs/reports/phase8-client.md) · 저장 결과 확인 범위 추가 |
 | Client | 미수집·길이 제한·조회 오류 상태 표시 | 완료 | 2026-10-10 | `feat/phase8-client` | [보고서](../../docs/reports/phase8-client.md) · Client/가상 응답 범위 |
 | Shared | 작업별 웹 본문과 출처를 연결하는 조회 계약 | 완료 | 2026-10-10 | `feat/phase8-client` | [웹 본문 API](../../docs/dev/web-content-api.md) |
@@ -298,8 +300,8 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Backend | 지원 파일 유형 판별 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Backend | PDF 텍스트 추출 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Backend | DOCX 텍스트 추출 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
-| Backend | 문서 내용과 파일 경로 연결 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
-| Backend | 열람 시각과 작업 기록 연결 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| Backend | 문서 내용과 파일 경로 연결 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 · 명시적 선택 연결, 자동 감지 아님 |
+| Backend | 열람 시각과 작업 기록 연결 | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 · 명시적 선택 연결, 자동 감지 아님 |
 | Backend | 동일 파일 재처리 최소화 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
 | Client | 최근 기록에서 파일 경로 표시 | 완료 | 2026-10-12 | feat/phase9-client | [검증 보고서](../../docs/reports/phase9-client.md) · Client/가상 응답 범위 |
 | Client | 파일 출처 상세보기 | 완료 | 2026-10-12 | feat/phase9-client | [검증 보고서](../../docs/reports/phase9-client.md) · Client/가상 응답 범위 |
@@ -314,7 +316,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Tests | 동일 파일 재열람 | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
 | 완료 조건 | PDF 내용을 추출할 수 있다. | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | 완료 조건 | DOCX 내용을 추출할 수 있다. | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
-| 완료 조건 | 추출된 내용에서 실제 파일 경로로 역추적할 수 있다. | 미완료 | — | — | Backend 실제 감지·추출·저장 및 통합 검증 필요 |
+| 완료 조건 | 추출된 내용에서 실제 파일 경로로 역추적할 수 있다. | 완료 | 2026-10-22 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 OS 입력과 실제 HTTP·SQLite·Qt 검증 · 명시적 선택 연결, 자동 감지 아님 |
 
 ## Phase 010 — 검색 데이터 구축
 

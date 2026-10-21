@@ -1,5 +1,5 @@
 
-"""Track the active application window and persist completed sessions."""
+"""활성 창을 추적하고 진행 중인 세션도 같은 작업 ID로 지속 저장한다."""
 
 import logging
 import sys
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class ActivityTracker:
-    """Collect active windows, track durations, and persist completed sessions."""
+    """활성 창·누적 시간을 수집하고 샘플 갱신과 세션 종료에 같은 저장 행을 사용한다."""
 
     def __init__(
         self,
@@ -38,6 +38,7 @@ class ActivityTracker:
         self._window: ActiveWindow | None = None
         self._started_at: str | None = None
         self._start_tick: float | None = None
+        self._record_id: int | None = None
         self._privacy_policy = privacy_policy or PrivacyPolicy()
 
     def configure(self, store=None, privacy_policy: PrivacyPolicy | None = None) -> None:
@@ -85,9 +86,10 @@ class ActivityTracker:
         self._window = None
         self._started_at = None
         self._start_tick = None
+        self._record_id = None
 
     def _finish_current(self) -> None:
-        """Persist the current session before clearing its tracking state."""
+        """현재 세션의 마지막 시각·누적 시간을 갱신한 뒤 추적 상태를 비운다."""
         if (
             self._window is None
             or self._started_at is None
@@ -102,24 +104,27 @@ class ActivityTracker:
         ended_at = self._now().isoformat()
 
         try:
-            self._get_store().save_record(
-                window=window,
-                started_at=started_at,
-                ended_at=ended_at,
-                active_duration_ms=duration_ms,
-            )
+            self._persist(window, started_at, ended_at, duration_ms)
         except Exception as exc:
             logger.warning("Activity persistence failed (%s)", type(exc).__name__)
         finally:
             self._reset()
 
+    def _persist(self, window: ActiveWindow, started_at: str, ended_at: str,
+                 duration_ms: int) -> None:
+        """최초 감지에만 ID를 만들고 이후 샘플·종료는 같은 행을 갱신한다."""
+        store = self._get_store()
+        if self._record_id is None:
+            self._record_id = store.save_record(window, started_at, ended_at, duration_ms)
+        else:
+            store.update_record(self._record_id, ended_at, duration_ms)
+
     def _empty_activity(self, status: CollectionStatus) -> CurrentActivity:
         self._finish_current()
         return CurrentActivity(collection_status=status, window=None, timing=None)
 
-    
     def get_current_activity(self) -> CurrentActivity:
-        """Return the current window and its elapsed active duration."""
+        """현재 창·활성 시간을 저장하고 출처 연결에 사용할 실제 작업 ID를 반환한다."""
         try:
             # Privacy pause must be checked before touching the detector.
             if self._privacy_policy.collection_paused:
@@ -181,6 +186,7 @@ class ActivityTracker:
                 0,
                 int((self._clock() - self._start_tick) * 1000),
             )
+            self._persist(window, self._started_at, self._now().isoformat(), elapsed_ms)
             return CurrentActivity(
                 collection_status="collecting",
                 window=window,
@@ -188,6 +194,7 @@ class ActivityTracker:
                     started_at=self._started_at,
                     active_duration_ms=elapsed_ms,
                 ),
+                record_id=str(self._record_id),
             )
         except Exception:
             logger.exception("Failed to collect current activity")

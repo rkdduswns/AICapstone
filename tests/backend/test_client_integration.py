@@ -105,8 +105,8 @@ def test_clipboard_uses_same_store_and_session_only(runtime):
     clock.process, clock.tick = "word.exe", 2
     client.get("/activity/current")
     records = client.get("/records/recent").json()["data"]["records"]
-    assert len(records) == 1
-    record_id = records[0]["id"]
+    assert len(records) == 2  # 현재 진행 중인 Word 세션도 같은 고정 ID로 조회된다.
+    record_id = next(row["id"] for row in records if row["process_name"] == "chrome.exe")
     assert store.get_recent_clipboard_records()[0].application == "word.exe"
     response = client.get("/records/clipboard", params={"record_id": record_id})
     assert response.status_code == 200

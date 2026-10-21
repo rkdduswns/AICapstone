@@ -1,7 +1,8 @@
 # Phase 8 저장 웹 본문 조회 계약
 
-상태: Client/Shared 및 가상 HTTP 검증 완료. 실제 Browser 추출·Backend 정제/중복 제거/저장은 미구현이다.
-기존 Phase 8 수집 계획에 저장 결과를 확인할 Client 화면과 조회 계약을 추가한다.
+상태: 2026-10-22 통합 브랜치에서 수동 확장 캡처→작업 ID 연결·저장→Client 본문 조회를 구현했다.
+같은 출처의 중복 저장은 갱신한다. 본문 정제·자동 페이지 갱신·URL 차단 및 Windows 수동 검증은 남아 있다.
+[확장 실행과 연결 계약](history-source-linking.md)을 따른다.
 Client는 Backend에 저장된 본문만 읽으며 외부 URL에 접속하거나 DOM/HTML을 추출하지 않는다.
 
 ## 요청과 책임
