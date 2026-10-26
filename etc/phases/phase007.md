@@ -1,5 +1,13 @@
 # Phase 7 - 브라우저 기본 연동
 
+## 2026-10-22 통합 상태
+
+Chrome/Edge 수동 캡처 확장과 실제 작업 ID 연결·본문 조회를 추가했다. 같은 제목의 URL 변경도 이전 작업을 보존한다.
+Node 경계 테스트와 가상 OS 입력→실제 HTTP·SQLite·Qt 검증을 수행했다. 확장 설치 후 Windows 수동 검증·자동 탭 이벤트·URL 차단은 남아 있다.
+[실행 방법과 연결 계약](../../docs/dev/history-source-linking.md)을 따른다. Browser 체크 항목의 네이티브 수동 검증은 완료 처리하지 않는다.
+브랜치: `feat/client-backend-integration`. [통합 검증](../../docs/reports/client-backend-integration.md).
+아래 기존 날짜의 범위 설명은 최초 Client 선행 개발 시점의 기록이다. 전체 Phase는 IN_PROGRESS다.
+
 ## 목표
 Chrome/Edge의 현재 탭 제목과 URL을 Windows 작업 기록에 연결한다.
 
@@ -21,10 +29,10 @@ Chrome/Edge의 현재 탭 제목과 URL을 Windows 작업 기록에 연결한다
 - [ ] Backend로 정보 전달
 
 ## Backend
-- [ ] 브라우저 정보 수신
-- [ ] Windows 활성 브라우저 작업과 연결
-- [ ] URL 변경 처리
-- [ ] 브라우저 작업 기록 갱신
+- [x] 브라우저 정보 수신
+- [x] Windows 활성 브라우저 작업과 연결
+- [x] URL 변경 처리
+- [x] 브라우저 작업 기록 갱신
 - [ ] URL 차단 검사
 
 ## Client

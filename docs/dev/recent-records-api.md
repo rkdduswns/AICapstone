@@ -3,8 +3,9 @@
 Phase 7 확장: 선택적 브라우저 종류·페이지 제목·URL은 [브라우저 출처 계약](browser-api.md)을 따른다.
 Phase 8 확장: 선택 작업의 저장 웹 본문은 [별도 상세 조회 계약](web-content-api.md)을 따른다.
 
-상태: Client/Shared 구현 및 가상 HTTP 검증 완료. Backend 저장소와 endpoint는 미구현이다.
-이 문서를 Backend 구현 기준으로 사용하며, Phase 4 전체는 실제 저장·재시작 복원 검증 전까지 IN_PROGRESS다.
+상태: 실제 SQLite 저장·조회와 Client 통합을 검증했다. 전체 Phase는 Windows 수동 검증·재방문 집계가 남아 IN_PROGRESS다.
+2026-10-22 통합 확장: 진행 중 세션도 같은 ID로 저장·갱신하며 실제 FK의 최신 웹·문서 출처를 투영한다.
+현재 Backend ID는 양의 십진 문자열, `foreground_count`는 세션별 1이다. [출처 연결](history-source-linking.md)을 따른다.
 
 ## 요청과 책임
 

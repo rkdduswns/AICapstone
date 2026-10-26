@@ -1,5 +1,11 @@
 # Phase 3 - 작업 시간 및 재방문 추적
 
+## 2026-10-21 통합 상태
+
+실제 추적기의 단조 시계 기반 시간과 세션 저장을 연결했다. 재방문 집계·동일 작업 재활성화 병합은 남아 있다.
+브랜치: `feat/client-backend-integration`. [통합 검증](../../docs/reports/client-backend-integration.md).
+아래 기존 날짜의 범위 설명은 최초 Client 선행 개발 시점의 기록이다. 전체 Phase는 IN_PROGRESS다.
+
 상태: **Client 구현 완료 / 전체 IN_PROGRESS** — Client 검증일 2026-10-01, main 병합일 2026-10-02.
 Client 시간 표시는 가상 응답으로 검증했다. Backend의 실제 감지·시간 추적 및 통합 검증은 미완료다.
 시작 시각과 누적 활성 시간의 정의 및 책임은 [시간 API 계약](../../docs/dev/activity-timing-api.md)을 따른다.

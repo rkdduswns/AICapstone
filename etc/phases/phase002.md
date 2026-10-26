@@ -1,5 +1,11 @@
 # Phase 2 - Windows 활성 창 감지
 
+## 2026-10-21 통합 상태
+
+실제 현재 창 API를 Client에 연결하고 일시정지·프로그램 차단 상태를 표시한다. 감지기 주입 HTTP 검증 완료, Windows 실제 창 전환 검증은 남아 있다.
+브랜치: `feat/client-backend-integration`. [통합 검증](../../docs/reports/client-backend-integration.md).
+아래 기존 날짜의 범위 설명은 최초 Client 선행 개발 시점의 기록이다. 전체 Phase는 IN_PROGRESS다.
+
 상태: **IN_PROGRESS** — Client 우선 구현 및 가상 HTTP 검증 완료(2026-09-24).
 Backend 감지 및 실제 Windows 창 전환 검증은 미완료이며 Phase 전체를 완료 처리하지 않는다.
 

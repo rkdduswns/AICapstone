@@ -21,14 +21,18 @@ def read_activity(payload: bytes) -> CurrentActivity:
             or type(data.get("api_version")) is not int or data["api_version"] != API_VERSION):
         raise ValueError("Incompatible service")
     status = data.get("collection_status")
-    if status not in ("collecting", "no_active_window", "unsupported", "error"):
+    if status not in ("collecting", "no_active_window", "unsupported", "error", "paused", "blocked"):
         raise ValueError("Invalid collection status")
     if "window" not in data:
         raise ValueError("Missing window field")
     window = data["window"]
+    record_id = data.get("record_id")
+    if record_id is not None and (not isinstance(record_id, str) or not record_id.isascii()
+            or not record_id.isdecimal() or record_id.startswith("0")):
+        raise ValueError("Invalid activity record ID")
     timing = read_timing(data.get("timing"))
     if status != "collecting":
-        if window is not None:
+        if window is not None or record_id is not None:
             raise ValueError("Unexpected window for collection status")
         if timing is not None:
             raise ValueError("Unexpected timing for collection status")
@@ -46,7 +50,7 @@ def read_activity(payload: bytes) -> CurrentActivity:
     return CurrentActivity(collection_status=status, window=ActiveWindow(
         application=window["application"], process_name=window["process_name"],
         process_id=window["process_id"], window_title=window["window_title"],
-    ), timing=timing)
+    ), timing=timing, record_id=record_id)
 
 
 def read_timing(value: object) -> ActivityTiming | None:

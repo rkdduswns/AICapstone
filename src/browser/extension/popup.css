@@ -1,0 +1,7 @@
+body { width: 300px; padding: 16px; font: 14px/1.6 system-ui, sans-serif; color: #172033; }
+h1 { font-size: 20px; margin: 0 0 12px; }
+label { display: block; margin: 12px 0; }
+input, button { box-sizing: border-box; width: 100%; padding: 8px; font: inherit; }
+button { margin-top: 8px; cursor: pointer; }
+#capture { background: #244dc5; color: white; border: 0; border-radius: 6px; }
+#status { overflow-wrap: anywhere; }
