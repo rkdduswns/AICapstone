@@ -12,6 +12,7 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [Phase 전체 체크리스트·작업 이력](etc/phases/00-progress.md)
 - [Phase 1 완료 조건](etc/phases/phase001.md)
 - [개발 환경 설치](docs/dev/development-setup.md)
+- [Windows EXE 실행·빌드](docs/dev/windows-exe.md)
 - [Phase 1 상태 통신 규격](docs/dev/health-api.md)
 - [Phase 2 현재 창 통신 규격](docs/dev/current-activity-api.md)
 - [Phase 2 Client 구현 및 검증](docs/reports/phase2-client.md)
@@ -50,6 +51,10 @@ Windows 수동 검증, 재방문 집계, 자동 탭/파일 감지와 실제 검�
 [1A 구현 및 검증 결과](docs/reports/phase1-backend.md)를 참고하세요.
 
 ## 실제 Client–Backend 실행
+
+Python 설치 없이 실행할 Windows x64 배포판은 Client·Backend 각각의 단일 EXE로 빌드합니다.
+ZIP을 푼 뒤 `ContextTrace-Backend.exe` → `ContextTrace-Client.exe` → `연결 확인` 순서로 사용합니다.
+[실행·재빌드 안내](docs/dev/windows-exe.md)를 참고하세요.
 
 의존성을 설치한 뒤 프로젝트 루트의 PowerShell 두 개에서 각각 실행합니다.
 

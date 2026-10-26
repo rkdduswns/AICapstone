@@ -1,5 +1,7 @@
 # 개발 환경
 
+Python 설치 없이 실행하려면 [Windows EXE 안내](windows-exe.md)를 따른다.
+
 의존성과 패키지를 설치한 뒤 Backend를 독립 실행할 수 있다. Client도 독립 실행할 수 있다.
 Client는 PySide6 Widgets, Backend는 FastAPI/Uvicorn을 사용한다.
 각각 별도 프로세스로 수동 실행하며 loopback HTTP/JSON으로 통신한다.

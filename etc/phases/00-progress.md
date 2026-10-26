@@ -1,6 +1,6 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-22 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
+기준일: **2026-10-26 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
 main에 Client Phase 2~11 및 Backend 구현이 포함돼 있다. 현재 브랜치의 실제 HTTP·SQLite 통합 검증 결과를 추가했다.
 브라우저 수동 캡처·명시적 문서 연결과 저장 본문 조회를 추가했다. Windows 실제 수동 검증·자동 탭/파일 감지·검색은 미완료다. [통합 보고서](../../docs/reports/client-backend-integration.md)를 따른다.
 
@@ -51,6 +51,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
 |---|---|---|---|
+| 2026-10-26 | Windows EXE 배포 도구 | `feat/client-backend-integration` | Client/Backend 각각 onefile 빌드·실제 EXE 자동 검증·ZIP 배포, [실행·검증 범위](../../docs/dev/windows-exe.md). main 미병합, Phase 완료 개수는 유지 |
 | 2026-10-22 | 웹·문서 작업 이력 연결 | `feat/client-backend-integration` | 실제 FK/본문 조회·명시적 경로·수동 확장, Python 529·Node 8 통과. [실행/제한](../../docs/dev/history-source-linking.md), [검증](../../docs/reports/client-backend-integration.md). main 미병합 |
 | 2026-10-21 | Client–Backend 부분 통합 | `feat/client-backend-integration` | 실제 HTTP/Qt/SQLite·문서 추출 연결, [통합 검증](../../docs/reports/client-backend-integration.md). Windows 수동 검증 및 출처 연결/검색 잔여 |
 | 2026-09-24 | Phase 1 전체 | `chore/phase1-preparation` | 자동 검증 + 사용자 확인, [PR #1](https://github.com/rkdduswns/AICapstone/pull/1) 병합 |

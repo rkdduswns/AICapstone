@@ -45,6 +45,8 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 Client Phase 2–4는 2026-10-02, Phase 5–11 Client/Shared는 2026-10-16 main에 병합했다.
 Backend 활성 창·세션 저장·브라우저 수신·PDF/DOCX 추출 구현은 2026-10-21 main에 반영됐다.
 `feat/client-backend-integration`에서 실제 HTTP/Qt/SQLite 통합과 문서 가져오기를 검증한다.
+2026-10-26 Windows Client·Backend의 단일 EXE 빌드·패키지 실행 검증을 추가했다.
+[배포 안내](../../docs/dev/windows-exe.md)를 따르며 기능별 Phase 완료 개수와 구분한다.
 [통합 보고서](../../docs/reports/client-backend-integration.md)에 연결 범위·검증 결과·제한을 기록한다.
 브라우저 수동 캡처·문서 선택 경로의 실제 작업 ID 연결과 저장 본문 조회를 추가했다.
 자동 탭/파일 감지, URL 차단, 검색 데이터/조건 검색 API, LLM은 미구현이다.
