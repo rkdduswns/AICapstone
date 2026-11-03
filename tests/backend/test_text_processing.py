@@ -24,7 +24,7 @@ def test_normalize_text_uses_unicode_nfc():
 def test_normalize_text_preserves_internal_spacing_and_lines():
     """Meaningful internal spaces, blank lines, and tabs are preserved."""
     text = "  title  \r\n\r\n  first\tline  \n second "
-    assert normalize_text(text) == "title\n\n  first\tline  \n second"
+    assert normalize_text(text) == "title  \n\n  first\tline  \n second"
 
 
 @pytest.mark.parametrize("text", ["", "   ", "\r\n\t"])
