@@ -2,6 +2,7 @@
 """SQLite persistence for activity records."""
 
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
 
 from shared.activity import (
@@ -12,6 +13,19 @@ from shared.activity import (
     ClipboardRecord,
     DocumentRecord,
 )
+
+
+def _activity_time_key(value: str) -> str | None:
+    """시간대와 소수초를 보존한 UTC 고정 길이 키로 실제 마지막 활성 순간을 비교한다."""
+    try:
+        instant = datetime.fromisoformat(value)
+        # 시간대가 없는 과거 기록은 기존 SQLite 날짜 함수와 같이 UTC로 해석한다.
+        if instant.tzinfo is None:
+            instant = instant.replace(tzinfo=timezone.utc)
+        return instant.astimezone(timezone.utc).isoformat(timespec="microseconds")
+    except (ValueError, OverflowError):
+        # 해석 불가인 기존 값은 julianday와 같이 NULL로 정렬한다. 저장 원문은 바꾸지 않는다.
+        return None
 
 
 class ActivityStore:
@@ -189,12 +203,15 @@ class ActivityStore:
             connection.close()
 
     def get_recent_records(self, limit: int = 50) -> list[ActivityRecord]:
-        """Return recent activity records, newest first."""
+        """실제 마지막 활성 순간과 문자열 ID로 정렬한 뒤 요청한 개수만 반환한다."""
         if not 1 <= limit <= 200:
             raise ValueError("limit must be between 1 and 200")
 
         connection = self._connect()
         try:
+            # julianday의 부동소수점 변환은 서로 다른 마이크로초를 동률로 만들 수 있다.
+            # SQLite에서 정밀한 키로 정렬해야 LIMIT 밖으로 빠진 기록을 Client가 잃지 않는다.
+            connection.create_function("activity_time_key", 1, _activity_time_key, deterministic=True)
             rows = connection.execute(
                 """
                 SELECT
@@ -207,7 +224,7 @@ class ActivityStore:
                     ended_at,
                     active_duration_ms
                 FROM activity_records
-                ORDER BY julianday(ended_at) DESC, id DESC
+                ORDER BY activity_time_key(ended_at) DESC, CAST(id AS TEXT) ASC
                 LIMIT ?
                 """,
                 (limit,),

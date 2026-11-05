@@ -1,6 +1,6 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-26 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
+기준일: **2026-11-05 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
 main에 Client Phase 2~11 및 Backend 구현이 포함돼 있다. 현재 브랜치의 실제 HTTP·SQLite 통합 검증 결과를 추가했다.
 브라우저 수동 캡처·명시적 문서 연결과 저장 본문 조회를 추가했다. Windows 실제 수동 검증·자동 탭/파일 감지·검색은 미완료다. [통합 보고서](../../docs/reports/client-backend-integration.md)를 따른다.
 
@@ -22,7 +22,7 @@ main에 Client Phase 2~11 및 Backend 구현이 포함돼 있다. 현재 브랜�
 | [001](phase001.md) | 실행 골격 및 Client-Backend 연결 | DONE | 17/17 | 2026-09-19 ~ 2026-09-24 | `chore/phase1-preparation` | 2026-09-24 |
 | [002](phase002.md) | Windows 활성 창 감지 | IN_PROGRESS · Client DONE | 6/20 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` / `feat/phase2-backend`(준비·미병합) | 2026-10-02 (Client) |
 | [003](phase003.md) | 작업 시간 및 재방문 추적 | IN_PROGRESS · Client DONE | 2/17 | 2026-10-01 | `feat/phase3-client` | 2026-10-02 (Client) |
-| [004](phase004.md) | 작업 기록 저장 및 조회 | IN_PROGRESS · Client DONE | 17/21 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-02 (Client) |
+| [004](phase004.md) | 작업 기록 저장 및 조회 | IN_PROGRESS · Client DONE | 17/21 | 2026-11-05 (조회 정렬) | `feat/client-backend-integration` / `fix/recent-record-order` | 2026-10-02 (Client) |
 | [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 13/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [006](phase006.md) | 클립보드 수집 | IN_PROGRESS · Client DONE | 9/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [007](phase007.md) | 브라우저 기본 연동 | IN_PROGRESS · Client DONE | 10/26 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
@@ -51,6 +51,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
 |---|---|---|---|
+| 2026-11-05 | 최근 기록 정렬 보정 | `fix/recent-record-order` | PR #16의 `b12a82a` 기반. 실제 순간·ID 문자열 정렬 후 제한 조회를 검증. [정렬 검증 보고서](../../docs/reports/recent-record-order.md). main 미병합, Phase 완료 개수 유지 |
 | 2026-10-26 | Windows EXE 배포 도구 | `feat/client-backend-integration` | Client/Backend 각각 onefile 빌드·실제 EXE 자동 검증·ZIP 배포, [실행·검증 범위](../../docs/dev/windows-exe.md). main 미병합, Phase 완료 개수는 유지 |
 | 2026-10-22 | 웹·문서 작업 이력 연결 | `feat/client-backend-integration` | 실제 FK/본문 조회·명시적 경로·수동 확장, Python 529·Node 8 통과. [실행/제한](../../docs/dev/history-source-linking.md), [검증](../../docs/reports/client-backend-integration.md). main 미병합 |
 | 2026-10-21 | Client–Backend 부분 통합 | `feat/client-backend-integration` | 실제 HTTP/Qt/SQLite·문서 추출 연결, [통합 검증](../../docs/reports/client-backend-integration.md). Windows 수동 검증 및 출처 연결/검색 잔여 |
@@ -169,7 +170,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Tests | Client 잘못된/누락된 값 처리 | 완료 | 2026-10-02 | `feat/phase4-client` | [검증 보고서](../../docs/reports/phase4-client.md) · Client/가상 응답 범위 |
 | Tests | Client 빈 목록·조회 실패·수동 복구·취소·긴 제목 표시 | 완료 | 2026-10-02 | `feat/phase4-client` | [검증 보고서](../../docs/reports/phase4-client.md) · Client/가상 응답 범위 |
 | Tests | 기존 Backend의 미구현 API(404) 호환성 | 완료 | 2026-10-02 | `feat/phase4-client` | [검증 보고서](../../docs/reports/phase4-client.md) · Client/가상 응답 범위 |
-| Tests | Backend 최신 기록 제한 조회 및 잘못된 요청 검증 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
+| Tests | Backend 최신 기록 제한 조회 및 잘못된 요청 검증 | 완료 | 2026-10-21 / 2026-11-05 | `feat/client-backend-integration` / `fix/recent-record-order` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB · [동률·소수 밀리초·제한 조회](../../docs/reports/recent-record-order.md) |
 | 완료 조건 | 실제 작업 기록이 로컬에 저장된다. | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
 | 완료 조건 | 프로그램을 재실행해도 기존 기록이 유지된다. | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
 | 완료 조건 | Client에서 최근 작업 기록을 확인할 수 있다. | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
