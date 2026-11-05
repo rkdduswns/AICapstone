@@ -21,7 +21,7 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | Phase 13 | 근거 기반 RAG | 검색 기록 기반 답변과 출처 제공 |
 | Phase 14 | 작업 세션·타임라인·안정화 | 세션 구성, 전체 통합, 최종 검증 |
 
-현재 상태 (2026-10-22, `feat/client-backend-integration` 검증 포함):
+현재 상태 (2026-11-05, `feat/client-backend-integration` 및 설정 영속화 검증 포함):
 
 | Phase | Client·Shared 선행 상태 | 전체 상태 / 남은 작업 |
 |---|---|---|
@@ -29,7 +29,7 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | 2 | DONE · 현재 창 표시/자동 조회 | IN_PROGRESS · 실제 API 연결 완료, Windows 창 전환 수동 검증 잔여 |
 | 3 | DONE · 시작 시각/누적 활성 시간 표시 | IN_PROGRESS · 세션 시간/종료 저장 연결, 재방문 집계 잔여 |
 | 4 | DONE · 최근 기록 조회/새로고침 | IN_PROGRESS · 실제 SQLite 저장/조회·DB 재조회 검증, 진행 중 갱신 완료, 재방문/Windows 수동 검증 잔여 |
-| 5 | DONE · 일시정지/차단 목록/기록 상태 | IN_PROGRESS · 실제 설정 API/수집기 연결, 설정 영속화·Windows 수동 검증 잔여 |
+| 5 | DONE · 일시정지/차단 목록/기록 상태 | IN_PROGRESS · 실제 설정 API/수집기 및 설정 영속화 연결, Windows 수동 검증 잔여 |
 | 6 | DONE · 클립보드 기록 설정/복사 텍스트 상세 | IN_PROGRESS · 실제 수집기/DB/조회 연결, Windows 실제 복사 수동 검증 잔여 |
 | 7 | DONE · 브라우저 출처/URL 차단 설정 | IN_PROGRESS · 수동 확장/작업 ID 연결 완료, 자동 탭 이벤트·URL 차단·Windows 수동 검증 잔여 |
 | 8 | DONE · 저장 웹 본문/수집 시각/출처 상세 | IN_PROGRESS · 수동 캡처/저장 본문 조회/재전송 갱신 완료, 정제·자동 갱신·URL 차단 잔여 |
@@ -46,6 +46,8 @@ Client Phase 2–4는 2026-10-02, Phase 5–11 Client/Shared는 2026-10-16 main�
 Backend 활성 창·세션 저장·브라우저 수신·PDF/DOCX 추출 구현은 2026-10-21 main에 반영됐다.
 `feat/client-backend-integration`에서 실제 HTTP/Qt/SQLite 통합과 문서 가져오기를 검증한다.
 2026-10-26 Windows Client·Backend의 단일 EXE 빌드·패키지 실행 검증을 추가했다.
+2026-11-05 `feat/privacy-settings-persistence`에서 지원 설정의 SQLite 저장·재시작 복원을 추가했다.
+[설정 검증 보고서](../../docs/reports/privacy-settings-persistence.md)를 따르며, 기존 EXE ZIP에는 포함되지 않는다.
 [배포 안내](../../docs/dev/windows-exe.md)를 따르며 기능별 Phase 완료 개수와 구분한다.
 [통합 보고서](../../docs/reports/client-backend-integration.md)에 연결 범위·검증 결과·제한을 기록한다.
 브라우저 수동 캡처·문서 선택 경로의 실제 작업 ID 연결과 저장 본문 조회를 추가했다.
