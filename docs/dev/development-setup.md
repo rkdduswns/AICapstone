@@ -25,6 +25,8 @@ py -3.11 -m venv .venv
 
 Client Phase 2–11과 Backend 구현이 통합된 main을 기준으로 한다.
 실제 연결 작업은 `feat/client-backend-integration` 브랜치에서 진행한다.
+설정 영속화는 `feat/privacy-settings-persistence`의 추가 검토 범위이며 main·기존 배포 ZIP 반영과 구분한다.
+해당 소스를 확인할 때는 설치 전에 이 브랜치로 전환하고 [설정 영속화 보고서](../reports/privacy-settings-persistence.md)를 따른다.
 가상환경 활성화 없이 해당 Python을 직접 사용하므로 PowerShell 실행 정책 변경이 필요 없다.
 이미 clone했다면 작업 중인 변경을 저장하고 `git fetch origin`, `git switch main`, `git pull --ff-only origin main`으로 갱신한다.
 
@@ -85,6 +87,8 @@ Linux에서는 `.venv/bin/python -m backend`를 사용한다.
 기본 호스트는 127.0.0.1이며 외부 인터페이스로 변경하는 옵션은 제공하지 않는다.
 검증용 DB를 분리하려면 `--db-path "$env:TEMP\contexttrace-check\activity.db"`를 지정한다.
 생략하면 사용자 홈의 `.contexttrace/activity.db`를 사용하며 저장소 안에 DB를 만들지 않는다.
+설정 영속화 브랜치에서는 일시정지·차단 프로그램·클립보드 사용 설정도 같은 DB에 저장한다.
+같은 DB에는 Backend 하나만 실행한다. 포트를 바꿔 별도 Backend를 실행해도 정책의 실시간 동기화는 제공하지 않는다.
 종료는 Ctrl+C. 사용 중인 포트로 실행하면 오류 로그와 비정상 종료 코드가 반환된다.
 Windows 자동 실행 검증과 사용자 확인 결과는 [검증 보고서](../reports/phase1-client-windows.md)를 따른다.
 
@@ -103,7 +107,9 @@ Backend와 별도의 터미널에서 실행한다.
 최근 기록에서 `선택한 작업에 문서 연결`을 누르면 해당 작업에 실제 선택 경로·본문을 연결한다.
 가져온 시각과 작업 시각은 별도로 보존한다. 일시정지 상태에서는 새 업로드도 거부된다.
 Chrome/Edge 확장 설치·토큰 설정과 문서 연결 방법은 [이력 연결 안내](history-source-linking.md)를 따른다.
-설정은 현재 프로세스 메모리에서 관리하며 Backend를 재실행하면 기본값으로 초기화된다.
+설정 영속화 브랜치에서는 같은 DB로 Backend를 재실행하면 저장된 세 설정을 수집 전에 복원한다.
+설정 행이 없는 DB의 기본값은 수집 허용·빈 차단 목록·클립보드 꺼짐이다.
+저장·복원 오류의 중단 동작과 재확인 절차는 [개인정보 API 계약](privacy-api.md#설정-저장과-복원)을 따른다.
 Linux 자동 검증은 Qt offscreen을 사용하며 Windows에서는 기본 Windows Qt 플랫폼을 사용한다.
 
 ## Windows 10/11 수동 검증

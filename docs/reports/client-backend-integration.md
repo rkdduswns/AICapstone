@@ -3,6 +3,10 @@
 작업일: 2026-10-21 ~ 2026-10-22 (KST). 브랜치: `feat/client-backend-integration`.
 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
 
+이 보고서는 2026-10-21~22의 검증 기록이다. 당시 메모리 설정의 재실행 초기화는
+2026-11-05 `feat/privacy-settings-persistence`에서 후속 변경했다.
+현재 소스의 저장·복원 범위는 [설정 영속화 검증](privacy-settings-persistence.md)을 따른다.
+
 ## 연결 결과
 
 | 기능 | 현재 연결 상태 |

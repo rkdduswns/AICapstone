@@ -43,8 +43,14 @@ class ClipboardCollector:
     def set_enabled(self, enabled: bool) -> None:
         """설정 변경 전의 오래된 복사 내용을 새 작업의 이벤트로 저장하지 않는다."""
         if enabled != self._enabled:
+            if enabled:
+                # 켜기는 새 기준을 읽은 뒤 적용한다. 실패하면 꺼진 상태를 유지한다.
+                self.reset_baseline()
+            else:
+                # 끄기는 OS 조회 실패와 무관하게 즉시 적용하고 다시 켤 때 새 기준을 읽는다.
+                self._last_sequence = None
+                self._last_content = None
             self._enabled = enabled
-            self.reset_baseline()
 
     def reset_baseline(self) -> None:
         """수집·정책 경계의 시퀀스를 기준으로 삼아 비활성 기간에 복사한 내용을 건너뛴다."""

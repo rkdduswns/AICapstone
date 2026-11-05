@@ -1,6 +1,6 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-26 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
+기준일: **2026-11-05 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
 main에 Client Phase 2~11 및 Backend 구현이 포함돼 있다. 현재 브랜치의 실제 HTTP·SQLite 통합 검증 결과를 추가했다.
 브라우저 수동 캡처·명시적 문서 연결과 저장 본문 조회를 추가했다. Windows 실제 수동 검증·자동 탭/파일 감지·검색은 미완료다. [통합 보고서](../../docs/reports/client-backend-integration.md)를 따른다.
 
@@ -23,7 +23,7 @@ main에 Client Phase 2~11 및 Backend 구현이 포함돼 있다. 현재 브랜�
 | [002](phase002.md) | Windows 활성 창 감지 | IN_PROGRESS · Client DONE | 6/20 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` / `feat/phase2-backend`(준비·미병합) | 2026-10-02 (Client) |
 | [003](phase003.md) | 작업 시간 및 재방문 추적 | IN_PROGRESS · Client DONE | 2/17 | 2026-10-01 | `feat/phase3-client` | 2026-10-02 (Client) |
 | [004](phase004.md) | 작업 기록 저장 및 조회 | IN_PROGRESS · Client DONE | 17/21 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-02 (Client) |
-| [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 13/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
+| [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 15/22 | 2026-11-05 (설정 영속화) | `feat/client-backend-integration` / `feat/privacy-settings-persistence` | 2026-10-16 (Client) |
 | [006](phase006.md) | 클립보드 수집 | IN_PROGRESS · Client DONE | 9/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [007](phase007.md) | 브라우저 기본 연동 | IN_PROGRESS · Client DONE | 10/26 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 8/23 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
@@ -47,10 +47,15 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 설정 영속화, 실제 Windows 수동 검증, 자동 탭/파일 감지·URL 차단·실제 검색은 잔여 범위다.
 문서의 선택 경로를 보존하지만 수동 연결을 자동 열람 감지 완료로 확대하지 않는다.
 
+2026-11-05 후속 단계에서는 일시정지·프로그램 차단·클립보드 설정의 지속 저장과 최초 수집 전 복원을 구현했다.
+저장·복원 실패와 실제 Backend 프로세스 재시작은 [설정 검증 보고서](../../docs/reports/privacy-settings-persistence.md)를 따른다.
+Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하며 전체 상태는 IN_PROGRESS다.
+
 ## 작업 이력
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
 |---|---|---|---|
+| 2026-11-05 | 설정 영속화 | `feat/privacy-settings-persistence` | PR #16의 `b12a82a` 기반, 세 설정의 저장·최초 수집 전 복원·실패 복구·프로세스 재시작. [검증 보고서](../../docs/reports/privacy-settings-persistence.md). main 미병합 |
 | 2026-10-26 | Windows EXE 배포 도구 | `feat/client-backend-integration` | Client/Backend 각각 onefile 빌드·실제 EXE 자동 검증·ZIP 배포, [실행·검증 범위](../../docs/dev/windows-exe.md). main 미병합, Phase 완료 개수는 유지 |
 | 2026-10-22 | 웹·문서 작업 이력 연결 | `feat/client-backend-integration` | 실제 FK/본문 조회·명시적 경로·수동 확장, Python 529·Node 8 통과. [실행/제한](../../docs/dev/history-source-linking.md), [검증](../../docs/reports/client-backend-integration.md). main 미병합 |
 | 2026-10-21 | Client–Backend 부분 통합 | `feat/client-backend-integration` | 실제 HTTP/Qt/SQLite·문서 추출 연결, [통합 검증](../../docs/reports/client-backend-integration.md). Windows 수동 검증 및 출처 연결/검색 잔여 |
@@ -186,6 +191,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Backend | 전체 기록 일시정지 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Backend | 프로그램 차단 검사 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Backend | 민감 문자열 패턴 검사 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
+| Backend | 지원 설정의 지속 저장 및 최초 수집 전 복원 | 완료 | 2026-11-05 | `feat/privacy-settings-persistence` | [설정 검증](../../docs/reports/privacy-settings-persistence.md) · 기존 SQLite에 세 필드 저장 |
 | Backend | 저장 전 개인정보 보호 검사 | 미완료 | — | — | 미착수 |
 | Backend | 차단 사유 구분 | 미완료 | — | — | 미착수 |
 | Shared | 개인정보 설정 구조 | 완료 | 2026-10-07 | `feat/phase5-client` | [개인정보 API](../../docs/dev/privacy-api.md) |
@@ -196,6 +202,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Tests | 차단 프로그램 활성 시 저장되지 않음 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Tests | 민감 문자열 차단 | 미완료 | — | — | Backend 연결 후 실제 저장소로 검증 |
 | Tests | 기록 재개 후 정상 저장 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
+| Tests | 설정 재시작 복원·저장 실패·손상 설정·복사 기준 복구 | 완료 | 2026-11-05 | `feat/privacy-settings-persistence` | [설정 검증](../../docs/reports/privacy-settings-persistence.md) · 가상 OS 입력·실제 SQLite/API·프로세스 재시작 |
 | Tests | 기존 기록에는 영향 없음 | 미완료 | — | — | Backend 연결 후 실제 저장소로 검증 |
 | 완료 조건 | 사용자가 전체 기록을 즉시 중지할 수 있다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 지정 프로그램의 기록이 저장되지 않는다. | 미완료 | — | — | 미착수 |

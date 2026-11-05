@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI, Query, Request
 from pydantic import BaseModel, ConfigDict, field_validator
 from starlette.exceptions import HTTPException
 
+from backend.privacy_settings import normalize_blocked_processes
 from shared.clipboard import (
     CLIPBOARD_ENTRIES_LIMIT,
     RECORD_CLIPBOARD_PATH,
@@ -16,7 +17,6 @@ from shared.clipboard import (
 from shared.privacy import (
     BLOCKED_PROCESSES_PATH,
     CLIPBOARD_SETTING_PATH,
-    MAX_BLOCKED_PROCESSES,
     PAUSED_PATH,
     PRIVACY_PATH,
     PrivacyResponse,
@@ -50,16 +50,7 @@ class BlockedProcessesRequest(BaseModel):
     @classmethod
     def normalize(cls, names: list[str]) -> list[str]:
         """Client와 같은 정규형을 반환하고 최대 개수와 잘못된 문자를 검사한다."""
-        normalized = set()
-        for name in names:
-            name = name.strip().lower()
-            if (not name.endswith(".exe") or not name[:-4].strip() or len(name) > 255
-                    or any(c in '<>:"/\\|?*' or ord(c) < 32 for c in name)):
-                raise ValueError("실행 파일 이름을 입력해 주세요.")
-            normalized.add(name)
-        if len(normalized) > MAX_BLOCKED_PROCESSES:
-            raise ValueError("차단 프로그램 개수를 초과했습니다.")
-        return sorted(normalized)
+        return normalize_blocked_processes(names)
 
 
 def install_client_routes(app: FastAPI) -> None:
@@ -93,30 +84,20 @@ def install_client_routes(app: FastAPI) -> None:
 
     @app.put(PAUSED_PATH, dependencies=[Depends(desktop_write)])
     async def change_paused(payload: PausedRequest):
-        """허용된 이전 세션을 닫은 뒤 목표 상태를 적용한다. 중복 요청은 재토글하지 않는다."""
-        policy = app.state.browser_privacy_policy
-        if payload.paused != policy.collection_paused:
-            app.state.activity_tracker.finish()
-            policy.collection_paused = payload.paused
-            app.state.clipboard_collector.reset_baseline()
+        """커밋된 목표값을 적용하며 중복 요청을 토글 명령으로 해석하지 않는다."""
+        app.state.update_privacy_settings({"paused": payload.paused})
         return state()
 
     @app.put(BLOCKED_PROCESSES_PATH, dependencies=[Depends(desktop_write)])
     async def change_processes(payload: BlockedProcessesRequest):
-        """기존 세션 경계에서 목록을 교체하고 이후 감지부터 새 정책을 사용한다."""
-        policy = app.state.browser_privacy_policy
-        names = set(payload.blocked_processes)
-        if names != policy.blocked_applications:
-            app.state.activity_tracker.finish()
-            policy.blocked_applications = names
-            app.state.clipboard_collector.reset_baseline()
+        """차단 목록만 지속 저장하고 다른 필드의 최신 저장 값을 함께 적용한다."""
+        app.state.update_privacy_settings({"blocked_processes": payload.blocked_processes})
         return state()
 
     @app.put(CLIPBOARD_SETTING_PATH, dependencies=[Depends(desktop_write)])
     async def change_clipboard(payload: ClipboardSettingRequest):
-        """기본 꺼짐인 수집기의 사용 여부를 바꾸며 기존 복사 기록은 삭제하지 않는다."""
-        app.state.clipboard_enabled = payload.clipboard_enabled
-        app.state.clipboard_collector.set_enabled(payload.clipboard_enabled)
+        """사용 여부를 저장·적용하며 기존 복사 기록은 삭제하지 않는다."""
+        app.state.update_privacy_settings({"clipboard_enabled": payload.clipboard_enabled})
         return state()
 
     @app.get(RECORD_CLIPBOARD_PATH)
