@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from client.search_client import local_date_range, read_search_request
-from client.time_values import format_timestamp
+from client.search_presentation import chunk_detail, chunk_source
 from shared.search import MAX_SEARCH_PROCESS, SearchRequest
 from shared.search_data import DocumentChunk
 
@@ -167,7 +167,7 @@ class SemanticSearchWidget(QWidget):
 
         self.table.setRowCount(len(self._chunks))
         for row, chunk in enumerate(self._chunks):
-            title, kind, _ = self._source(chunk)
+            title, kind, _ = chunk_source(chunk)
             snippet = " ".join(chunk.text.split())
             if len(snippet) > 96:
                 snippet = snippet[:96] + "…"
@@ -179,31 +179,10 @@ class SemanticSearchWidget(QWidget):
         else:
             self.status.setText("조건에 맞는 검색 결과가 없습니다.")
 
-    @staticmethod
-    def _source(chunk: DocumentChunk) -> tuple[str, str, str]:
-        """검증된 출처 스냅샷의 제목과 URL 또는 파일 경로를 표시용으로 읽는다."""
-        source = chunk.source
-        title = source.window_title or "(제목 없음)"
-        if source.browser is not None:
-            return source.browser.page_title or title, "웹", source.browser.url or ""
-        if source.document is not None:
-            return title, source.document.file_type.upper(), source.document.file_path
-        return title, "", ""
-
     def _show_selection(self) -> None:
         """선택한 조각의 원본 주소, 작업·확보 시각, 본문을 일반 텍스트로 표시한다."""
         selected = self.table.selectedItems()
         if not selected:
             self.detail.clear()
             return
-        chunk = self._chunks[selected[0].row()]
-        source = chunk.source
-        title, kind, address = self._source(chunk)
-        self.detail.setPlainText(
-            f"{title}\n출처 ({kind}) · {address}\n"
-            f"프로그램 · {source.application} ({source.process_name})\n"
-            f"열람 시작 · {format_timestamp(source.started_at)}\n"
-            f"마지막 활성 · {format_timestamp(source.last_active_at)}\n"
-            f"본문 확보 · {format_timestamp(source.captured_at)}\n"
-            f"작업 ID · {chunk.context_id}\n\n{chunk.text}"
-        )
+        self.detail.setPlainText(chunk_detail(self._chunks[selected[0].row()]))
