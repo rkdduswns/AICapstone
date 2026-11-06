@@ -1,6 +1,6 @@
 # Phase 10 검색 문서 조각 및 출처 계약
 
-상태: Shared 구조·Client 수신 검증 선행 구현. 실제 검색 데이터 생성은 Backend 미구현이다.
+Shared 구조와 Client 수신 검증을 구현했다. Backend는 작업에 연결된 저장 본문을 검색용 텍스트로 준비한다.
 기획의 DocumentChunk 모델을 구체화하고 확보 당시 출처를 함께 반환하는 경계를 정의한다.
 이 계약은 조회용 객체이며 DB 스키마·분할 방식·임베딩 모델·벡터 차원을 지정하지 않는다.
 Phase 11 검색 응답에서 사용할 개별 조각/출처 구조다. HTTP 요청·응답 envelope는 해당 Phase에서 정의한다.
@@ -98,8 +98,60 @@ started_at/last_active_at은 작업 열람 시각이고 captured_at은 본문 �
 - 원본 삭제·정책 차단 시 조각·의미 데이터가 남아 검색 근거에 쓰이지 않도록 Backend가 처리한다.
 - 개인정보 보호 검사는 정규화·분할·임베딩·저장 전에 수행한다.
 
+## 저장 본문 전처리
+
+저장소의 Python 환경에서 기존 작업 DB와 작업 ID를 지정한다.
+
+~~~powershell
+python -m backend.search_text --db-path "C:\검증 자료\activity.db" --record-id 1
+~~~
+
+DB를 읽기 전용으로 열고 저장된 보호 설정, 작업, 본문을 같은 읽기 트랜잭션에서 조회한다.
+지정 작업의 실제 외래 키를 따라 본문이 저장된 웹·문서 출처를 모두 읽는다. 연결 테이블이 없는
+구형 DB에서는 해당 종류를 건너뛴다. 제목·파일명·시각이 비슷한 자료를 대신 연결하지 않는다.
+원문과 DB 스키마는 그대로 보존한다.
+
+결과는 표준 출력에 UTF-8 JSON 배열로 반환한다. 각 항목은 아래 필드를 가진다.
+
+| 필드 | 값 |
+|---|---|
+| `context_id` | 지정한 실제 작업 ID의 문자열 |
+| `source_id` | 실제 웹 또는 문서 출처 ID의 문자열. `kind`와 함께 출처를 식별 |
+| `kind` | `web` 또는 `document` |
+| `captured_at` | 저장된 본문 확보 시각. 시간대가 있는 ISO 8601 문자열 |
+| `text` | 정규화한 저장 본문 |
+| `browser` | 웹 출처의 `browser`, `page_title`, `url`. 문서면 `null` |
+| `document` | 문서 출처의 `file_path`, `file_type` (`pdf` 또는 `docx`). 웹이면 `null` |
+
+정규화는 줄바꿈을 LF로 통일하고 NUL을 제거하며 Unicode NFC를 적용한다. 양끝의 공백을 제거하고
+본문 내부의 공백과 줄바꿈을 보존한다. 웹 URL과 문서 경로는 확보 당시 저장한 값을 사용한다.
+화면 표시용 저장 본문 API와 위 조각 계약의 50,000자 상한은 이 단계에 적용하지 않는다.
+
+저장된 설정의 일시정지나 프로그램·프로세스 차단이 적용되면 `[]`를 반환한다. 설정이 없는 DB는
+기본 보호 정책을 사용한다. URL은 기존 저장 정책을, 문서 경로와 유형은 파일 계약을 다시 검사한다.
+확보 시각이 올바른지 확인하고 웹 제목·문서 경로 및 본문의 민감 패턴도 검사한다. 유효하지 않은
+출처나 확보 시각, 정규화 전후 민감 패턴이 검출된 본문, 정규화 후 빈 본문은 제외한다. 준비할 본문이
+없으면 `[]`를 반환한다.
+지정 작업이 없거나 DB를 읽을 수 없거나 저장 설정의 형식이 올바르지 않으면 본문 없이 오류를
+표시하고 종료 코드 `1`을 반환한다. 누락된 인수나 잘못된 형식·범위의 작업 ID는 사용법 오류로
+종료 코드 `2`를 반환한다.
+
+이 단계의 결과는 분할 전 본문이다. 조각 생성·중복 제거·임베딩·색인 저장/삭제·검색 API는 후속 범위다.
+정규화 구현과 단위 테스트는 hs020214의
+[`0250bca`](https://github.com/rkdduswns/AICapstone/commit/0250bca002b48ddb0639895d134eafd55a7e90aa),
+[`24236f2`](https://github.com/rkdduswns/AICapstone/commit/24236f2598e3e994e176dac7d30f16bb09178d9d),
+[`4261527`](https://github.com/rkdduswns/AICapstone/commit/4261527135d8c34866aeb064c2058f3967e0abf9)를 가져왔다.
+
 ## 검증 범위
 
 고정 가상 웹/PDF/DOCX 조각을 JSON으로 전달해 ID·출처·시각·원문·일부 저장 여부 복원을 확인한다.
 유형 혼합·null URL·상대 경로·잘못된 시간/순서·타입·길이·원본 ID 불일치를 거부한다.
+2026-11-06 Windows Python 3.14.7에서 정규화 단위 8개와 전처리 연동 8개를 포함한 관련 테스트 78개가 통과했다.
+실제 웹 수신·DOCX 업로드부터 로컬 명령까지 확인했으며 출처 연결, 본문 갱신, 보호 정책, 구형 DB,
+읽기 전용 동작을 검증했다. Ruff와 의존성 검사도 통과했다.
+
+~~~powershell
+python -m pytest -q tests/backend/test_search_text_preparation.py tests/backend/test_text_processing.py tests/backend/test_history_sources.py tests/backend/test_client_integration.py tests/backend/test_privacy_persistence.py
+~~~
+
 실제 문서 분할, 중복 제거, 임베딩, 색인 저장·삭제 및 저장된 검색 데이터의 역추적은 후속 Backend 검증이다.
