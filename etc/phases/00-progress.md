@@ -1,7 +1,8 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-10-15 (KST)**. 기준 main: `d9c47d1be5469085728e18dc9d53e2de0625459b`.
+Phase 1~11 기록 기준일은 **2026-10-15 (KST)**이며 기준 main은 `d9c47d1be5469085728e18dc9d53e2de0625459b`다.
 Client Phase 2~4 병합 상태에 Phase 5~11 Client/Shared 선행 개발·가상 응답·계약 검증 결과를 반영했다.
+Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서 분기해 별도로 기록했다.
 
 ## 읽는 방법과 갱신 규칙
 
@@ -29,14 +30,15 @@ Client Phase 2~4 병합 상태에 Phase 5~11 Client/Shared 선행 개발·가상
 | [009](phase009.md) | 로컬 문서 내용 수집 | IN_PROGRESS · Client DONE | 5/21 | 2026-10-12 | feat/phase9-client | — |
 | [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE | 4/20 | 2026-10-14 | feat/phase10-shared | — |
 | [011](phase011.md) | 조건 검색 | IN_PROGRESS · Client DONE | 9/25 | 2026-10-15 | feat/phase11-client | — |
-| [012](phase012.md) | 의미 검색 및 혼합 검색 | NOT_STARTED | 0/20 | — | — | — |
+| [012](phase012.md) | 의미 검색 및 혼합 검색 | IN_PROGRESS · Client 미리보기 완료 | 3/20 | 2026-11-06 | `feat/phase12-client` | — |
 | [013](phase013.md) | 근거 기반 RAG | NOT_STARTED | 0/25 | — | — | — |
 | [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
 
-Phase 2~9의 실제 감지·시간 계산·저장·보호 검사·클립보드/브라우저 본문 수집 및 통합 검증은 아직 남아 있다.
+2026-10-15 선행 개발 기록에는 Phase 2~9의 실제 감지·시간 계산·저장·보호 검사·클립보드/브라우저 본문 수집 및 통합 검증이 후속 과제로 남아 있다.
 Phase 5~9의 실제 수집/추출/저장/차단 테스트는 Backend 연결 후 수행한다.
 Phase 10의 실제 정규화·분할·임베딩·검색 데이터 저장/삭제 및 역추적 통합 검증은 남아 있다.
 Phase 11의 실제 저장소 조건 검색·정렬·보호 정책 적용 및 통합 검증은 남아 있다.
+Phase 12는 가상 결과를 표시하는 Client 미리보기까지 구현했다. 실제 의미·혼합 검색과 출처 연결 검증은 남아 있다.
 
 ## 작업 이력
 
@@ -54,6 +56,7 @@ Phase 11의 실제 저장소 조건 검색·정렬·보호 정책 적용 및 통
 | 2026-10-12 | Phase 9 Client | feat/phase9-client | 미병합 Phase 8 기반. 파일 출처·저장 문서 본문·Shared 계약·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase9-client.md) |
 | 2026-10-14 | Phase 10 Shared | feat/phase10-shared | 미병합 Phase 9 기반. 검색 조각·출처 계약·Client 수신 검증 완료, [보고서](../../docs/reports/phase10-shared.md) |
 | 2026-10-15 | Phase 11 Client | feat/phase11-client | 미병합 Phase 10 기반. 명시적 조건 검색 화면·Shared 계약·가상 HTTP 검증 완료, [보고서](../../docs/reports/phase11-client.md) |
+| 2026-11-06 | Phase 12 Client | `feat/phase12-client` | main `7c30798` 기반. 자연어 입력과 선택 조건, 가상 웹·PDF 결과의 순위·본문·출처 표시. [실행과 범위](phase012.md#client-미리보기-실행) |
 
 문서 관리 이력: 2026-10-02 `docs/phase-progress`에서 통합 체크리스트와 세 자리 Phase 파일명을 적용했다
 ([PR #6](https://github.com/rkdduswns/AICapstone/pull/6) 병합). 같은 날 `docs/project-doc-cleanup`에서
@@ -372,9 +375,9 @@ Phase 11의 실제 저장소 조건 검색·정렬·보호 정책 적용 및 통
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Client | 자연어 검색 입력 | 미완료 | — | — | 미착수 |
-| Client | 관련 내용 미리보기 | 미완료 | — | — | 미착수 |
-| Client | 검색 결과 관련도 표시 방식 정리 | 미완료 | — | — | 미착수 |
+| Client | 자연어 검색 입력 | 완료 | 2026-11-06 | `feat/phase12-client` | [Client 미리보기](phase012.md#client-미리보기-실행) · 자연어와 선택 조건 제출 |
+| Client | 관련 내용 미리보기 | 완료 | 2026-11-06 | `feat/phase12-client` | [Client 미리보기](phase012.md#client-미리보기-실행) · 가상 웹·PDF 조각과 확보 당시 출처 |
+| Client | 검색 결과 관련도 표시 방식 정리 | 완료 | 2026-11-06 | `feat/phase12-client` | [Client 미리보기](phase012.md#client-미리보기-실행) · 응답 순서 기준의 순위 |
 | Backend | 질의 의미 검색 | 미완료 | — | — | 미착수 |
 | Backend | 의미 유사도 기반 후보 추출 | 미완료 | — | — | 미착수 |
 | Backend | 시간 조건 + 의미 검색 | 미완료 | — | — | 미착수 |

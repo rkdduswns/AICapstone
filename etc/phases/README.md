@@ -21,7 +21,7 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | Phase 13 | 근거 기반 RAG | 검색 기록 기반 답변과 출처 제공 |
 | Phase 14 | 작업 세션·타임라인·안정화 | 세션 구성, 전체 통합, 최종 검증 |
 
-현재 상태 (2026-10-15):
+Client 선행 상태와 통합 과제 (Phase 1~11은 2026-10-15 기록 기준)
 
 | Phase | Client·Shared 선행 상태 | 전체 상태 / 남은 작업 |
 |---|---|---|
@@ -36,7 +36,9 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | 9 | DONE · 파일 출처/저장 문서 본문/추출 시각 | IN_PROGRESS · Backend 파일 감지·PDF/DOCX 추출·실제 저장/차단 검증 |
 | 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 정규화·분할·임베딩·저장/삭제·역추적 통합 |
 | 11 | Client DONE · 명시적 조건 검색·목록·출처 상세 | IN_PROGRESS · Backend 실제 필터·조회·정렬·통합 |
+| 12 | Client 미리보기 완료 (2026-11-06) · 자연어 입력·조건·관련 본문·순위 | IN_PROGRESS · 실제 의미 검색과 혼합 조건, API 연결 |
 
+Phase 1~11 개발 이력은 각 작업 시점의 검증 범위를 기록한다.
 구현 및 검증 근거: [Phase 2](../../docs/reports/phase2-client.md),
 [Phase 3](../../docs/reports/phase3-client.md), [Phase 4](../../docs/reports/phase4-client.md),
 [Phase 5](../../docs/reports/phase5-client.md), [Phase 6](../../docs/reports/phase6-client.md),
@@ -60,6 +62,9 @@ Phase 10은 별도 화면 없이 검색 문서 조각·출처 공통 구조와 C
 feat/phase10-shared는 미병합 feat/phase9-client에서 분기했다. 실제 검색 데이터 구축은 Backend에 남아 있다.
 Phase 11 Client는 feat/phase10-shared에서 분기한 feat/phase11-client에 있다.
 제목·프로세스·출처·날짜 조건과 결과 상세를 가상 HTTP로 검증했다. 실제 저장소 검색은 Backend에 남아 있다.
+
+Phase 12 Client는 `main`에서 분기한 `feat/phase12-client`에서 가상 웹·PDF 결과로 자연어 입력과 결과 표현을 구현했다.
+[미리보기 실행과 완료 범위](phase012.md#client-미리보기-실행)를 따른다.
 
 매 작업의 구현·검증·미완료 항목을 코드·문서·PR에 기록하고, 최신 브랜치와 검증 근거로 완료 상태를 판단한다.
 
