@@ -5,17 +5,17 @@
 
 ## 진행 상태와 범위
 
-- 작업일: 2026-10-14 (KST). 브랜치: feat/phase10-shared.
-- **Shared 계약 및 Client 수신 검증 DONE / 전체 IN_PROGRESS**.
-- 근거: 신규 58개·기존 회귀 포함 전체 406개 테스트와 정적·의존성 검사.
-- 선행조건: Phase 8 웹 본문과 Phase 9 파일 출처 계약. 미병합 feat/phase9-client에서 분기한다.
-- 이번 범위: 검색 문서 조각, 확보 당시 출처 스냅샷, 원본 작업 ID 대조와 JSON 수신 검증.
+- 2026-10-14 (KST) `feat/phase10-shared`에서 검색 조각·출처 계약과 Client JSON 수신 검증을 완료했다. 신규 58개·전체 406개 테스트와 정적·의존성 검사가 근거다.
+- 2026-11-06 (KST) `feat/phase10-search-text-preparation`에서 지정 작업의 실제 웹·문서 본문을 정규화하는 로컬 명령을 추가했다.
+- **Shared 계약 및 Client 수신 검증 DONE / Backend 전처리 DONE / 전체 IN_PROGRESS**.
+- 전처리는 Phase 8·9의 실제 작업과 본문 연결 및 [PR #18](https://github.com/rkdduswns/AICapstone/pull/18) `fa99946`의 저장 보호 설정을 사용한다.
+- 전처리 연동 8개와 동업자 정규화 단위 8개를 포함한 관련 테스트 78개가 통과했다. SQLite 출처 연결, 보호 정책, 읽기 전용 동작 및 CLI를 검증했다.
 - Phase 10에는 별도 Client 화면 항목이 없다. 검색 입력·목록·상세 화면은 Phase 11 범위다.
-- 원문 분할·정규화·중복 제거·임베딩·저장·삭제 연동은 Backend에서 별도 구현한다.
-- [계약](../../docs/dev/search-data-contract.md), [검증 보고서](../../docs/reports/phase10-shared.md).
+- 조각 생성·중복 제거·임베딩·색인 저장/삭제는 후속 Backend 범위다.
+- [전처리 사용법과 조각 계약](../../docs/dev/search-data-contract.md), [Shared 검증 보고서](../../docs/reports/phase10-shared.md).
 
 ## Backend
-- [ ] 텍스트 정규화
+- [x] 텍스트 정규화
 - [ ] 긴 문서 분할
 - [ ] 짧은/불필요한 조각 제거
 - [ ] 각 조각에 원본 작업 ID 연결
@@ -30,6 +30,7 @@
 ## Tests
 - [x] 가상 웹/PDF/DOCX 조각의 JSON 직렬화·검증·출처 복원
 - [x] 작업 ID·출처·시각·본문 계약 오류 거부
+- [x] 실제 SQLite의 작업·출처를 연결한 전처리와 보호 정책·읽기 전용 동작 검증
 - [ ] 긴 웹페이지 분할
 - [ ] 긴 PDF 분할
 - [ ] 아주 짧은 텍스트

@@ -1,6 +1,6 @@
 # Phase 전체 진행 체크리스트
 
-기준일: **2026-11-05 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
+기준일: **2026-11-06 (KST)**. 기준 main: `7c307987182c629965da63824b60d36e41db4036`.
 main에 Client Phase 2~11 및 Backend 구현이 포함돼 있다. 현재 브랜치의 실제 HTTP·SQLite 통합 검증 결과를 추가했다.
 브라우저 수동 캡처·명시적 문서 연결과 저장 본문 조회를 추가했다. Windows 실제 수동 검증·자동 탭/파일 감지·검색은 미완료다. [통합 보고서](../../docs/reports/client-backend-integration.md)를 따른다.
 
@@ -28,7 +28,7 @@ main에 Client Phase 2~11 및 Backend 구현이 포함돼 있다. 현재 브랜�
 | [007](phase007.md) | 브라우저 기본 연동 | IN_PROGRESS · Client DONE | 10/26 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 8/23 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [009](phase009.md) | 로컬 문서 내용 수집 | IN_PROGRESS · Client DONE | 16/21 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
-| [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE | 4/20 | 2026-10-14 | feat/phase10-shared | 2026-10-16 (Shared) |
+| [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE · Backend 전처리 DONE | 6/21 | 2026-10-14 (Shared) / 2026-11-06 (전처리) | `feat/phase10-shared` / `feat/phase10-search-text-preparation` | 2026-10-16 (Shared) |
 | [011](phase011.md) | 조건 검색 | IN_PROGRESS · Client DONE | 9/25 | 2026-10-15 | feat/phase11-client | 2026-10-16 (Client) |
 | [012](phase012.md) | 의미 검색 및 혼합 검색 | NOT_STARTED | 0/20 | — | — | — |
 | [013](phase013.md) | 근거 기반 RAG | NOT_STARTED | 0/25 | — | — | — |
@@ -36,7 +36,7 @@ main에 Client Phase 2~11 및 Backend 구현이 포함돼 있다. 현재 브랜�
 
 Phase 2~9는 가상 OS 입력과 실제 Backend HTTP·SQLite·문서 추출 라이브러리를 사용해 부분 통합했다.
 작업 ID 기반 출처 연결은 가상 OS 입력과 실제 HTTP·SQLite·Qt로 검증했다. 실제 Windows 작업/복사 및 확장 설치 후 수동 검증은 남아 있다.
-Phase 10의 실제 정규화·분할·임베딩·검색 데이터 저장/삭제 및 역추적 통합 검증은 남아 있다.
+Phase 10은 지정 작업의 실제 웹·문서 본문 정규화를 연결했다. 조각 생성·임베딩·색인 저장/삭제 및 검색 결과의 역추적 검증은 남아 있다.
 Phase 11의 실제 저장소 조건 검색·정렬·보호 정책 적용 및 통합 검증은 남아 있다.
 
 ## 2026-10-22 통합 범위
@@ -55,6 +55,7 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
 |---|---|---|---|
+| 2026-11-06 | Phase 10 Backend 전처리 | `feat/phase10-search-text-preparation` | [PR #18](https://github.com/rkdduswns/AICapstone/pull/18) `fa99946` 기반. 저장된 웹·문서 본문을 실제 작업 ID와 연결해 읽기 전용으로 정규화하고 보호 정책을 적용. [전처리 사용법·검증 범위](../../docs/dev/search-data-contract.md#저장-본문-전처리). main 미병합 |
 | 2026-11-05 | 설정 영속화 | `feat/privacy-settings-persistence` | PR #16의 `b12a82a` 기반, 세 설정의 저장·최초 수집 전 복원·실패 복구·프로세스 재시작. [검증 보고서](../../docs/reports/privacy-settings-persistence.md). main 미병합 |
 | 2026-10-26 | Windows EXE 배포 도구 | `feat/client-backend-integration` | Client/Backend 각각 onefile 빌드·실제 EXE 자동 검증·ZIP 배포, [실행·검증 범위](../../docs/dev/windows-exe.md). main 미병합, Phase 완료 개수는 유지 |
 | 2026-10-22 | 웹·문서 작업 이력 연결 | `feat/client-backend-integration` | 실제 FK/본문 조회·명시적 경로·수동 확장, Python 529·Node 8 통과. [실행/제한](../../docs/dev/history-source-linking.md), [검증](../../docs/reports/client-backend-integration.md). main 미병합 |
@@ -332,26 +333,27 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Backend | 텍스트 정규화 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 긴 문서 분할 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 짧은/불필요한 조각 제거 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 각 조각에 원본 작업 ID 연결 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 의미 검색용 데이터 생성 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 검색용 데이터 저장 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 원본 삭제 시 검색 데이터 처리 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Backend | 텍스트 정규화 | 완료 | 2026-11-06 | `feat/phase10-search-text-preparation` | [정규화 방식과 원본 커밋](../../docs/dev/search-data-contract.md#저장-본문-전처리) |
+| Backend | 긴 문서 분할 | 미완료 | — | — | 저장 본문을 검색 조각으로 분할 |
+| Backend | 짧은/불필요한 조각 제거 | 미완료 | — | — | 생성된 조각의 제외 기준 적용 |
+| Backend | 각 조각에 원본 작업 ID 연결 | 미완료 | — | — | 분할 전 실제 작업 ID를 각 조각에 전달 |
+| Backend | 의미 검색용 데이터 생성 | 미완료 | — | — | 검색 조각 임베딩 |
+| Backend | 검색용 데이터 저장 | 미완료 | — | — | 조각·의미 데이터 색인 |
+| Backend | 원본 삭제 시 검색 데이터 처리 | 미완료 | — | — | 색인 삭제 연동 |
 | Shared | 검색 문서 조각 구조 정의 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
 | Shared | 출처 메타데이터 구조 정의 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
 | Tests | 가상 웹/PDF/DOCX 조각의 JSON 직렬화·검증·출처 복원 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
 | Tests | 작업 ID·출처·시각·본문 계약 오류 거부 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
-| Tests | 긴 웹페이지 분할 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 긴 PDF 분할 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 아주 짧은 텍스트 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 중복 조각 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 검색 조각 → 원본 URL 복원 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 검색 조각 → 원본 파일 경로 복원 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| 완료 조건 | 웹/문서 내용을 동일한 검색 단위로 다룰 수 있다. | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| 완료 조건 | 모든 검색 단위가 실제 원본 작업과 연결된다. | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| 완료 조건 | 의미 검색에 사용할 데이터가 준비된다. | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Tests | 실제 SQLite의 작업·출처를 연결한 전처리와 보호 정책·읽기 전용 동작 검증 | 완료 | 2026-11-06 | `feat/phase10-search-text-preparation` | [검증 범위](../../docs/dev/search-data-contract.md#검증-범위) · 전처리 연동 8개 포함 관련 78개 통과 |
+| Tests | 긴 웹페이지 분할 | 미완료 | — | — | 웹 조각 생성 검증 |
+| Tests | 긴 PDF 분할 | 미완료 | — | — | PDF 조각 생성 검증 |
+| Tests | 아주 짧은 텍스트 | 미완료 | — | — | 조각 제외 기준 검증 |
+| Tests | 중복 조각 | 미완료 | — | — | 중복 제거 검증 |
+| Tests | 검색 조각 → 원본 URL 복원 | 미완료 | — | — | 검색 조각에서 실제 웹 출처 복원 검증 |
+| Tests | 검색 조각 → 원본 파일 경로 복원 | 미완료 | — | — | 검색 조각에서 실제 문서 출처 복원 검증 |
+| 완료 조건 | 웹/문서 내용을 동일한 검색 단위로 다룰 수 있다. | 미완료 | — | — | 공통 검색 조각 생성·저장 |
+| 완료 조건 | 모든 검색 단위가 실제 원본 작업과 연결된다. | 미완료 | — | — | 저장된 조각의 작업·출처 역추적 검증 |
+| 완료 조건 | 의미 검색에 사용할 데이터가 준비된다. | 미완료 | — | — | 임베딩·색인 및 원본 삭제 연동 |
 
 ## Phase 011 — 조건 검색
 
