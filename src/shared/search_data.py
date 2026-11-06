@@ -17,7 +17,7 @@ class SourceMetadata:
 
     kind에 맞는 browser/document 하나만 제공한다. started_at/last_active_at은
     원본 작업의 열람 시각이고 captured_at은 본문 확보 시각이라 서로 구분한다.
-    원문 자체가 일부만 저장됐다면 content_truncated를 후속 검색·근거 표시까지 보존한다.
+    content_truncated는 기존 상세 조회의 일부 본문 표시 여부를 후속 검색·근거까지 보존한다.
     """
 
     kind: SourceKind
