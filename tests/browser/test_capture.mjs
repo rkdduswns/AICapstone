@@ -1,22 +1,35 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {runInNewContext} from "node:vm";
 import {capturePage} from "../../src/browser/extension/capture.mjs";
 
 /** 개인 데이터 없이 브라우저 API와 네트워크 경계만 가상화한다. */
 function fixture() {
   const calls = [];
   let tab = {id: 7, url: "https://example.test/a", title: "가상 페이지"};
-  const state = {process: "chrome.exe", recordId: "12", paused: false, fail: 0, scriptReads: 0};
+  const state = {process: "chrome.exe", recordId: "12", paused: false, fail: 0, scriptReads: 0,
+    pageText: "가상 본문", denyContent: false, deniedBodyReads: 0};
   const api = {
     tabs: {query: async () => [tab]},
-    scripting: {executeScript: async () => {
+    scripting: {executeScript: async ({func}) => {
       state.scriptReads++;
-      return [{result: {url: tab.url, title: tab.title, text: "가상 본문"}}];
+      // Chrome처럼 별도 실행 문맥에서 주입 함수를 실행한다.
+      const result = runInNewContext(`(${func})()`, {
+        location: {href: tab.url},
+        document: {title: tab.title, querySelector: () => ({innerText: state.pageText})},
+      });
+      return [{result}];
     }},
   };
   const fetcher = async (url, options) => {
     calls.push({url, options});
     if (state.fail) return {ok: false, status: state.fail};
+    if (state.denyContent && url.endsWith("/browser/content")) {
+      return {ok: false, status: 403, json: async () => {
+        state.deniedBodyReads++;
+        return {ok: true, data: {id: 9}, error: null};
+      }};
+    }
     const data = url.endsWith("/activity/current") ? {
       collection_status: state.paused ? "paused" : "collecting", record_id: state.recordId,
       window: {process_name: state.process},
@@ -29,11 +42,40 @@ const settings = {port: 8765, token: "synthetic-token"};
 
 test("명시적 작업 ID로 출처와 본문을 고정된 loopback에 보낸다", async () => {
   const f = fixture();
-  assert.deepEqual(await capturePage(f.api, settings, f.fetcher), {recordId: "12", hasText: true});
+  assert.deepEqual(await capturePage(f.api, settings, f.fetcher),
+    {recordId: "12", hasText: true, truncated: false});
   assert.equal(f.calls.length, 3);
   assert.equal(JSON.parse(f.calls[1].options.body).record_id, "12");
+  assert.deepEqual(JSON.parse(f.calls[2].options.body),
+    {browser_source_id: 3, content_text: "가상 본문", truncated: false});
   assert.ok(f.calls.every(call => call.url.startsWith("http://127.0.0.1:8765/")));
   assert.ok(f.calls.every(call => call.options.redirect === "error"));
+});
+test("본문이 한도에 맞으면 전체로 전송한다", async () => {
+  const f = fixture(); f.state.pageText = "가".repeat(100000);
+  assert.equal((await capturePage(f.api, settings, f.fetcher)).truncated, false);
+  assert.equal(JSON.parse(f.calls[2].options.body).truncated, false);
+});
+test("한도보다 긴 본문을 표시하고 경계의 문자는 쪼개지 않는다", async () => {
+  for (const tail of ["나다", "🙂"]) {
+    const f = fixture();
+    const prefix = "가".repeat(99999);
+    f.state.pageText = prefix + tail;
+    const result = await capturePage(f.api, settings, f.fetcher);
+    const payload = JSON.parse(f.calls[2].options.body);
+    assert.equal(result.truncated, true);
+    assert.equal(payload.truncated, true);
+    assert.equal(payload.content_text, tail === "🙂" ? prefix : prefix + "나");
+  }
+});
+test("출처 연결 이후 본문 403은 응답 본문을 읽지 않고 저장 거부로 알린다", async () => {
+  const f = fixture();
+  f.state.pageText = "가".repeat(100001);
+  f.state.denyContent = true;
+  await assert.rejects(capturePage(f.api, settings, f.fetcher),
+    /출처는 연결됐지만 본문은 저장하지 못했습니다.*개인정보 보호 정책/);
+  assert.equal(f.calls.length, 3);
+  assert.equal(f.state.deniedBodyReads, 0);
 });
 test("일시정지 상태는 페이지 본문을 읽기 전에 중단한다", async () => {
   const f = fixture(); f.state.paused = true;

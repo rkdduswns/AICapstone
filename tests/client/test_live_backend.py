@@ -150,20 +150,29 @@ def test_upload_docx_and_reload_real_document_list(app, window, tmp_path):
     assert len(window.documents.rows) == 1
 
 
-def test_document_import_denied_while_paused(app, window, tmp_path):
-    """전체 일시정지 정책이 문서 가져오기 경로에도 적용되는지 실제 HTTP로 확인한다."""
+@pytest.mark.parametrize("paused", [True, False])
+def test_document_import_denied_by_privacy(app, window, live_backend, tmp_path, paused):
+    """일시정지와 민감 패턴의 실제 403을 업로드 성공이나 저장으로 처리하지 않는다."""
     path = tmp_path / "가상.docx"
     document = Document()
-    document.add_paragraph("허용 전 저장하지 않는 가상 자료")
+    document.add_paragraph("가상 자료" if paused else "password=synthetic-denied")
     document.save(path)
-    window.privacy.client.set_paused(True)
-    wait_for(app, lambda: window.privacy.state is not None and window.privacy.state.settings.paused)
+    if paused:
+        window.privacy.client.set_paused(True)
+        wait_for(app, lambda: window.privacy.state is not None and window.privacy.state.settings.paused)
     window.tabs.setCurrentWidget(window.documents)
     wait_for(app, lambda: window.documents.loaded and not window.documents.busy)
+    uploaded = []
+    failures = []
+    window.documents.client.document_uploaded.connect(uploaded.append)
+    window.documents.client.failed.connect(lambda reason, status: failures.append((reason, status)))
     window.documents.upload(str(path))
     wait_for(app, lambda: not window.documents.busy)
-    assert "허용되지" in window.documents.notice.text()
-    assert window.documents.rows == []
+    assert failures == [("http", 403)]
+    assert uploaded == []
+    assert "문서 저장이 거부" in window.documents.notice.text()
+    assert "synthetic-denied" not in window.documents.notice.text()
+    assert window.documents.rows == [] and live_backend[2].get_recent_document_records() == []
 
 
 def test_manual_document_link_reaches_recent_detail(app, window, tmp_path):
@@ -208,7 +217,8 @@ def test_browser_capture_reaches_recent_web_detail(app, window, live_backend):
         assert response.status_code == 200
         sid = response.json()["data"]["id"]
         assert client.post("/browser/content", headers=headers,
-            json={"browser_source_id": sid, "content_text": "저장한 가상 웹 <b>본문</b>"}
+            json={"browser_source_id": sid, "content_text": "저장한 가상 웹 <b>본문</b>",
+                  "truncated": False}
         ).status_code == 200
     window.tabs.setCurrentWidget(window.recent)
     wait_for(app, lambda: any(row.id == rid and row.browser is not None

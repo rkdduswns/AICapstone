@@ -41,9 +41,17 @@ export async function capturePage(api, settings, fetcher = fetch, browser = "chr
   const [{result: snapshot} = {}] = await api.scripting.executeScript({
     target: {tabId: tab.id},
     // 주입 함수는 외부 변수에 의존하지 않고 같은 DOM 순간의 제목·URL·본문을 반환한다.
-    func: () => ({url: location.href, title: document.title,
-      text: (document.querySelector("main, article")?.innerText || document.body?.innerText || "")
-        .slice(0, 100000)}),
+    func: () => {
+      const original = document.querySelector("main, article")?.innerText || document.body?.innerText || "";
+      const limit = 100000;
+      const truncated = original.length > limit;
+      const left = original.charCodeAt(limit - 1);
+      const right = original.charCodeAt(limit);
+      // 전송 한도 경계에 보조 평면 문자가 걸리면 그 문자 전체를 생략한다.
+      const splitPair = left >= 0xD800 && left <= 0xDBFF && right >= 0xDC00 && right <= 0xDFFF;
+      const end = splitPair ? limit - 1 : limit;
+      return {url: location.href, title: document.title, text: original.slice(0, end), truncated};
+    },
   });
   const [current] = await api.tabs.query({active: true, currentWindow: true});
   if (!snapshot || current?.id !== tab.id || snapshot.url !== tab.url || current.url !== tab.url) {
@@ -56,12 +64,16 @@ export async function capturePage(api, settings, fetcher = fetch, browser = "chr
   if (!Number.isSafeInteger(source.id) || source.id < 1 || !source.activity_record_id) {
     throw new Error("출처 연결 결과를 확인할 수 없습니다. 최근 기록을 새로고침해 주세요.");
   }
-  if (snapshot.text?.trim()) {
+  const hasText = Boolean(snapshot.text?.trim());
+  const truncated = hasText && snapshot.truncated === true;
+  if (hasText) {
     try {
-      await request("/browser/content", {browser_source_id: source.id, content_text: snapshot.text});
+      await request("/browser/content", {
+        browser_source_id: source.id, content_text: snapshot.text, truncated,
+      });
     } catch (error) {
       throw new Error(`출처는 연결됐지만 본문은 저장하지 못했습니다. ${error.message}`);
     }
   }
-  return {recordId: String(source.activity_record_id), hasText: Boolean(snapshot.text?.trim())};
+  return {recordId: String(source.activity_record_id), hasText, truncated};
 }

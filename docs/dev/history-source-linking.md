@@ -1,6 +1,6 @@
 # 작업 이력과 웹·문서 출처 연결
 
-적용 브랜치: `feat/client-backend-integration` (2026-10-22). main 반영 전 검토 대상이다.
+`feat/client-backend-integration`의 수동 연결을 기준으로 한다. `fix/capture-truncation-privacy`에서 본문 잘림 전송과 저장 거부 안내를 보완했다.
 [실행 환경](development-setup.md), [검증 결과](../reports/client-backend-integration.md)를 함께 따른다.
 
 ## 문서 연결
@@ -42,7 +42,10 @@ $env:CONTEXTTRACE_BROWSER_TOKEN
 URL은 기존 Backend 보호 규칙대로 query·fragment를 제거한 값을 저장한다.
 
 권한은 `activeTab`, `scripting`, `storage`, `http://127.0.0.1/*`이다.
-페이지 본문은 `main` 또는 `article`의 표시 텍스트를 우선하고 없으면 `body`를 사용하며 최대 100,000자까지 전송한다.
+페이지 본문은 `main` 또는 `article`의 표시 텍스트를 우선하고 없으면 `body`를 사용한다.
+최대 100,000 UTF-16 단위까지 전송하며 경계에 걸린 문자는 통째로 제외한다.
+본문을 잘랐으면 `truncated: true`, 전체를 보냈으면 `false`를 본문 요청에 담는다.
+본문 저장이 성공한 뒤 팝업에서 일부만 저장됐는지 알 수 있다.
 본문 정제와 SPA 자동 갱신, URL 차단 규칙 적용은 후속 범위다.
 [activeTab 권한](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab)과
 [확장의 교차 출처 요청](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests)을 기준으로 구성했다.
@@ -53,7 +56,7 @@ URL은 기존 Backend 보호 규칙대로 query·fragment를 제거한 값을 �
 |---|---|
 | `GET /activity/current` | 수집 중 `data.record_id`에 실제 SQLite 작업 ID를 문자열로 반환한다. 같은 세션은 ID를 유지한다. |
 | `POST /browser/source` | Bearer 토큰과 선택적 `record_id`를 받는다. ID가 있으면 현재 브라우저 프로세스·작업을 대조한다. 응답 `activity_record_id`가 최종 연결 ID다. |
-| `POST /browser/content` | 출처 ID를 받는다. 연결된 출처는 같은 작업이 계속 활성 상태이고 최신 출처일 때만 저장한다. 재전송은 같은 본문 행을 갱신한다. |
+| `POST /browser/content` | 확장은 출처 ID·본문·`truncated`를 보낸다. PR #16의 Backend는 출처 ID와 본문을 사용한다. 연결된 출처는 같은 작업이 계속 활성 상태이고 최신 출처일 때만 저장한다. 재전송은 같은 본문 행을 갱신한다. |
 | `POST /documents` | multipart `file`, 선택적 `record_id`, `file_path`. 연결 요청은 desktop 헤더·Origin 부재·존재하는 작업·Windows 절대 경로·파일 이름 일치를 검사한다. |
 | `GET /records/recent` | 실제 FK로 연결된 최신 `browser`·`document`만 투영한다. |
 | `GET /records/web-content?record_id=…` | 작업에 연결된 출처와 저장 웹 본문을 반환한다. |
@@ -62,6 +65,8 @@ URL은 기존 Backend 보호 규칙대로 query·fragment를 제거한 값을 �
 문서 연결 헤더는 `X-ContextTrace-Client: desktop`이다. 본문 조회는 기존 Shared 응답 계약을 사용한다.
 작업이 없으면 404, 작업은 있지만 저장 본문이 없으면 `content: null`이다.
 본문은 최대 50,000자를 응답하고 초과하면 `truncated: true`다. 조회 중 외부 URL/원본 파일에 접근하지 않는다.
+수집 단계에서 잘린 상태가 조회까지 이어지려면 Backend가 요청의 `truncated`를 보존해 조회 응답에 반영해야 한다.
+웹 본문이나 문서 업로드가 HTTP 403을 받으면 저장 거부를 표시한다. 웹 출처만 연결된 경우에는 팝업에서 출처 연결과 본문 저장 거부를 구분한다.
 
 SQLite의 새 `record_browser_sources`·`record_document_sources` 테이블은 작업과 출처에 외래 키를 둔다.
 출처 저장과 연결 삽입은 같은 트랜잭션이며 기존 DB의 작업·출처 행은 보존한다.
@@ -70,9 +75,14 @@ SQLite의 새 `record_browser_sources`·`record_document_sources` 테이블은 �
 query/fragment만 다른 URL은 기존 정제 정책상 같은 URL이다.
 기존 요청에서 작업 ID를 생략하면 자료만 저장하며 기존 데이터에 연결을 임의로 보충하지 않는다.
 
+Backend의 새 수신 계약이 `context_id`를 사용하면 브라우저 전송부에서 위 활성 작업 조회로 확인한 실제 ID를 전달한다.
+임의의 최신 기록은 연결 후보로 사용하지 않는다. ID가 없는 수집은 새 계약의 출처 미연결 경로를 사용한다.
+PR #16 기반 확장의 전송 키는 `record_id`이며 새 계약의 전환은 Backend 연동 시 확인한다.
+
 ## 검증 범위
 
 Python 통합 테스트는 실제 Uvicorn·QtNetwork·SQLite·DOCX 추출을 사용하고 OS 감지 입력만 가상화한다.
 확장 테스트는 `node --test tests/browser/test_capture.mjs`로 실행한다(Node 22 이상).
+잘림 표시와 저장 거부 변경은 Windows에서 관련 Python 테스트 96개와 확장 테스트 11개로 확인했다.
 여기서는 Chrome API/HTTP 경계의 전송과 중단 처리를 검증하며, 설치된 Chrome/Edge 수동 동작 확인을 대체하지 않는다.
 Windows 실제 창/탭 전환과 한글·배율 수동 검증은 별도로 남긴다.

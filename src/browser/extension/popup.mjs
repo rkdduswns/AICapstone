@@ -26,7 +26,9 @@ capture.addEventListener("click", async () => {
     const saved = await chrome.storage.local.get({port: 8765, token: ""});
     const browser = /Edg\//.test(navigator.userAgent) ? "edge" : "chrome";
     const result = await capturePage(chrome, saved, fetch, browser);
-    status.textContent = `작업 #${result.recordId}에 ${result.hasText ? "출처와 본문" : "출처"}을 연결했습니다. 최근 기록을 새로고침해 주세요.`;
+    const linked = result.hasText ? "출처와 본문을" : "출처를";
+    const note = result.truncated ? " 길이 제한으로 웹 본문의 일부만 저장했습니다." : "";
+    status.textContent = `작업 #${result.recordId}에 ${linked} 연결했습니다.${note} 최근 기록을 새로고침해 주세요.`;
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : "연결을 완료하지 못했습니다.";
   } finally {
