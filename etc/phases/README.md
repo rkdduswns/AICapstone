@@ -21,7 +21,7 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | Phase 13 | 근거 기반 RAG | 검색 기록 기반 답변과 출처 제공 |
 | Phase 14 | 작업 세션·타임라인·안정화 | 세션 구성, 전체 통합, 최종 검증 |
 
-현재 상태 (2026-11-06, `feat/phase10-search-text-preparation`까지 포함):
+현재 상태 (2026-11-06, `feat/phase10-search-chunks`까지 포함):
 
 | Phase | Client·Shared 선행 상태 | 전체 상태 / 남은 작업 |
 |---|---|---|
@@ -34,7 +34,7 @@ ContextTrace 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고
 | 7 | DONE · 브라우저 출처/URL 차단 설정 | IN_PROGRESS · 수동 확장/작업 ID 연결 완료, 자동 탭 이벤트·URL 차단·Windows 수동 검증 잔여 |
 | 8 | DONE · 저장 웹 본문/수집 시각/출처 상세 | IN_PROGRESS · 수동 캡처/저장 본문 조회/재전송 갱신 완료, 정제·자동 갱신·URL 차단 잔여 |
 | 9 | DONE · 파일 출처/저장 본문 및 문서 가져오기 | IN_PROGRESS · 실제 추출·명시적 작업/선택 경로 연결 완료, 자동 파일 감지·Windows 수동 검증 잔여 |
-| 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 저장 본문 전처리 완료, 조각 생성·임베딩·색인 저장/삭제·역추적 통합 잔여 |
+| 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 저장 본문 전처리·조각 생성 완료, 임베딩·색인 저장/삭제·역추적 통합 잔여 |
 | 11 | Client DONE · 명시적 조건 검색·목록·출처 상세 | IN_PROGRESS · Backend 실제 필터·조회·정렬·통합 |
 
 구현 및 검증 근거: [Phase 2](../../docs/reports/phase2-client.md),
@@ -50,10 +50,12 @@ Backend 활성 창·세션 저장·브라우저 수신·PDF/DOCX 추출 구현�
 [설정 검증 보고서](../../docs/reports/privacy-settings-persistence.md)를 따르며, 기존 EXE ZIP에는 포함되지 않는다.
 2026-11-06 `feat/phase10-search-text-preparation`에서 지정 작업의 저장 웹·문서 본문을 보호 정책에 따라 읽고 정규화하는 로컬 명령을 추가했다.
 [전처리 사용법과 검증 범위](../../docs/dev/search-data-contract.md#저장-본문-전처리)를 따른다.
+같은 날 `feat/phase10-search-chunks`에서 실제 작업과 출처가 연결된 로컬 검색 조각 생성을 추가했다.
+[조각 생성 사용법과 규칙](../../docs/dev/search-data-contract.md#검색-조각-생성)을 따른다.
 [배포 안내](../../docs/dev/windows-exe.md)를 따르며 기능별 Phase 완료 개수와 구분한다.
 [통합 보고서](../../docs/reports/client-backend-integration.md)에 연결 범위·검증 결과·제한을 기록한다.
 브라우저 수동 캡처·문서 선택 경로의 실제 작업 ID 연결과 저장 본문 조회를 추가했다.
-자동 탭/파일 감지, URL 차단, 검색 조각·임베딩·색인, 조건 검색 API, LLM은 미구현이다.
+자동 탭/파일 감지, URL 차단, 임베딩·색인, 조건 검색 API, LLM은 미구현이다.
 가상 OS 입력을 실제 Backend로 처리한 검증과 Windows 데스크톱 수동 검증을 구분한다.
 
 매 작업의 구현·검증·미완료 항목을 코드·문서·PR에 기록하고, 최신 브랜치와 검증 근거로 완료 상태를 판단한다.
