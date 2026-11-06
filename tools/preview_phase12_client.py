@@ -42,6 +42,9 @@ def sample_chunks() -> list[DocumentChunk]:
             {
                 "kind": "document", "application": "PDF 뷰어", "process_name": "pdfviewer.exe",
                 "window_title": "개인정보 처리 안내.pdf",
+                "started_at": "2026-11-06T10:04:00+09:00",
+                "last_active_at": "2026-11-06T10:12:00+09:00",
+                "captured_at": "2026-11-06T10:09:00+09:00",
                 "document": {"file_path": r"C:\가상 자료\개인정보 처리 안내.pdf", "file_type": "pdf"},
             },
         ),

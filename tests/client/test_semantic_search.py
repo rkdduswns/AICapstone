@@ -1,5 +1,6 @@
 """가상 공급자로 자연어 검색 입력, 결과 표시와 출처 상세를 검증한다."""
 
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -119,6 +120,41 @@ def test_preserves_result_rank_and_displays_exact_source_snapshot(app, hits):
     assert WEB_TEXT in detail
     for timestamp in (STARTED, ACTIVE, CAPTURED):
         assert format_timestamp(timestamp) in detail
+
+
+def test_sorting_results_keeps_supplier_rank_and_selection(app, hits):
+    """받은 결과를 재요청 없이 정렬하고 기존 순위와 선택 상세를 유지한다."""
+    requests = []
+    pdf, web = hits
+    pdf = replace(pdf, source=replace(pdf.source, last_active_at="2026-11-06T09:30:00+09:00"))
+    web = replace(web, source=replace(web.source, last_active_at="2026-11-06T01:00:00Z"))
+
+    def provider(request):
+        """정렬이 새 질의를 제출하지 않는지 확인하기 위해 호출을 저장한다."""
+        requests.append(request)
+        return [pdf, web]
+
+    widget = SemanticSearchWidget(provider)
+    widget.query.setText(QUERY)
+    widget.button.click()
+    widget.table.selectRow(0)
+
+    for key, ranks in (
+        ("recent", ["2", "1"]),
+        ("oldest", ["1", "2"]),
+        ("longest", ["2", "1"]),
+        ("shortest", ["1", "2"]),
+        ("relevance", ["1", "2"]),
+    ):
+        index = widget.result_order.findData(key)
+        assert index >= 0
+        widget.result_order.setCurrentIndex(index)
+        assert [
+            widget.table.item(row, 0).text().removesuffix("위").strip() for row in range(2)
+        ] == ranks
+        assert widget.table.currentRow() == ranks.index("1")
+        assert FILE_PATH in widget.detail.toPlainText()
+    assert len(requests) == 1
 
 
 def test_editing_draft_and_filters_clears_previous_results(app, hits):

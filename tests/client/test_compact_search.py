@@ -146,6 +146,55 @@ def test_answer_expands_from_summary_to_exact_ordered_sources(app, search, answe
     assert window.results_button.hasFocus()
 
 
+def test_sorting_evidence_keeps_citation_numbers_and_selected_source(search, answer):
+    """시간대와 글자 수로 순서를 바꿔도 인용 번호와 선택한 출처를 보존한다."""
+    window, requests, _ = search
+    web, pdf = answer.evidence
+    web = replace(
+        web, text="🙂🙂🙂",
+        source=replace(web.source, last_active_at="2026-11-06T09:30:00+09:00"),
+    )
+    pdf = replace(
+        pdf, text="가나다라",
+        source=replace(pdf.source, last_active_at="2026-11-06T01:00:00Z"),
+    )
+    tied = replace(
+        web, id="tied-chunk", chunk_index=2, text="마바사아",
+        source=replace(web.source, last_active_at="2026-11-06T10:00:00+09:00"),
+    )
+    full_answer = "웹과 PDF에서 확인했습니다. [1] [2]"
+
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[0][0], replace(
+        answer, full_answer=full_answer, evidence=(web, pdf, tied),
+    ))
+    assert not window.evidence_order.isVisible()
+    window.detail_button.click()
+    assert window.evidence_order.isVisible()
+    window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
+
+    for key, order in (
+        ("recent", [1, 2, 0]),
+        ("oldest", [0, 1, 2]),
+        ("longest", [1, 2, 0]),
+        ("shortest", [0, 1, 2]),
+        ("relevance", [0, 1, 2]),
+    ):
+        index = window.evidence_order.findData(key)
+        assert index >= 0
+        window.evidence_order.setCurrentIndex(index)
+        assert [window.evidence_picker.itemData(row) for row in range(3)] == order
+        for row, original in enumerate(order):
+            number = original + 1
+            assert window.evidence_picker.itemText(row).startswith((f"{number}.", f"[{number}]"))
+        assert window.evidence_picker.currentData() == 1
+        detail = window.detail_text.toPlainText()
+        assert full_answer in detail and "\n근거 2\n" in detail
+        assert FILE_PATH in detail and URL not in detail
+    assert len(requests) == 1
+
+
 def test_hiding_results_during_search_defers_reveal_and_reuses_answer(app, search, answer):
     """진행 중 결과를 닫으면 응답이 도착해도 사용자가 다시 펼칠 때까지 기다린다."""
     window, requests, cancellations = search

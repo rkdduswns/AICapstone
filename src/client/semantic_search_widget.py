@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate, QSignalBlocker, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from client.search_client import local_date_range, read_search_request
-from client.search_presentation import chunk_detail, chunk_source
+from client.search_presentation import RESULT_ORDERS, chunk_detail, chunk_source, ordered_chunks
 from shared.search import MAX_SEARCH_PROCESS, SearchRequest
 from shared.search_data import DocumentChunk
 
@@ -84,10 +84,18 @@ class SemanticSearchWidget(QWidget):
         self.status = QLabel()
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.status.setWordWrap(True)
-        layout.addWidget(self.status)
+        result_controls = QHBoxLayout()
+        self.result_order = QComboBox()
+        self.result_order.setAccessibleName("결과 정렬")
+        for label, order in RESULT_ORDERS:
+            self.result_order.addItem(label, order)
+        result_controls.addWidget(self.status, 1)
+        result_controls.addWidget(QLabel("정렬"))
+        result_controls.addWidget(self.result_order)
+        layout.addLayout(result_controls)
 
         self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["순위", "제목", "출처 유형", "관련 내용"])
+        self.table.setHorizontalHeaderLabels(["관련도 순위", "제목", "출처 유형", "관련 내용"])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -112,6 +120,7 @@ class SemanticSearchWidget(QWidget):
         self.first_date.dateChanged.connect(self._inputs_changed)
         self.last_date.dateChanged.connect(self._inputs_changed)
         self.use_dates.toggled.connect(self._dates_changed)
+        self.result_order.currentIndexChanged.connect(self._order_results)
         self.table.itemSelectionChanged.connect(self._show_selection)
         self._inputs_changed()
 
@@ -130,6 +139,7 @@ class SemanticSearchWidget(QWidget):
     def _clear(self) -> None:
         """목록의 데이터와 선택 상세를 함께 지운다."""
         self._chunks = []
+        self.result_order.setEnabled(False)
         self.table.setRowCount(0)
         self.detail.clear()
 
@@ -165,19 +175,39 @@ class SemanticSearchWidget(QWidget):
             self.status.setText("검색 결과를 표시할 수 없습니다. 다시 검색해 주세요.")
             return
 
-        self.table.setRowCount(len(self._chunks))
-        for row, chunk in enumerate(self._chunks):
-            title, kind, _ = chunk_source(chunk)
-            snippet = " ".join(chunk.text.split())
-            if len(snippet) > 96:
-                snippet = snippet[:96] + "…"
-            for column, value in enumerate((str(row + 1), title, kind, snippet)):
-                self.table.setItem(row, column, QTableWidgetItem(value))
         if self._chunks:
-            self.status.setText(f"검색 결과 {len(self._chunks)}건 · 관련도 순")
-            self.table.selectRow(0)
+            self.result_order.setEnabled(len(self._chunks) > 1)
+            self._order_results()
         else:
             self.status.setText("조건에 맞는 검색 결과가 없습니다.")
+
+    def _order_results(self) -> None:
+        """다시 요청하지 않고 표시 순서를 바꾸며 원래 관련도 순위와 선택을 보존한다."""
+        if not self._chunks:
+            return
+        role = Qt.ItemDataRole.UserRole
+        selected = self.table.selectedItems()
+        selected_rank = self.table.item(selected[0].row(), 0).data(role) if selected else None
+        rows = ordered_chunks(self._chunks, self.result_order.currentData())
+        selected_row = 0
+        with QSignalBlocker(self.table):
+            self.table.setRowCount(len(rows))
+            for row, (rank, chunk) in enumerate(rows):
+                title, kind, _ = chunk_source(chunk)
+                snippet = " ".join(chunk.text.split())
+                if len(snippet) > 96:
+                    snippet = snippet[:96] + "…"
+                rank_item = QTableWidgetItem(str(rank + 1))
+                rank_item.setData(role, rank)
+                self.table.setItem(row, 0, rank_item)
+                for column, value in enumerate((title, kind, snippet), start=1):
+                    self.table.setItem(row, column, QTableWidgetItem(value))
+                if rank == selected_rank:
+                    selected_row = row
+            self.table.selectRow(selected_row)
+        if rows[selected_row][0] != selected_rank:
+            self._show_selection()
+        self.status.setText(f"검색 결과 {len(rows)}건 · {self.result_order.currentText()}")
 
     def _show_selection(self) -> None:
         """선택한 조각의 원본 주소, 작업·확보 시각, 본문을 일반 텍스트로 표시한다."""
@@ -185,4 +215,5 @@ class SemanticSearchWidget(QWidget):
         if not selected:
             self.detail.clear()
             return
-        self.detail.setPlainText(chunk_detail(self._chunks[selected[0].row()]))
+        rank = self.table.item(selected[0].row(), 0).data(Qt.ItemDataRole.UserRole)
+        self.detail.setPlainText(chunk_detail(self._chunks[rank]))

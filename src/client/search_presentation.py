@@ -1,7 +1,30 @@
-"""검색 결과에서 확인된 출처와 본문을 일반 텍스트로 표현한다."""
+"""받은 검색 결과의 표시 순서와 출처 텍스트를 구성한다."""
 
-from client.time_values import format_timestamp
+from collections.abc import Sequence
+
+from client.time_values import format_timestamp, parse_timestamp
 from shared.search_data import DocumentChunk
+
+RESULT_ORDERS = (
+    ("관련도 순", "relevance"),
+    ("최근 열람순", "recent"),
+    ("오래된 열람순", "oldest"),
+    ("본문 긴 순", "longest"),
+    ("본문 짧은 순", "shortest"),
+)
+
+
+def ordered_chunks(
+    chunks: Sequence[DocumentChunk], order: str,
+) -> list[tuple[int, DocumentChunk]]:
+    """정렬 키가 같으면 공급자 순서를 유지하고 원래 인덱스를 함께 반환한다."""
+    indexed = list(enumerate(chunks))
+    if order in ("recent", "oldest"):
+        return sorted(indexed, key=lambda hit: parse_timestamp(hit[1].source.last_active_at),
+                      reverse=order == "recent")
+    if order in ("longest", "shortest"):
+        return sorted(indexed, key=lambda hit: len(hit[1].text), reverse=order == "longest")
+    return indexed
 
 
 def chunk_source(chunk: DocumentChunk) -> tuple[str, str, str]:
@@ -25,5 +48,6 @@ def chunk_detail(chunk: DocumentChunk) -> str:
         f"열람 시작 · {format_timestamp(source.started_at)}\n"
         f"마지막 활성 · {format_timestamp(source.last_active_at)}\n"
         f"본문 확보 · {format_timestamp(source.captured_at)}\n"
+        f"조각 길이 · {len(chunk.text):,}자\n"
         f"작업 ID · {chunk.context_id}\n\n{chunk.text}"
     )

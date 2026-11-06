@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from client.search_presentation import chunk_detail, chunk_source
+from client.search_presentation import RESULT_ORDERS, chunk_detail, chunk_source, ordered_chunks
 from shared.search_data import DocumentChunk
 
 
@@ -102,9 +102,13 @@ class CompactSearchWindow(QWidget):
         self.evidence_picker.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon,
         )
+        self.evidence_order = QComboBox()
+        self.evidence_order.setAccessibleName("근거 정렬")
+        for label, order in RESULT_ORDERS:
+            self.evidence_order.addItem(label, order)
         detail_controls.addWidget(self.evidence_heading)
         detail_controls.addWidget(self.evidence_picker, 1)
-        detail_controls.addStretch(1)
+        detail_controls.addWidget(self.evidence_order)
         detail_controls.addWidget(self.collapse_button)
         detail_layout.addLayout(detail_controls)
         self.detail_text = QPlainTextEdit()
@@ -123,6 +127,7 @@ class CompactSearchWindow(QWidget):
         self.evidence_button.clicked.connect(self._show_detail)
         self.collapse_button.clicked.connect(self._fold_detail)
         self.evidence_picker.currentIndexChanged.connect(self._select_evidence)
+        self.evidence_order.currentIndexChanged.connect(self._order_evidence)
         self._escape = QShortcut(QKeySequence("Escape"), self)
         self._escape.activated.connect(self._escape_action)
         self._render()
@@ -160,28 +165,40 @@ class CompactSearchWindow(QWidget):
         self._render()
 
     def _fill_result(self, result: CompactAnswer) -> None:
-        """요약과 전체 답변을 분리하고 검증된 근거의 순서를 유지한다."""
+        """요약과 전체 답변을 분리하고 현재 표시 순서로 근거를 채운다."""
         brief = result.summary.strip()
         self.summary_heading.setText("요약 답변" if brief else "답변 미리보기")
         content = brief or result.full_answer.strip()
         preview = "\n".join(content.splitlines()[:5])[:200].rstrip()
         self.summary.setText(preview + ("…" if len(preview) < len(content) else ""))
         self.evidence_heading.setText(f"근거 {len(result.evidence)}개")
+        self._order_evidence()
+
+    def _order_evidence(self) -> None:
+        """표시 순서만 바꾸고 답변에서 인용한 번호와 선택한 근거를 유지한다."""
+        if self._result is None:
+            return
+        selected = self.evidence_picker.currentData()
+        rows = ordered_chunks(self._result.evidence, self.evidence_order.currentData())
         with QSignalBlocker(self.evidence_picker):
             self.evidence_picker.clear()
-            for index, chunk in enumerate(result.evidence, start=1):
+            for index, chunk in rows:
                 title, kind, _ = chunk_source(chunk)
-                self.evidence_picker.addItem(f"{index}. {title} · {kind}")
-        self._select_evidence(self.evidence_picker.currentIndex())
+                self.evidence_picker.addItem(f"{index + 1}. {title} · {kind}", index)
+            if selected is not None:
+                self.evidence_picker.setCurrentIndex(self.evidence_picker.findData(selected))
+        if selected is None or self.evidence_picker.currentData() != selected:
+            self._select_evidence()
 
-    def _select_evidence(self, index: int) -> None:
+    def _select_evidence(self) -> None:
         """전체 답변과 선택 근거를 한 스크롤에 두고 긴 URL도 줄바꿈한다."""
         result = self._result
         if result is None:
             return
         text = f"전체 답변\n\n{result.full_answer}" if result.status == "answer" else ""
         self.detail_text.setPlainText(text)
-        if not 0 <= index < len(result.evidence):
+        index = self.evidence_picker.currentData()
+        if index is None:
             return
         cursor = self.detail_text.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
@@ -277,6 +294,7 @@ class CompactSearchWindow(QWidget):
         self.detail_panel.setVisible(detail_open)
         self.evidence_heading.setVisible(evidence)
         self.evidence_picker.setVisible(evidence)
+        self.evidence_order.setVisible(evidence and len(result.evidence) > 1)
 
         size = QSize(440, 112)
         if detail_open:
