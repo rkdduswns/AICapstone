@@ -82,7 +82,12 @@ AICapstone/
 
 `client`와 `backend` 내부 구조는 실제 구현이 진행되면서 필요한 기능 단위로 추가합니다.
 
-Client 실행: `python -m client`.
+Client는 `python -m client`로 실행하면 440×112 논리 픽셀의 작은 검색창으로 시작합니다.
+`--port 8765`처럼 Backend 포트를 지정할 수 있습니다.
+`관리` 메뉴에서 현재 작업·최근 기록·개인정보 보호·조건 검색을 같은 창으로 열고, 관리 화면의 `연결 확인`으로 Backend 연결을 확인합니다.
+`검색으로 돌아가기` 또는 Esc를 누르면 검색 입력과 결과·정렬 상태를 유지한 검색창으로 돌아갑니다.
+자연어 질문을 제출하면 현재는 `답변 기능 준비 중` 안내를 표시합니다. 가상 답변·근거 화면은 `python tools/preview_compact_search.py`로 확인할 수 있습니다.
+[검색 중심 소형 창의 동작과 남은 연결](etc/compact-search-window.md)을 따릅니다.
 [Client 및 Windows 검증 결과](docs/reports/phase1-client-windows.md).
 
 Phase 2 화면의 가상 데이터 미리보기: `python tools/preview_phase2_client.py`.

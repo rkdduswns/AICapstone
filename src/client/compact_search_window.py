@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from client.search_presentation import RESULT_ORDERS, chunk_detail, chunk_source, ordered_chunks
+from client.window_geometry import fit_window
 from shared.search_data import DocumentChunk
 
 
@@ -25,7 +26,7 @@ from shared.search_data import DocumentChunk
 class CompactAnswer:
     """미리보기 공급자가 건네는 화면 값과 검증된 근거. HTTP 규격과 분리한다."""
 
-    status: Literal["answer", "empty", "insufficient", "error"]
+    status: Literal["answer", "empty", "insufficient", "error", "unavailable"]
     summary: str = ""
     full_answer: str = ""
     evidence: tuple[DocumentChunk, ...] = ()
@@ -46,6 +47,7 @@ class CompactSearchWindow(QWidget):
 
     search_requested = Signal(int, str)
     search_cancelled = Signal(int)
+    preferred_size_changed = Signal(QSize)
 
     def __init__(self) -> None:
         """기본 입력과 필요할 때만 표시하는 결과 영역을 같은 창에 둔다."""
@@ -72,9 +74,12 @@ class CompactSearchWindow(QWidget):
         self.status = _plain_label()
         self.evidence_button = QPushButton("근거 보기")
         self.results_button = QPushButton("결과 보기")
+        self.management_button = QPushButton("관리")
+        self.management_button.hide()
         controls.addWidget(self.status, 1)
         controls.addWidget(self.evidence_button)
         controls.addWidget(self.results_button)
+        controls.addWidget(self.management_button)
         layout.addLayout(controls)
 
         self.empty_message = _plain_label()
@@ -159,6 +164,7 @@ class CompactSearchWindow(QWidget):
             "empty": "검색 결과가 없습니다.",
             "insufficient": "답변을 만들 근거가 충분하지 않습니다.",
             "error": "검색 응답을 받지 못했습니다. 다시 검색해 주세요.",
+            "unavailable": "답변 기능 준비 중입니다. 관리에서 조건 검색을 열어 주세요.",
         }[result.status]
         self._view = "open" if result.status == "answer" and self._reveal_on_completion else "compact"
         self._fill_result(result)
@@ -317,24 +323,11 @@ class CompactSearchWindow(QWidget):
         self._fit_window(size)
 
     def _fit_window(self, target: QSize) -> None:
-        """글꼴 최소 크기와 창 테두리를 고려해 현재 모니터 안에 좌상단을 유지한다."""
-        if self.isMaximized() or self.isMinimized():
-            return
-        self.layout().activate()
-        size = target.expandedTo(self.minimumSizeHint())
-        screen = self.screen()
-        if screen is None:
-            self.resize(size)
-            return
-        bounds = screen.availableGeometry()
-        previous_frame = self.frameGeometry()
-        frame_margin = previous_frame.size() - self.size()
-        self.resize(size.boundedTo((bounds.size() - frame_margin).expandedTo(QSize(1, 1))))
-        frame = self.frameGeometry()
-        x = max(bounds.left(), min(previous_frame.left(), bounds.right() - frame.width() + 1))
-        y = max(bounds.top(), min(previous_frame.top(), bounds.bottom() - frame.height() + 1))
-        if (frame.left(), frame.top()) != (x, y):
-            self.move(x, y)
+        """단독 실행에서는 자신을, 포함된 화면에서는 부모 창을 목표 크기로 맞춘다."""
+        if self.isWindow():
+            fit_window(self, target)
+        else:
+            self.preferred_size_changed.emit(target)
 
     def showEvent(self, event: QShowEvent) -> None:
         """창 테두리가 적용되면 크기를 다시 맞추고 첫 검색 입력에 초점을 둔다."""

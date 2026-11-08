@@ -1,11 +1,11 @@
-"""Run the desktop client independently of the backend."""
+"""검색 중심 창에서 데스크톱 Client를 실행한다."""
 
 import argparse
 import sys
 
 from PySide6.QtWidgets import QApplication
 
-from client.window import MainWindow
+from client.application_window import ApplicationWindow
 from shared.protocol import DEFAULT_PORT
 
 
@@ -16,7 +16,7 @@ def main() -> int:
     if not 1 <= args.port <= 65535:
         parser.error("port must be an integer from 1 to 65535")
     app = QApplication([sys.argv[0]])
-    window = MainWindow(args.port)
+    window = ApplicationWindow(args.port)
     window.show()
     return app.exec()
 
