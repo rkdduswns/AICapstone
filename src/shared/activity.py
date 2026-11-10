@@ -106,9 +106,10 @@ class BrowserContentRecord:
 
 @dataclass(frozen=True)
 class DocumentRecord:
-    """로컬 문서의 메타데이터와 추출한 텍스트를 나타낸다."""
+    """Represents extracted text and metadata for a local document."""
 
     id: int
+    context_id: int
     file_path: str
     file_name: str
     file_type: str

@@ -4,14 +4,16 @@
 import hmac
 import logging
 import os
+import shutil
 import tempfile
+import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path, PureWindowsPath
 from typing import Literal
 
-from fastapi import FastAPI, File, Header, Query, Request, UploadFile
+from fastapi import FastAPI, File, Form, Header, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -83,6 +85,7 @@ def create_app(
     browser_token: str | None = None,
     activity_store: ActivityStore | None = None,
     privacy_policy: PrivacyPolicy | None = None,
+    document_storage_dir: str | Path | None = None,
 ) -> FastAPI:
     """Create the FastAPI application with injectable dependencies."""
     app = FastAPI(
@@ -99,6 +102,11 @@ def create_app(
     )
     app.state.activity_store = activity_store
     app.state.browser_privacy_policy = privacy_policy or PrivacyPolicy()
+    app.state.document_storage_dir = (
+    Path(document_storage_dir)
+    if document_storage_dir is not None
+    else Path.home() / ".contexttrace" / "documents"
+    )
 
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
@@ -147,8 +155,24 @@ def create_app(
         }
 
     @app.post("/documents", status_code=201)
-    async def upload_document(file: UploadFile = File(...)):
+    async def upload_document(
+        file: UploadFile = File(...),
+        context_id: int = Form(..., ge=1),
+    ):
         """Extract and persist an uploaded PDF or DOCX document."""
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+
+        activity_record = store.get_record(context_id)
+
+        if activity_record is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Activity record not found",
+            )
+        
         original_filename = PureWindowsPath(file.filename or "").name
 
         if not original_filename or original_filename in {".", ".."}:
@@ -165,6 +189,7 @@ def create_app(
             )
 
         temporary_path: Path | None = None
+        stored_path: Path | None = None
 
         try:
             with tempfile.NamedTemporaryFile(
@@ -191,10 +216,25 @@ def create_app(
 
             extracted_text = extract_document_text(temporary_path)
 
+            storage_dir = app.state.document_storage_dir
+            storage_dir.mkdir(parents=True, exist_ok=True)
+
+            stored_path = storage_dir / f"{uuid.uuid4().hex}{suffix}"
+            shutil.copy2(temporary_path, stored_path)
+
         except ValueError as exc:
             raise HTTPException(
                 status_code=422,
                 detail="Unable to extract document text",
+            ) from exc
+
+        except OSError as exc:
+            if stored_path is not None:
+                stored_path.unlink(missing_ok=True)
+
+            raise HTTPException(
+                status_code=500,
+                detail="Unable to store document file",
             ) from exc
 
         finally:
@@ -202,25 +242,27 @@ def create_app(
                 temporary_path.unlink(missing_ok=True)
             await file.close()
 
-        captured_at = datetime.now(timezone.utc).isoformat()
+        assert stored_path is not None
 
-        store = app.state.activity_store
-        if store is None:
-            store = ActivityStore()
-            app.state.activity_store = store
+        captured_at = datetime.now(timezone.utc).isoformat()
 
         try:
             document_id = store.save_document_record(
-                file_path=original_filename,
+                file_path=stored_path,
+                file_name=original_filename,
                 extracted_text=extracted_text,
                 captured_at=captured_at,
+                context_id=context_id,
             )
         except ValueError as exc:
+            stored_path.unlink(missing_ok=True)
             raise HTTPException(
                 status_code=422,
                 detail="Invalid document data",
             ) from exc
-
+        except Exception:
+            stored_path.unlink(missing_ok=True)
+            raise
         return {
             "ok": True,
             "data": {

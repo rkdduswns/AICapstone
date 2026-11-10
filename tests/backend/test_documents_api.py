@@ -11,6 +11,7 @@ import backend.app as app_module
 from backend.activity_store import ActivityStore
 from backend.app import create_app
 from backend.document_extractor import MAX_DOCUMENT_SIZE
+from shared.activity import ActiveWindow
 
 
 def create_docx(content: str) -> bytes:
@@ -75,9 +76,31 @@ def create_pdf(content: str) -> bytes:
     return bytes(pdf)
 
 def create_client(tmp_path):
-    """Create a test client with an isolated SQLite database."""
+    """Create a test client with an isolated database and activity record."""
     store = ActivityStore(tmp_path / "activity.db")
-    return TestClient(create_app(activity_store=store))
+
+    window = ActiveWindow(
+        application="Visual Studio Code",
+        process_name="Code.exe",
+        process_id=1234,
+        window_title="test.py - ContextTrace",
+    )
+    context_id = store.save_record(
+        window=window,
+        started_at="2026-10-16T10:00:00+00:00",
+        ended_at="2026-10-16T10:05:00+00:00",
+        active_duration_ms=300000,
+    )
+
+    client = TestClient(
+    create_app(
+        activity_store=store,
+        document_storage_dir=tmp_path / "documents",
+        )
+    )
+    client.context_id = str(context_id)
+
+    return client
 
 
 def test_upload_docx_success(tmp_path):
@@ -86,6 +109,7 @@ def test_upload_docx_success(tmp_path):
 
     response = client.post(
         "/documents",
+        data={"context_id": client.context_id},
         files={
             "file": (
                 "test_document.docx",
@@ -105,12 +129,33 @@ def test_upload_docx_success(tmp_path):
     assert body["data"]["file_type"] == ".docx"
     assert "ContextTrace document upload test" in body["data"]["extracted_text"]
 
+    documents = client.app.state.activity_store.get_recent_document_records()
+    assert len(documents) == 1
+
+    saved_document = documents[0]
+
+    assert saved_document.file_name == "test_document.docx"
+    assert saved_document.file_type == ".docx"
+    assert Path(saved_document.file_path).is_absolute()
+    assert Path(saved_document.file_path).is_file()
+    assert Path(saved_document.file_path).read_bytes() == content
+
+    assert response.status_code == 201
+
+    body = response.json()
+    assert body["ok"] is True
+    assert body["error"] is None
+    assert body["data"]["file_name"] == "test_document.docx"
+    assert body["data"]["file_type"] == ".docx"
+    assert "ContextTrace document upload test" in body["data"]["extracted_text"]
+
 
 def test_upload_unsupported_extension(tmp_path):
     client = create_client(tmp_path)
 
     response = client.post(
         "/documents",
+        data={"context_id": client.context_id},
         files={"file": ("notes.txt", b"plain text", "text/plain")},
     )
 
@@ -123,6 +168,7 @@ def test_upload_docx_without_extractable_text(tmp_path):
 
     response = client.post(
         "/documents",
+        data={"context_id": client.context_id},
         files={
             "file": (
                 "empty.docx",
@@ -142,6 +188,7 @@ def test_list_documents_after_upload(tmp_path):
 
     upload_response = client.post(
         "/documents",
+        data={"context_id": client.context_id},
         files={
             "file": (
                 "stored.docx",
@@ -192,6 +239,7 @@ def test_upload_pdf_success(tmp_path):
 
     response = client.post(
         "/documents",
+        data={"context_id": client.context_id},
         files={"file": ("test_document.pdf", content, "application/pdf")},
     )
 
@@ -209,6 +257,7 @@ def test_upload_document_exceeding_size_limit(tmp_path):
 
     response = client.post(
         "/documents",
+        data={"context_id": client.context_id},
         files={"file": ("large.docx", content, "application/octet-stream")},
     )
 
@@ -246,9 +295,92 @@ def test_upload_corrupted_docx_cleans_up_temporary_file(
 
     response = client.post(
         "/documents",
+        data={"context_id": client.context_id},
         files={"file": ("corrupted.docx", b"invalid DOCX", "application/octet-stream")},
     )
 
     assert response.status_code == 422
     assert len(created_paths) == 1
     assert not created_paths[0].exists()
+
+def test_upload_document_requires_context_id(tmp_path):
+    """Document upload requires a context ID."""
+    client = create_client(tmp_path)
+    content = create_docx("Context ID is required")
+
+    response = client.post(
+        "/documents",
+        files={
+            "file": (
+                "test.docx",
+                content,
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_upload_document_rejects_invalid_context_id(tmp_path):
+    """Document upload rejects a non-integer context ID."""
+    client = create_client(tmp_path)
+    content = create_docx("Invalid context ID")
+
+    response = client.post(
+        "/documents",
+        data={"context_id": "invalid"},
+        files={
+            "file": (
+                "test.docx",
+                content,
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_upload_document_rejects_missing_activity_record(tmp_path):
+    """Document upload rejects a context ID that does not exist."""
+    client = create_client(tmp_path)
+    content = create_docx("Missing activity record")
+
+    response = client.post(
+        "/documents",
+        data={"context_id": "999999"},
+        files={
+            "file": (
+                "test.docx",
+                content,
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 404
+
+def test_upload_document_accepts_existing_activity_record(tmp_path):
+    """Document upload accepts an existing activity record."""
+    client = create_client(tmp_path)
+    content = create_docx("Existing activity record")
+
+    response = client.post(
+        "/documents",
+        data={"context_id": client.context_id},
+        files={
+            "file": (
+                "test.docx",
+                content,
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["ok"] is True
