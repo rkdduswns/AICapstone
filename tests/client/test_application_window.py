@@ -12,10 +12,30 @@ from PySide6.QtWidgets import QApplication
 from client.application_window import ApplicationWindow
 from client.compact_search_window import CompactAnswer
 from client.window import MainWindow
+from shared.activity import ActiveWindow, CurrentActivity
 from shared.browser import BrowserPage
+from shared.privacy import PrivacySettings, PrivacyState, RecordingStatus
 from shared.search_data import DocumentChunk, SourceMetadata
 
 QUERY = "개인정보 저장 기준을 찾아줘"
+ACTIVITY = CurrentActivity("collecting", ActiveWindow("가상 앱", "fixture.exe", 42, "가상 창"))
+
+
+def privacy_state(reason="allowed"):
+    """서버가 판정한 상태를 전달하는 고정 응답을 만들며 실제 설정을 변경하지 않는다."""
+    return PrivacyState(
+        PrivacySettings(reason == "paused", ["blocked.exe"] if reason == "blocked_program" else []),
+        RecordingStatus(reason == "allowed", reason),
+    )
+
+
+@pytest.fixture
+def status_clients(shell, monkeypatch):
+    """기존 신호 전달만 검사하고 건강 확인에 따른 실제 네트워크 시작은 격리한다."""
+    management = shell.management
+    monkeypatch.setattr(management.activity, "start", lambda: None)
+    monkeypatch.setattr(management.privacy.client, "start", lambda: None)
+    return management.backend, management.activity, management.privacy.client
 
 
 @pytest.fixture(scope="module")
@@ -154,6 +174,98 @@ def test_normal_query_reports_answer_service_preparation_without_example_answer(
     assert search.evidence_picker.count() == 0
     assert search.search_button.isEnabled()
     assert search.search_button.text() == "검색"
+
+
+def test_connection_state_requires_both_channels_and_preserves_failures(shell, status_clients):
+    """한 채널의 새 성공이 다른 채널의 수신 실패나 설정 확인 중 상태를 덮지 않는다."""
+    backend, activity, privacy = status_clients
+    button = shell.search.connection_button
+    assert button.text() == "연결 미확인"
+    backend.connection_changed.emit(True)
+    assert "확인 중" in button.text()
+    activity.activity_received.emit(ACTIVITY)
+    assert "기록 가능" not in button.text()
+    privacy.state_received.emit(privacy_state(), "read")
+    assert button.text() == "연결됨 · 기록 가능"
+
+    activity.activity_failed.emit("가상 민감 오류 본문")
+    privacy.state_received.emit(privacy_state(), "read")
+    assert button.text() == "상태 수신 실패"
+    assert "민감 오류" not in button.toolTip()
+    activity.activity_received.emit(ACTIVITY)
+    assert button.text() == "연결됨 · 기록 가능"
+
+    privacy.state_failed.emit("가상 민감 오류 본문")
+    activity.activity_received.emit(ACTIVITY)
+    assert button.text() == "상태 수신 실패"
+    privacy.state_received.emit(privacy_state(), "read")
+    assert button.text() == "연결됨 · 기록 가능"
+    privacy.changing.emit()
+    activity.activity_received.emit(ACTIVITY)
+    assert "설정 확인 중" in button.text()
+    privacy.state_received.emit(privacy_state("paused"), "pause")
+    assert "일시정지" in button.text()
+    activity.activity_received.emit(ACTIVITY)
+    assert "일시정지" in button.text()
+
+    privacy.state_received.emit(privacy_state("blocked_program"), "read")
+    assert "프로그램 차단" in button.text()
+    backend.connection_changed.emit(False)
+    activity.activity_received.emit(ACTIVITY)
+    privacy.state_received.emit(privacy_state(), "read")
+    assert button.text() == "연결 확인 실패"
+
+
+@pytest.mark.parametrize("collection_status", ["no_active_window", "unsupported", "error"])
+def test_activity_status_prevents_stale_recording_allowed(shell, status_clients, collection_status):
+    """이전 기록 허용 응답보다 현재 활성 창 없음·미지원·오류를 우선한다."""
+    backend, activity, privacy = status_clients
+    backend.connection_changed.emit(True)
+    privacy.state_received.emit(privacy_state(), "read")
+    activity.activity_received.emit(ACTIVITY)
+    assert "기록 가능" in shell.search.connection_button.text()
+
+    activity.activity_received.emit(CurrentActivity(collection_status, None))
+    privacy.state_received.emit(privacy_state(), "read")
+    assert "기록 가능" not in shell.search.connection_button.text()
+    assert shell.search.connection_button.text().startswith("연결됨")
+
+
+def test_connection_button_reuses_management_and_recheck_clears_status(app, shell, monkeypatch):
+    """상태 버튼은 같은 관리 화면을 열고 명시적인 재확인에서만 건강 요청을 보낸다."""
+    management = shell.management
+    clients = (management.backend, management.activity, management.privacy.client)
+    calls = []
+    for client in clients:
+        monkeypatch.setattr(client, "get", lambda path: calls.append(path))
+    assert shell.search.connection_button.isVisible()
+    for _ in range(2):
+        shell.search.connection_button.click()
+        app.processEvents()
+        assert shell.management is management and management.tabs.currentIndex() == 0
+        assert shell.management.isVisible()
+        shell.back_button.click()
+        app.processEvents()
+    assert calls == []
+    assert shell.findChildren(MainWindow) == [management]
+    assert all(not client.timer.isActive() for client in clients)
+
+    management.backend.connection_changed.emit(True)
+    management.activity.activity_received.emit(ACTIVITY)
+    management.privacy.client.state_received.emit(privacy_state(), "read")
+    assert shell.search.connection_button.text() == "연결됨 · 기록 가능"
+    calls.clear()
+    started = []
+    management.check_started.connect(lambda: started.append(True))
+    management.backend.reply = object()
+    try:
+        management.check()
+        assert started == []
+    finally:
+        management.backend.reply = None
+    management.check()
+    assert started == [True] and calls == ["/health"]
+    assert shell.search.connection_button.text() == "연결 확인 중"
 
 
 def test_management_fits_small_screen_and_keeps_back_button_accessible(app, shell, monkeypatch):

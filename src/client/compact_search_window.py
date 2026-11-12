@@ -1,11 +1,22 @@
 """검색 입력에서 요약과 근거까지 한 창에서 펼치는 Client 미리보기."""
 
 from dataclasses import dataclass
+from math import ceil
 from typing import Literal
 
-from PySide6.QtCore import QSignalBlocker, QSize, Qt, Signal
-from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut, QShowEvent, QTextCursor, QTextOption
+from PySide6.QtCore import QRect, QSignalBlocker, QSize, Qt, Signal
+from PySide6.QtGui import (
+    QCloseEvent,
+    QKeySequence,
+    QResizeEvent,
+    QShortcut,
+    QShowEvent,
+    QTextCursor,
+    QTextLayout,
+    QTextOption,
+)
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -72,15 +83,21 @@ class CompactSearchWindow(QWidget):
         layout.addLayout(query_row)
         controls = QHBoxLayout()
         self.status = _plain_label()
+        self.connection_button = QPushButton("연결 미확인")
+        self.connection_button.setFlat(True)
+        self.connection_button.setAccessibleName("Backend 연결 및 기록 상태")
+        self.connection_button.hide()
         self.evidence_button = QPushButton("근거 보기")
         self.results_button = QPushButton("결과 보기")
         self.management_button = QPushButton("관리")
         self.management_button.hide()
-        controls.addWidget(self.status, 1)
+        controls.addWidget(self.connection_button)
+        controls.addStretch(1)
         controls.addWidget(self.evidence_button)
         controls.addWidget(self.results_button)
         controls.addWidget(self.management_button)
         layout.addLayout(controls)
+        layout.addWidget(self.status)
 
         self.empty_message = _plain_label()
         layout.addWidget(self.empty_message)
@@ -89,6 +106,7 @@ class CompactSearchWindow(QWidget):
         summary_layout.setContentsMargins(0, 0, 0, 0)
         self.summary_heading = _plain_label("요약 답변")
         self.summary = _plain_label()
+        self.summary.setWordWrap(False)
         self.summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.detail_button = QPushButton("전체 답변·근거 보기")
         summary_layout.addWidget(self.summary_heading)
@@ -116,6 +134,17 @@ class CompactSearchWindow(QWidget):
         detail_controls.addWidget(self.evidence_order)
         detail_controls.addWidget(self.collapse_button)
         detail_layout.addLayout(detail_controls)
+        detail_actions = QHBoxLayout()
+        self.answer_top_button = QPushButton("답변 처음으로")
+        self.copy_answer_button = QPushButton("답변 복사")
+        self.copy_source_button = QPushButton("출처 복사")
+        detail_actions.addWidget(self.answer_top_button)
+        detail_actions.addWidget(self.copy_answer_button)
+        detail_actions.addWidget(self.copy_source_button)
+        detail_actions.addStretch(1)
+        detail_layout.addLayout(detail_actions)
+        self.detail_feedback = _plain_label()
+        detail_layout.addWidget(self.detail_feedback)
         self.detail_text = QPlainTextEdit()
         self.detail_text.setAccessibleName("전체 답변과 선택한 근거")
         self.detail_text.setReadOnly(True)
@@ -131,6 +160,9 @@ class CompactSearchWindow(QWidget):
         self.detail_button.clicked.connect(self._show_detail)
         self.evidence_button.clicked.connect(self._show_detail)
         self.collapse_button.clicked.connect(self._fold_detail)
+        self.answer_top_button.clicked.connect(self._answer_top)
+        self.copy_answer_button.clicked.connect(self._copy_answer)
+        self.copy_source_button.clicked.connect(self._copy_source)
         self.evidence_picker.currentIndexChanged.connect(self._select_evidence)
         self.evidence_order.currentIndexChanged.connect(self._order_evidence)
         self._escape = QShortcut(QKeySequence("Escape"), self)
@@ -172,13 +204,64 @@ class CompactSearchWindow(QWidget):
 
     def _fill_result(self, result: CompactAnswer) -> None:
         """요약과 전체 답변을 분리하고 현재 표시 순서로 근거를 채운다."""
-        brief = result.summary.strip()
-        self.summary_heading.setText("요약 답변" if brief else "답변 미리보기")
-        content = brief or result.full_answer.strip()
-        preview = "\n".join(content.splitlines()[:5])[:200].rstrip()
-        self.summary.setText(preview + ("…" if len(preview) < len(content) else ""))
         self.evidence_heading.setText(f"근거 {len(result.evidence)}개")
         self._order_evidence()
+
+    def _update_summary_preview(self, width: int) -> None:
+        """글꼴과 실제 폭에 맞춰 시각적 줄 수를 제한하고 잘림을 명시한다."""
+        result = self._result
+        if result is None or result.status != "answer":
+            return
+        content = result.summary.strip() or result.full_answer.strip()
+        candidate = "\n".join(content.splitlines()[:5])[:200].rstrip()
+        text = candidate.replace("\n", "\u2028")
+        encoded = text.encode("utf-16-le")
+        metrics = self.summary.fontMetrics()
+        maximum_lines = max(1, min(5, 110 // metrics.lineSpacing()))
+        layout = QTextLayout(text, self.summary.font())
+        option = QTextOption()
+        option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+        layout.setTextOption(option)
+        fragments = []
+        line_heights = []
+        height = 0.0
+        consumed = 0
+        layout.beginLayout()
+        for _ in range(maximum_lines):
+            line = layout.createLine()
+            if not line.isValid():
+                break
+            line.setLineWidth(max(1, width))
+            if height + line.height() > 110:
+                break
+            height += line.height()
+            line_heights.append(line.height())
+            consumed = line.textStart() + line.textLength()
+            # Qt 문자 위치는 UTF-16 단위다. 한글과 보조 평면 문자도 원문대로 읽는다.
+            fragment = encoded[line.textStart() * 2:consumed * 2].decode("utf-16-le")
+            fragments.append(fragment.rstrip())
+        layout.endLayout()
+        clipped = len(candidate) < len(content) or consumed * 2 < len(encoded)
+        if clipped and fragments:
+            fragments[-1] = metrics.elidedText(fragments[-1] + "…", Qt.TextElideMode.ElideRight, width)
+        preview = "\n".join(fragments)
+        flags = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        bounds = metrics.boundingRect(QRect(0, 0, width, 110), flags, preview)
+        # 대체 글꼴의 실제 줄 높이가 기본 글꼴보다 큰 경우도 표시 상한 안에 맞춘다.
+        while bounds.height() > 110 and fragments:
+            fragments.pop()
+            line_heights.pop()
+            clipped = True
+            if fragments:
+                fragments[-1] = metrics.elidedText(
+                    fragments[-1].rstrip("…") + "…", Qt.TextElideMode.ElideRight, width,
+                )
+            preview = "\n".join(fragments)
+            bounds = metrics.boundingRect(QRect(0, 0, width, 110), flags, preview)
+        self.summary.setText(preview)
+        heading = "요약 답변" if result.summary.strip() else "답변 미리보기"
+        self.summary_heading.setText(heading + (" · 일부 표시 중" if clipped else ""))
+        self.summary.setFixedHeight(max(ceil(sum(line_heights)), bounds.height()) if fragments else 0)
 
     def _order_evidence(self) -> None:
         """표시 순서만 바꾸고 답변에서 인용한 번호와 선택한 근거를 유지한다."""
@@ -201,6 +284,8 @@ class CompactSearchWindow(QWidget):
         result = self._result
         if result is None:
             return
+        self.detail_feedback.clear()
+        self.detail_feedback.hide()
         text = f"전체 답변\n\n{result.full_answer}" if result.status == "answer" else ""
         self.detail_text.setPlainText(text)
         index = self.evidence_picker.currentData()
@@ -213,6 +298,28 @@ class CompactSearchWindow(QWidget):
         cursor.insertText(f"근거 {index + 1}\n\n{chunk_detail(result.evidence[index])}")
         cursor.setPosition(position if self._view == "detail" else 0)
         self.detail_text.setTextCursor(cursor)
+
+    def _answer_top(self) -> None:
+        """현재 답변 문서의 처음으로 돌아가 읽기를 이어갈 수 있게 한다."""
+        self.detail_text.moveCursor(QTextCursor.MoveOperation.Start)
+        self.detail_text.verticalScrollBar().setValue(0)
+        self.detail_text.setFocus()
+
+    def _copy_answer(self) -> None:
+        """사용자 요청으로 생략되지 않은 전체 답변만 클립보드에 복사한다."""
+        if self._result is not None and self._result.status == "answer":
+            QApplication.clipboard().setText(self._result.full_answer)
+            self.detail_feedback.setText("전체 답변을 복사했습니다.")
+            self.detail_feedback.show()
+
+    def _copy_source(self) -> None:
+        """선택한 근거의 확보 당시 URL이나 파일 경로를 그대로 복사한다."""
+        index = self.evidence_picker.currentData()
+        if self._result is not None and index is not None:
+            _, _, address = chunk_source(self._result.evidence[index])
+            QApplication.clipboard().setText(address)
+            self.detail_feedback.setText("출처를 복사했습니다.")
+            self.detail_feedback.show()
 
     def _edit_query(self, _text: str) -> None:
         """입력 편집 시 대기 중 응답과 표시 중인 결과를 함께 폐기한다."""
@@ -234,6 +341,8 @@ class CompactSearchWindow(QWidget):
         self._result = None
         self.summary.clear()
         self.detail_text.clear()
+        self.detail_feedback.clear()
+        self.detail_feedback.hide()
         self.evidence_picker.clear()
 
     def _submit_or_cancel(self) -> None:
@@ -292,6 +401,7 @@ class CompactSearchWindow(QWidget):
         self.results_button.setText("결과 보기" if self._view == "compact" else "결과 숨기기")
         self.evidence_button.setVisible(evidence and not answered and not detail_open)
         self.status.setText("검색 중…" if loading else "" if empty_open else self._notice)
+        self.status.setVisible(bool(self.status.text()))
         self.empty_message.setText(
             "검색 결과를 기다리는 중입니다." if loading else self._notice or "아직 검색 결과가 없습니다.",
         )
@@ -301,6 +411,9 @@ class CompactSearchWindow(QWidget):
         self.evidence_heading.setVisible(evidence)
         self.evidence_picker.setVisible(evidence)
         self.evidence_order.setVisible(evidence and len(result.evidence) > 1)
+        self.answer_top_button.setVisible(answered)
+        self.copy_answer_button.setVisible(answered)
+        self.copy_source_button.setVisible(evidence)
 
         size = QSize(440, 112)
         if detail_open:
@@ -311,9 +424,7 @@ class CompactSearchWindow(QWidget):
             width = min(440, screen.availableGeometry().width()) if screen else 440
             margins = self.layout().contentsMargins()
             text_width = max(1, width - margins.left() - margins.right())
-            text_height = max(self.summary.fontMetrics().lineSpacing(),
-                              self.summary.heightForWidth(text_width))
-            self.summary.setFixedHeight(min(110, text_height))
+            self._update_summary_preview(text_width)
             # 자식 레이아웃을 먼저 갱신해 첫 펼침과 다시 접은 상태가 같은 높이를 사용한다.
             self.summary_panel.layout().activate()
             self.layout().invalidate()
@@ -321,6 +432,13 @@ class CompactSearchWindow(QWidget):
         elif empty_open:
             size = QSize(440, 168)
         self._fit_window(size)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        """사용자가 폭을 바꿔도 요약 잘림 표시와 줄 수를 다시 맞춘다."""
+        super().resizeEvent(event)
+        if self._view == "open":
+            margins = self.layout().contentsMargins()
+            self._update_summary_preview(max(1, self.width() - margins.left() - margins.right()))
 
     def _fit_window(self, target: QSize) -> None:
         """단독 실행에서는 자신을, 포함된 화면에서는 부모 창을 목표 크기로 맞춘다."""

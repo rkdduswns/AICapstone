@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 import pytest
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QMimeData, QPoint, QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLabel
 
@@ -29,6 +29,14 @@ PDF_TEXT = "일시정지 중에는 새로 수집하지 않습니다."
 def app():
     """Qt의 이벤트와 초점 상태를 테스트 간에 같은 애플리케이션에서 처리한다."""
     return QApplication.instance() or QApplication([])
+
+
+@pytest.fixture
+def clipboard(monkeypatch):
+    """시스템 클립보드 대신 메모리의 Qt 텍스트 객체에 복사 결과를 받는다."""
+    data = QMimeData()
+    monkeypatch.setattr(QApplication, "clipboard", staticmethod(lambda: data))
+    return data
 
 
 @pytest.fixture
@@ -112,7 +120,8 @@ def test_answer_expands_from_summary_to_exact_ordered_sources(app, search, answe
     app.processEvents()
     summary_size = window.size()
     assert summary_size.height() > initial_size.height()
-    assert window.summary.isVisible() and window.summary.text() == SHORT_ANSWER
+    assert window.summary.isVisible()
+    assert "".join(window.summary.text().split()) == "".join(SHORT_ANSWER.split())
     assert window.summary.textFormat() == Qt.TextFormat.PlainText
     assert window.detail_panel.isHidden()
 
@@ -212,7 +221,7 @@ def test_hiding_results_during_search_defers_reveal_and_reuses_answer(app, searc
 
     window.results_button.click()
     assert window.summary.isVisible()
-    assert window.summary.text() == SHORT_ANSWER
+    assert "".join(window.summary.text().split()) == "".join(SHORT_ANSWER.split())
     assert len(requests) == 1
 
 
@@ -304,6 +313,8 @@ def test_no_summary_uses_a_labeled_preview_and_preserves_full_answer(search, ans
         for label in window.findChildren(QLabel)
         if label.isVisible()
     )
+    assert "일부 표시 중" in window.summary_heading.text()
+    assert window.summary.text().endswith("…")
     window.detail_button.click()
     assert window.detail_text.isVisible()
     assert full_answer in window.detail_text.toPlainText()
@@ -329,3 +340,150 @@ def test_long_source_address_wraps_without_changing_original(app, search, answer
     document.documentLayout().blockBoundingRect(block)
     assert block.layout().lineCount() > 2
     assert window.detail_text.horizontalScrollBar().maximum() == 0
+
+
+@pytest.mark.parametrize(
+    "long_summary",
+    ["요약의 핵심 내용을 확인합니다. " * 40, "x" * 800, "🙂" * 300],
+    ids=["wrapped-sentences", "unbroken-word", "emoji"],
+)
+def test_clipped_summary_fits_visible_label_and_preserves_full_answer(
+    app, search, answer, long_summary,
+):
+    """긴 문장·공백 없는 단어·이모지를 자른 요약이 실제 표시 영역 안에 들어간다."""
+    window, requests, _ = search
+    full = "전체 답변의 시작\n" + long_summary + "\n전체 답변의 끝"
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(
+        requests[-1][0], replace(answer, summary=long_summary, full_answer=full),
+    )
+    window.resize(320, window.height())
+    app.processEvents()
+
+    text = window.summary.text()
+    assert text.endswith("…")
+    assert "일부 표시 중" in window.summary_heading.text()
+    assert window.summary.height() <= 110
+    bounds = window.summary.contentsRect()
+    measured = window.summary.fontMetrics().boundingRect(
+        QRect(0, 0, bounds.width(), 10000), Qt.TextFlag.TextWordWrap, text,
+    )
+    assert measured.width() <= bounds.width() + 1
+    assert measured.height() <= bounds.height() + 1
+    assert not any(0xD800 <= ord(character) <= 0xDFFF for character in text)
+    if long_summary.startswith("🙂"):
+        assert long_summary.startswith(text.removesuffix("…").replace("\n", ""))
+
+    window.detail_button.click()
+    assert full in window.detail_text.toPlainText()
+
+
+def test_summary_refits_on_resize_and_short_summary_keeps_original(app, search, answer):
+    """같은 응답을 좁혔다 넓히면 요약 표시 범위를 다시 계산하고 짧은 답변은 보존한다."""
+    window, requests, _ = search
+    font = window.summary.font()
+    font.setPointSize(13)
+    window.summary.setFont(font)
+    long_summary = "가" * 180
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], replace(answer, summary=long_summary))
+
+    window.resize(320, window.height())
+    app.processEvents()
+    narrow = window.summary.text()
+    assert narrow.endswith("…")
+    assert "일부 표시 중" in window.summary_heading.text()
+
+    window.resize(760, window.height())
+    app.processEvents()
+    assert window.summary.text().replace("\n", "") == long_summary
+    assert "일부 표시 중" not in window.summary_heading.text()
+    assert len(window.summary.text()) > len(narrow)
+
+    window.submit()
+    window.receive_result(requests[-1][0], replace(answer, summary="짧은 답변"))
+    app.processEvents()
+    assert window.summary.text() == "짧은 답변"
+    assert "일부 표시 중" not in window.summary_heading.text()
+
+
+def test_detail_actions_copy_original_values_and_return_to_answer_start(app, search, answer, clipboard):
+    """정렬 후 선택한 원본 주소와 전체 답변을 복사하고 긴 상세의 맨 위로 이동한다."""
+    window, requests, _ = search
+    full = "가상 전체 답변 첫 줄\n" + ("가상 답변의 긴 문장\n" * 100) + "마지막 줄"
+    web, pdf = answer.evidence
+    response = replace(
+        answer, full_answer=full,
+        evidence=(replace(web, text="짧은 근거"), replace(pdf, text="긴 문서 근거" * 20)),
+    )
+    clipboard.setText("synthetic-clipboard-start")
+    try:
+        window.query.setText(QUERY)
+        window.submit()
+        window.receive_result(requests[-1][0], response)
+        window.detail_button.click()
+        app.processEvents()
+        assert window.answer_top_button.isVisible()
+        assert window.copy_answer_button.isVisible()
+        assert window.copy_source_button.isVisible()
+        window.copy_answer_button.click()
+        assert clipboard.text() == full
+        assert "복사" in window.detail_feedback.text()
+
+        window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(0))
+        window.evidence_order.setCurrentIndex(window.evidence_order.findData("longest"))
+        assert window.evidence_picker.currentData() == 0
+        window.copy_source_button.click()
+        assert clipboard.text() == URL
+        window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
+        assert window.detail_feedback.text() == ""
+        window.copy_source_button.click()
+        assert clipboard.text() == FILE_PATH
+
+        scrollbar = window.detail_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+        assert scrollbar.value() > 0
+        window.answer_top_button.click()
+        assert scrollbar.value() == 0
+
+        window.query.setText("새 가상 질문")
+        clipboard.setText("synthetic-after-edit")
+        for button in (
+            window.answer_top_button, window.copy_answer_button, window.copy_source_button,
+        ):
+            assert not button.isVisible()
+        window.copy_answer_button.click()
+        window.copy_source_button.click()
+        assert clipboard.text() == "synthetic-after-edit"
+        assert window.detail_text.toPlainText() == ""
+        assert window.detail_feedback.text() == ""
+    finally:
+        clipboard.clear()
+
+
+def test_insufficient_evidence_only_offers_source_copy(app, search, answer, clipboard):
+    """근거 부족 상태에서는 원본 출처를 복사하며 생성 답변용 동작은 숨긴다."""
+    window, requests, _ = search
+    clipboard.setText("synthetic-insufficient-start")
+    try:
+        window.query.setText(QUERY)
+        window.submit()
+        window.receive_result(
+            requests[-1][0],
+            CompactAnswer("insufficient", full_answer="가상으로 무시할 답변", evidence=answer.evidence),
+        )
+        window.evidence_button.click()
+        app.processEvents()
+        assert not window.answer_top_button.isVisible()
+        assert not window.copy_answer_button.isVisible()
+        assert window.copy_source_button.isVisible()
+        assert "가상으로 무시할 답변" not in window.detail_text.toPlainText()
+        window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(0))
+        window.copy_source_button.click()
+        assert clipboard.text() == URL
+        window.copy_answer_button.click()
+        assert clipboard.text() == URL
+    finally:
+        clipboard.clear()

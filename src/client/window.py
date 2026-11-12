@@ -1,6 +1,6 @@
 """Backend 연결, 현재 작업 상태와 최근 저장 기록을 표시하는 화면."""
 
-from PySide6.QtCore import QDateTime, Qt
+from PySide6.QtCore import QDateTime, Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QFormLayout,
@@ -37,6 +37,8 @@ def display_label(text: str) -> QLabel:
 
 class MainWindow(QWidget):
     """감지 로직 없이 검증된 현재 상태만 표시하고 실패 시 이전 창 정보를 비운다."""
+
+    check_started = Signal()
 
     def __init__(self, port: int = DEFAULT_PORT) -> None:
         super().__init__()
@@ -102,6 +104,7 @@ class MainWindow(QWidget):
         """연결 재확인 동안 이전 조회를 취소해 늦은 결과가 섞이지 않게 한다."""
         if self.backend.reply is not None:
             return
+        self.check_started.emit()
         self.activity.stop()
         self.recent.set_connected(False)
         self.privacy.set_connected(False)
