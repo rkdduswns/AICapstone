@@ -6,6 +6,8 @@
 
 일반 실행은 [ApplicationWindow](../src/client/application_window.py)의 작은 검색창에서 시작한다. `관리` 메뉴로 같은 창에서 기존 [MainWindow](../src/client/window.py)의 현재 작업·최근 기록·개인정보 보호·조건 검색 탭에 접근한다. [Phase 12 미리보기](phases/phase012.md#client-미리보기-실행)는 가상 웹·PDF 조각을 표시하는 별도 실행 도구다. 이 설계는 Phase 13의 답변·근거 UI와 Phase 14의 검색 흐름을 다룬다. 실제 검색·LLM API 연결은 후속 범위다.
 
+2026-11-13 `feat/compact-backend-integration`에서는 기존 `fix/capture-truncation-privacy`의 서버 통합과 문서 가져오기를 소형 창의 관리 화면에 합쳤다. [통합 범위와 Backend 계약 비교](../docs/dev/compact-backend-integration.md)를 따른다.
+
 ## 일반 Client 실행
 
 ```powershell

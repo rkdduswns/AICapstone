@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ContextTrace 페이지 연결</title>
+<link rel="stylesheet" href="popup.css">
+<body>
+  <h1>현재 페이지 연결</h1>
+  <p>버튼을 누르면 현재 페이지의 제목·URL·본문을 활성 작업에 연결합니다.</p>
+  <label>Backend 포트 <input id="port" type="number" min="1" max="65535" value="8765"></label>
+  <label>연결 토큰 <input id="token" type="password" autocomplete="off"></label>
+  <button id="save">연결 설정 저장</button>
+  <button id="capture">이 페이지를 작업에 연결</button>
+  <p id="status" role="status" aria-live="polite"></p>
+  <script type="module" src="popup.mjs"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 """Exercise the installed entrypoint and real loopback HTTP, not an ASGI mock."""
 
+import os
 import signal
 import socket
 import subprocess
@@ -11,8 +12,10 @@ import pytest
 
 
 def run_backend(*args):
+    """자식의 한글 오류 로그도 같은 UTF-8로 쓰고 읽어 PC 기본 코드 페이지와 분리한다."""
     return subprocess.run(
-        [sys.executable, "-m", "backend", *args], capture_output=True, text=True, timeout=10
+        [sys.executable, "-m", "backend", *args], capture_output=True, encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"}, timeout=10,
     )
 
 
@@ -39,7 +42,8 @@ def test_standalone_http_and_shutdown(tmp_path):
     # The short gap between reservation and child bind is unavoidable for this CLI test.
     with (tmp_path / "server.log").open("w+") as log:
         process = subprocess.Popen(
-            [sys.executable, "-m", "backend", "--port", str(port)], stdout=log, stderr=log
+            [sys.executable, "-m", "backend", "--port", str(port),
+             "--db-path", str(tmp_path / "activity.db")], stdout=log, stderr=log
         )
         try:
             with httpx.Client(base_url=f"http://127.0.0.1:{port}",

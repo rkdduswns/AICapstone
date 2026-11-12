@@ -216,9 +216,9 @@ def test_connection_state_requires_both_channels_and_preserves_failures(shell, s
     assert button.text() == "연결 확인 실패"
 
 
-@pytest.mark.parametrize("collection_status", ["no_active_window", "unsupported", "error"])
+@pytest.mark.parametrize("collection_status", ["no_active_window", "unsupported", "error", "paused", "blocked"])
 def test_activity_status_prevents_stale_recording_allowed(shell, status_clients, collection_status):
-    """이전 기록 허용 응답보다 현재 활성 창 없음·미지원·오류를 우선한다."""
+    """이전 기록 허용 응답보다 현재 감지 불가·일시정지·차단 상태를 우선한다."""
     backend, activity, privacy = status_clients
     backend.connection_changed.emit(True)
     privacy.state_received.emit(privacy_state(), "read")

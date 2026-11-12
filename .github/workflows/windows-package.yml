@@ -1,0 +1,42 @@
+name: Windows EXE package
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '${{ github.event.pull_request.head.sha || github.sha }}'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - run: python -m pip install ".[dev,build]"
+      - run: python -m pip check
+      - run: python -m ruff check src tests tools
+      - name: Build two standalone executables
+        run: python tools/build_windows.py
+      - name: Run packaged programs without source imports
+        run: python tools/smoke_windows_exe.py
+      - name: Save verified package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ContextTrace-Windows-x64
+          path: dist/ContextTrace-Windows-x64.zip
+          compression-level: 0
+          retention-days: 30
+      - name: Save packaging diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package-diagnostics
+          path: |
+            build/*/ContextTrace-*/warn-*.txt
+            build/package-smoke.json
+          if-no-files-found: ignore

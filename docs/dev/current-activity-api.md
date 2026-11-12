@@ -1,7 +1,9 @@
 # Phase 2 현재 창 API 계약
 
-상태: Client/Shared 구현 및 가상 HTTP 검증 완료. Backend endpoint와 Windows 감지는 아직 미구현이다.
-이 문서를 Phase 2B 구현 기준으로 사용한다. Phase 1 `/health` 계약은 유지한다.
+상태: 실제 Backend 감지·저장 API와 Client가 연결됐다. Windows 수동 검증은 남아 있다.
+2026-10-22 통합 확장: 선택적 `data.record_id`는 수집 중인 실제 SQLite 작업 ID의 양의 십진 문자열이다.
+같은 세션의 샘플·종료는 ID를 유지하며 비수집 상태에서는 null이다. 생략한 구형 응답도 표시할 수 있다.
+[이력 연결 계약](history-source-linking.md)을 따른다. Phase 1 `/health` 계약은 유지한다.
 
 ## 책임과 요청
 
@@ -44,7 +46,7 @@
 | `error` | 필수, 정상 envelope에서 null |
 | `data.service` | 정확히 `contexttrace-backend` |
 | `data.api_version` | 정수 1; boolean/문자열은 거부 |
-| `data.collection_status` | 아래 4개 상태 중 하나 |
+| `data.collection_status` | 아래 6개 상태 중 하나 |
 | `data.window` | 필수; `collecting`일 때 창 객체, 나머지 상태에서는 null |
 | `window.application` | Backend에서 정규화한 프로그램명. 공백만 있는 문자열은 거부 |
 | `window.process_name` | 실행 프로세스 이름. 공백만 있는 문자열은 거부 |
@@ -57,6 +59,8 @@
 | `no_active_window` | 활성 창이 없는 정상 상황 / `대기 — 활성 창 없음`, 창 정보 비움 |
 | `unsupported` | 지원하지 않는 창/환경 / `수집 불가`, 창 정보 비움 |
 | `error` | 감지기가 현재 정보를 얻지 못함 / `감지 오류`, 창 정보 비움 |
+| `paused` | 전체 일시정지 / 창·시간·ID 없음 |
+| `blocked` | 차단 프로그램 / 창·시간·ID 없음 |
 
 `error` 수집 상태는 HTTP 전달 성공과 구분한다. 따라서 envelope는 `ok: true`이고 `error: null`이다.
 예를 들어 창이 감지 도중 종료되어 일관된 PID/프로세스/제목을 얻지 못하면 이전 성공 값을 반환하지 않는다.

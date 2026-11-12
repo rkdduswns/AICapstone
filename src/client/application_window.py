@@ -119,6 +119,7 @@ class ApplicationWindow(QWidget):
         }
         activity = {
             "no_active_window": "활성 창 없음", "unsupported": "감지 미지원", "error": "감지 오류",
+            "paused": "기록 일시정지", "blocked": "수집 차단",
         }
         if self._connection_state in connection:
             label, description = connection[self._connection_state]
