@@ -3,8 +3,7 @@
 후속 확장: [클립보드 설정](clipboard-api.md), [Phase 7 URL 차단 설정·사유](browser-api.md).
 아래는 Phase 5 기본 계약이며 후속 선택 필드/사유는 해당 확장 계약을 함께 따른다.
 
-상태: 실제 Backend 정책·수집기·SQLite 연결에 이어 `feat/privacy-settings-persistence`에서
-지원 중인 세 설정의 저장·복원을 추가했다. 자동 검증 범위와 남은 실환경 검증은
+상태: 실제 Backend 정책·수집기·SQLite 연결에 이어 PR #18의 세 설정 저장·복원을 현재 통합본에 포함했다. 자동 검증 범위와 남은 실환경 검증은
 [설정 영속화 보고서](../reports/privacy-settings-persistence.md)를 따른다. Phase 전체 완료와 구분한다.
 Client는 설정을 요청하고 Backend의 판정을 표시한다. 프로세스 감지·민감 문자열 판정·지속 저장은 하지 않는다.
 

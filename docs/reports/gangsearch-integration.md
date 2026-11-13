@@ -48,7 +48,11 @@
 - 기획 원문은 `69473fe` 대비 이름 교체만 있고 학습 폴더 변경은 없음을 확인.
 - 최초 `2e3b68e` 패키징에서 두 환경 문제를 확인하고 수정했다. 영문 Windows cp1252 출력에서 한글 경로가 실패하므로 빌드/검증 출력은 UTF-8로 설정한다.
 - 로컬 PATH의 Poppler ICU DLL은 `ucnv_open_78`만 제공하고 Qt가 요구하는 Windows ICU의 `ucnv_open`과 호환되지 않았다. PyInstaller 자식의 PATH를 Python·Windows 경로로 제한하여 다른 도구 DLL 혼입을 막는다.
-- Backend EXE의 실제 HTTP·PDF/DOCX·SQLite와 재시작 후 일시정지 복원은 확인했다. 수정 후 Client를 포함한 전체 실행 검증과 최종 CI·main 결과는 확인 후 기록한다.
+- 수정 커밋 `f3d2617`의 로컬 Windows x64 빌드·실행 **8항목 모두 통과**: 소스 import 차단, 한글/공백 경로, 설치 버전 메타데이터, HTTP·SQLite, PDF/DOCX, 일시정지 403, 재시작 후 일시정지 복원, native Qt frozen Client 연결. `BUILD.json`의 commit과 두 EXE의 SHA256도 일치했다.
+- `2e3b68e` [Windows 3.11·3.12 전체 검사](https://github.com/rkdduswns/AICapstone/actions/runs/43428473620)는 각각 **680 통과·1 건너뜀**이다. `f3d2617`은 이 커밋 대비 `src/`·`tests/` 변경이 없으며 패키징 경로/출력과 문서만 보완했다.
+- `f3d2617` [새 Windows 3.12 패키징·실행 검사](https://github.com/rkdduswns/AICapstone/actions/runs/43429290518)는 성공했다. 새 이름 ZIP은 해당 실행의 검증된 artifact로 구분한다.
+
+최종 통합 대상은 [PR #21](https://github.com/rkdduswns/AICapstone/pull/21)이다. 마지막 문서 변경을 포함한 head 검사·실제 main 병합 시각과 SHA는 해당 PR의 GitHub 기록을 기준으로 확인한다. 과거 Draft PR의 보류 문구를 이번 결과로 소급 변경하지 않는다. 검증 전 보호 규칙을 우회하거나 main에 직접 push하지 않는다.
 
 Windows 10/11의 실제 창 전환·복사·파일 경로, Chrome/Edge 확장 설치·수동 캡처·403 안내,
 IME·배율·다중 모니터 수동 검증은 수행하지 않았다. 자동 탭/파일 감지·URL 차단·재방문 합산과 실제 검색/LLM도 미완료다.

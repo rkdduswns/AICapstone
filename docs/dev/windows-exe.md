@@ -6,7 +6,7 @@
 - [PR #16](https://github.com/rkdduswns/AICapstone/pull/16)의 기존 ZIP은 `b12a82a` 빌드다.
   설정 영속화를 포함하지 않으며 이 EXE에서는 Backend 재실행 시 설정이 초기화된다.
 - 현재 통합 소스는 같은 DB에 저장한 일시정지·차단 프로그램·클립보드 사용 설정을 복원한다.
-  새 이름 빌드·실행 결과는 [통합 검증](../reports/gangsearch-integration.md)을 따른다. 과거 ZIP의 검증 결과로 대신하지 않는다.
+  새 이름 빌드·실행은 검증했으며 결과는 [통합 검증](../reports/gangsearch-integration.md)을 따른다. 과거 ZIP의 검증 결과로 대신하지 않는다.
   소스 검증 근거는 [설정 영속화 보고서](../reports/privacy-settings-persistence.md)를 따른다.
 
 ## 실행
