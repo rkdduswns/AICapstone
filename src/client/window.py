@@ -21,6 +21,7 @@ from client.documents_widget import DocumentsWidget
 from client.privacy_widget import PrivacyWidget
 from client.recent_records import RecentRecordsWidget
 from client.search_widget import SearchWidget
+from client.theme import set_role
 from client.time_values import format_duration, format_timestamp
 from shared.activity import CurrentActivity
 from shared.protocol import DEFAULT_PORT
@@ -41,19 +42,39 @@ class MainWindow(QWidget):
 
     check_started = Signal()
 
-    def __init__(self, port: int = DEFAULT_PORT) -> None:
+    def __init__(self, port: int = DEFAULT_PORT, *, show_condition_search: bool = True) -> None:
+        """상태는 한 줄로 유지하고 실행 환경에서 지원하는 관리 탭만 노출한다."""
         super().__init__()
         self.setWindowTitle("강써치 — 작업 기록")
         self.resize(620, 740)
         layout = QVBoxLayout(self)
-        connection = QGroupBox("Backend 연결 · 마지막 확인 결과")
+        connection = QWidget()
         connection_layout = QVBoxLayout(connection)
+        connection_layout.setContentsMargins(0, 0, 0, 0)
+        connection_layout.setSpacing(4)
         self.status = display_label("미확인")
         self.checked_at = display_label("마지막 확인: 없음")
         self.button = QPushButton("연결 확인")
-        connection_layout.addWidget(self.status)
-        connection_layout.addWidget(self.checked_at)
-        connection_layout.addWidget(self.button)
+        self.connection_details_button = QPushButton("연결 정보")
+        self.connection_details_button.setCheckable(True)
+        self.connection_details_button.setAccessibleName("연결 상세 정보 표시")
+        set_role(self.button, "secondary")
+        set_role(self.connection_details_button, "quiet")
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.status, 1)
+        status_row.addWidget(self.button)
+        status_row.addWidget(self.connection_details_button)
+        connection_layout.addLayout(status_row)
+        self.connection_details = QWidget()
+        details_layout = QVBoxLayout(self.connection_details)
+        details_layout.setContentsMargins(0, 0, 0, 0)
+        self.connection_message = display_label("연결 결과 대기")
+        details_layout.addWidget(self.connection_message)
+        details_layout.addWidget(display_label(f"연결 주소: 127.0.0.1:{port}"))
+        details_layout.addWidget(self.checked_at)
+        self.connection_details.hide()
+        self.connection_details_button.toggled.connect(self.connection_details.setVisible)
+        connection_layout.addWidget(self.connection_details)
         layout.addWidget(connection)
 
         self.privacy = PrivacyWidget(port, self)
@@ -90,6 +111,7 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.privacy, "개인정보 보호")
         self.search = SearchWidget(port, self)
         self.tabs.addTab(self.search, "조건 검색")
+        self.tabs.setTabVisible(self.tabs.indexOf(self.search), show_condition_search)
         self.documents = DocumentsWidget(port, self)
         self.tabs.addTab(self.documents, "문서 가져오기")
         self.recent.document_requested.connect(self._select_document_target)
@@ -117,12 +139,14 @@ class MainWindow(QWidget):
         self.documents.set_connected(False)
         self._clear_activity("대기 — Backend 연결 확인 중")
         self.status.setText("연결 중")
+        self.connection_message.setText("연결 결과 대기")
         self.button.setEnabled(False)
         self.backend.check()
 
     def _show_result(self, message: str) -> None:
         """연결 결과와 확인 시각은 현재 창 수신 상태와 별도로 표시한다."""
         self.status.setText(message)
+        self.connection_message.setText(message)
         self.checked_at.setText("마지막 확인: " + self._now())
         self.button.setEnabled(True)
 
@@ -133,6 +157,8 @@ class MainWindow(QWidget):
         self.search.set_connected(connected)
         self.documents.set_connected(connected)
         if connected:
+            # 표시 문자열에서 성공을 추측하지 않고 검증된 성공 신호로만 짧게 정리한다.
+            self.status.setText("연결됨")
             self._clear_activity("확인 중 — 현재 창 정보를 기다리고 있습니다.")
             self.activity.start()
             self._tab_changed(self.tabs.currentIndex())

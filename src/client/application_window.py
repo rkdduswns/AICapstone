@@ -1,13 +1,14 @@
 """일반 Client의 검색 화면과 기존 관리 화면을 한 창에서 전환한다."""
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QAction, QCloseEvent, QKeyEvent
+from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtGui import QAction, QCloseEvent, QKeyEvent, QKeySequence, QShortcut, QShowEvent
 from PySide6.QtWidgets import QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from client.compact_search_window import CompactAnswer, CompactSearchWindow
 from client.theme import apply_client_style, set_role
+from client.view_preferences import ViewPreferences
 from client.window import MainWindow
-from client.window_geometry import fit_window
+from client.window_geometry import fit_window, restore_position
 from shared.activity import CurrentActivity
 from shared.privacy import PrivacyState
 from shared.protocol import DEFAULT_PORT
@@ -16,13 +17,19 @@ from shared.protocol import DEFAULT_PORT
 class ApplicationWindow(QWidget):
     """관리 화면 인스턴스를 유지하고 일반 실행은 작은 검색 화면에서 시작한다."""
 
-    def __init__(self, port: int = DEFAULT_PORT) -> None:
+    def __init__(self, port: int = DEFAULT_PORT, *,
+                 preferences: ViewPreferences | None = None) -> None:
         """기존 API 클라이언트를 관리 화면에 한 번만 구성한다."""
         super().__init__()
         apply_client_style(self)
         self.setWindowTitle("강써치 — 검색")
         self._management_open = False
         self._search_size = QSize(440, 112)
+        self._preferences = preferences
+        self._management_size = (preferences.read_management_size() if preferences else None) or QSize(620, 780)
+        self._position_restored = False
+        self._restored_splits: set[str] = set()
+        self._ratio_sizes: dict[str, list[int]] = {}
         self._connection_state = "unknown"
         self._activity_state = "unknown"
         self._privacy_state = "unknown"
@@ -37,7 +44,7 @@ class ApplicationWindow(QWidget):
         self.back_button = QPushButton("검색으로 돌아가기")
         set_role(self.back_button, "secondary")
         management_layout.addWidget(self.back_button)
-        self.management = MainWindow(port)
+        self.management = MainWindow(port, show_condition_search=False)
         # 작은 작업 영역에서는 관리 화면을 스크롤해 맨 아래 기능에도 접근한다.
         self.management_scroll = QScrollArea()
         self.management_scroll.setWidgetResizable(True)
@@ -62,6 +69,8 @@ class ApplicationWindow(QWidget):
                 lambda _checked=False, tab_index=index: self.show_management(tab_index),
             )
             self.management_actions[index] = action
+        self.recheck_action = self.search.main_menu.addAction("연결 다시 확인")
+        self.recheck_action.triggered.connect(self._request_connection_check)
         self.search.connection_button.show()
         self.search.connection_button.clicked.connect(lambda: self.show_management(0))
         self.management.check_started.connect(self._connection_check_started)
@@ -76,17 +85,33 @@ class ApplicationWindow(QWidget):
         self.search.preferred_size_changed.connect(self._resize_search)
         self.search.search_requested.connect(self._answer_unavailable)
         self.back_button.clicked.connect(self.show_search)
+        self.management.tabs.currentChanged.connect(lambda _index: self._schedule_ratio_restore())
+        for key, splitter in (("recent", self.management.recent.reading_splitter),
+                              ("documents", self.management.documents.reading_splitter)):
+            splitter.splitterMoved.connect(
+                lambda _position, _index, area=key, control=splitter:
+                self._remember_ratio(area, control.sizes()),
+            )
+        if preferences is not None:
+            self.search.reading_ratio = preferences.read_ratio("answer")
+        self.search.reading_splitter.splitterMoved.connect(self._remember_answer_ratio)
+        self.focus_search_shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
+        self.focus_search_shortcut.activated.connect(self.show_search)
+        self.refresh_shortcut = QShortcut(QKeySequence("F5"), self)
+        self.refresh_shortcut.activated.connect(self.refresh_current_view)
         fit_window(self, self._search_size)
 
     def _connection_check_started(self) -> None:
         """같은 관리 화면에서 재확인할 때 이전 채널의 확인값을 함께 비운다."""
         self._connection_state = "checking"
+        self.recheck_action.setEnabled(False)
         self._activity_state = self._privacy_state = "unknown"
         self._show_connection_status()
 
     def _connection_changed(self, connected: bool) -> None:
         """건강 확인과 실제 작업·보호 상태의 수신 여부를 구분한다."""
         self._connection_state = "connected" if connected else "failed"
+        self.recheck_action.setEnabled(True)
         self._activity_state = self._privacy_state = "unknown"
         self._show_connection_status()
 
@@ -170,16 +195,88 @@ class ApplicationWindow(QWidget):
         self.search.hide()
         self.management.tabs.setCurrentIndex(index)
         self.management_panel.show()
-        fit_window(self, QSize(620, 780))
+        fit_window(self, self._management_size)
+        self._schedule_ratio_restore()
         self.back_button.setFocus()
 
     def show_search(self) -> None:
         """입력과 답변을 유지한 검색 화면의 크기로 돌아간다."""
+        self._remember_management_size()
         self._management_open = False
         self.management_panel.hide()
         self.search.show()
         fit_window(self, self._search_size)
         self.search.query.setFocus()
+
+    def refresh_current_view(self) -> None:
+        """앱 안의 F5는 현재 화면을 조회하며 업로드나 설정 쓰기를 다시 보내지 않는다."""
+        if not self._management_open:
+            self._request_connection_check()
+            return
+        tab = self.management.tabs.currentWidget()
+        if tab is self.management.recent:
+            self.management.recent.refresh()
+        elif tab is self.management.documents:
+            self.management.documents.refresh()
+        elif tab is self.management.privacy:
+            self.management.privacy.refresh_button.click()
+        else:
+            self._request_connection_check()
+
+    def _request_connection_check(self) -> None:
+        """읽기 편의 동작이 진행 중 업로드·보호 설정 쓰기를 취소하지 않게 한다."""
+        document = self.management.documents.client
+        privacy = self.management.privacy.client
+        if ((document.reply is not None and document.operation == "upload")
+                or (privacy.reply is not None and privacy.operation != "read")):
+            return
+        self.management.check()
+
+    def _remember_management_size(self) -> None:
+        """관리 화면의 사용자 크기만 보관하고 작은 검색창의 크기와 분리한다."""
+        if self._management_open and not self.isMaximized() and not self.isMinimized():
+            self._management_size = self.size()
+
+    def _schedule_ratio_restore(self) -> None:
+        """실제 보이는 탭이 배치된 뒤에만 저장 비율을 한 번 적용한다."""
+        QTimer.singleShot(0, self._restore_current_ratio)
+
+    def _restore_current_ratio(self) -> None:
+        """숨은 패널의 최소 높이로 비율이 왜곡되지 않도록 현재 관리 탭만 복원한다."""
+        if not self._management_open or self._preferences is None:
+            return
+        for key, widget in (("recent", self.management.recent),
+                            ("documents", self.management.documents)):
+            if self.management.tabs.currentWidget() is not widget or key in self._restored_splits:
+                continue
+            ratio = self._preferences.read_ratio(key)
+            if ratio is not None:
+                height = max(1, widget.reading_splitter.height())
+                widget.reading_splitter.setSizes([height * ratio // 100,
+                                                 height * (100 - ratio) // 100])
+            self._restored_splits.add(key)
+
+    def _remember_ratio(self, key: str, sizes: list[int]) -> None:
+        """드래그 중에는 숫자만 메모리에 보관하고 설정 동기화는 종료 시 한 번 한다."""
+        if len(sizes) == 2 and all(size > 0 for size in sizes):
+            self._ratio_sizes[key] = sizes
+
+    def _remember_answer_ratio(self, _position: int, _index: int) -> None:
+        """답변과 근거가 함께 펼쳐진 경우에만 읽기 비율을 기억한다."""
+        if self.search.answer_section.isVisible() and self.search.evidence_body.isVisible():
+            sizes = self.search.reading_splitter.sizes()
+            self._remember_ratio("answer", sizes)
+            if all(size > 0 for size in sizes):
+                self.search.reading_ratio = min(90, max(10, round(sizes[0] * 100 / sum(sizes))))
+
+    def showEvent(self, event: QShowEvent) -> None:
+        """창 테두리가 정해진 첫 표시에서만 저장 위치를 현재 모니터 안에 복원한다."""
+        super().showEvent(event)
+        if not self._position_restored:
+            self._position_restored = True
+            position = self._preferences.read_position() if self._preferences else None
+            if position is not None:
+                restore_position(self, position)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """관리 화면의 Esc는 검색으로 돌아가고 다른 키는 기본 처리에 맡긴다."""
@@ -191,6 +288,12 @@ class ApplicationWindow(QWidget):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """두 화면이 소유한 통신과 대기 중인 검색을 종료한다."""
+        self._remember_management_size()
+        if self._preferences is not None:
+            self._preferences.save_position(self.frameGeometry().topLeft())
+            self._preferences.save_management_size(self._management_size)
+            for key, sizes in self._ratio_sizes.items():
+                self._preferences.save_ratio(key, sizes)
         self.search.close()
         self.management.close()
         super().closeEvent(event)

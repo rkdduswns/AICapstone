@@ -1,12 +1,16 @@
 """최근 저장 기록 목록과 새로고침 화면. DB를 직접 읽거나 쓰지 않는다."""
 
 from PySide6.QtCore import QDateTime, Qt, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -17,6 +21,7 @@ from PySide6.QtWidgets import (
 from client.clipboard_widget import ClipboardWidget
 from client.document_content_widget import DocumentContentWidget
 from client.records_client import RecordsClient
+from client.theme import set_reading_text, set_role
 from client.time_values import format_duration, format_timestamp, parse_timestamp
 from client.web_content_widget import WebContentWidget
 from shared.records import RECENT_RECORDS_LIMIT, ContextRecord
@@ -46,11 +51,25 @@ class RecentRecordsWidget(QWidget):
         self.button = QPushButton("최근 기록 새로고침")
         self.button.setEnabled(False)
         self.button.clicked.connect(self.refresh)
-        layout.addWidget(self.button)
         self.attach_button = QPushButton("선택한 작업에 문서 연결")
         self.attach_button.setEnabled(False)
         self.attach_button.clicked.connect(self._attach_document)
-        layout.addWidget(self.attach_button)
+        set_role(self.attach_button, "primary")
+        set_role(self.button, "quiet")
+        controls = QHBoxLayout()
+        controls.addWidget(self.button)
+        controls.addWidget(self.attach_button)
+        controls.addStretch(1)
+        layout.addLayout(controls)
+        self.filter_edit = QLineEdit()
+        self.filter_edit.setAccessibleName("불러온 최근 기록 빠른 필터")
+        self.filter_edit.setPlaceholderText(
+            f"불러온 최근 {RECENT_RECORDS_LIMIT}건에서 제목·프로그램·출처 찾기")
+        self.filter_edit.setClearButtonEnabled(True)
+        self.filter_edit.textChanged.connect(self._filter_records)
+        layout.addWidget(self.filter_edit)
+        self.reading_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.reading_splitter.setChildrenCollapsible(False)
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["프로그램", "창 제목", "마지막 활성", "활성 시간", "파일 출처"])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -61,10 +80,11 @@ class RecentRecordsWidget(QWidget):
         self.table.verticalHeader().hide()
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        for column, width in ((0, 125), (2, 120), (3, 80), (4, 140)):
+        for column, width in ((0, 110), (2, 120), (3, 75), (4, 140)):
             self.table.setColumnWidth(column, width)
         self.table.itemSelectionChanged.connect(self._show_selection)
-        layout.addWidget(self.table, 1)
+        self.table.setMinimumHeight(100)
+        self.reading_splitter.addWidget(self.table)
         self.detail = QPlainTextEdit()
         self.detail.setReadOnly(True)
         self.detail.setTabChangesFocus(True)
@@ -77,10 +97,13 @@ class RecentRecordsWidget(QWidget):
         self.detail_tabs.addTab(self.web_content, "웹 본문")
         self.document_content = DocumentContentWidget(port, self)
         self.detail_tabs.addTab(self.document_content, "문서 본문")
-        self.detail_tabs.setMinimumHeight(220)
-        self.detail_tabs.setMaximumHeight(260)
+        self.detail_tabs.setMinimumHeight(170)
         self.detail_tabs.currentChanged.connect(self._detail_tab_changed)
-        layout.addWidget(self.detail_tabs)
+        self.reading_splitter.addWidget(self.detail_tabs)
+        self.reading_splitter.setStretchFactor(0, 3)
+        self.reading_splitter.setStretchFactor(1, 2)
+        self.reading_splitter.handle(1).setToolTip("경계를 끌어 목록과 본문의 읽기 높이를 조절합니다.")
+        layout.addWidget(self.reading_splitter, 1)
         self.updated_at = QLabel("마지막 정상 조회: 없음")
         layout.addWidget(self.updated_at)
 
@@ -115,7 +138,7 @@ class RecentRecordsWidget(QWidget):
         """중복 누적 없이 목록을 교체하고 같은 ID가 있으면 선택을 복원한다."""
         self.records = records
         self.table.setRowCount(len(records))
-        selected = 0
+        selected = -1
         for row, record in enumerate(records):
             if record.id == self.preferred_id:
                 selected = row
@@ -131,12 +154,49 @@ class RecentRecordsWidget(QWidget):
                     item.setToolTip(record.document.file_path)
                 self.table.setItem(row, column, item)
         self.loaded = True
-        self.status.setText(f"최근 기록 {len(records)}건" if records else "저장된 작업 기록이 없습니다.")
         self.updated_at.setText("마지막 정상 조회: "
                                + QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss"))
         self.button.setEnabled(self.connected)
-        if records:
+        if selected >= 0:
             self.table.selectRow(selected)
+        self._filter_records()
+
+    def _filter_records(self, _text: str = "") -> None:
+        """받은 최대 20건만 숨김 처리하며 실제 행·ID 연결과 서버 조회 순서를 유지한다."""
+        query = self.filter_edit.text().strip().casefold()
+        visible = []
+        for row, record in enumerate(self.records):
+            fields = [record.application, record.process_name, record.window_title]
+            if record.browser:
+                fields += [record.browser.page_title or "", record.browser.url or ""]
+            if record.document:
+                fields.append(record.document.file_path)
+            match = not query or query in "\n".join(fields).casefold()
+            self.table.setRowHidden(row, not match)
+            if match:
+                visible.append(row)
+        selected = self.table.currentRow()
+        if visible:
+            if selected not in visible:
+                self.table.selectRow(visible[0])
+            self._show_selection()
+        else:
+            self.table.clearSelection()
+            self.table.setCurrentCell(-1, -1)
+            self._show_selection()
+        if not self.loaded:
+            return
+        if query:
+            self.status.setText(f"불러온 {len(self.records)}건 중 {len(visible)}건 · 현재 목록 안에서만 필터")
+        else:
+            self.status.setText(f"최근 기록 {len(self.records)}건" if self.records
+                                else "저장된 작업 기록이 없습니다.")
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        """좁은 목록에서는 긴 경로 열을 접고 선택 상세에서 원본을 그대로 확인한다."""
+        super().resizeEvent(event)
+        if hasattr(self, "table"):
+            self.table.setColumnHidden(4, self.width() < 720)
 
     def _show_selection(self) -> None:
         """선택 기록의 시간과 브라우저/파일 출처를 일반 텍스트로 표시한다.
@@ -145,8 +205,9 @@ class RecentRecordsWidget(QWidget):
         해석하거나 자동 실행하지 않아 긴 주소와 태그 모양의 제목도 그대로 확인할 수 있다.
         """
         row = self.table.currentRow()
-        self.attach_button.setEnabled(self.connected and 0 <= row < len(self.records))
-        if not 0 <= row < len(self.records):
+        valid = 0 <= row < len(self.records) and not self.table.isRowHidden(row)
+        self.attach_button.setEnabled(self.connected and valid)
+        if not valid:
             self.detail.clear()
             self.clipboard.set_record(None)
             self.web_content.set_record(None)
@@ -167,7 +228,7 @@ class RecentRecordsWidget(QWidget):
         if record.document is not None:
             document_text = (f"\n문서 유형: {record.document.file_type.upper()}"
                              f"\n파일 경로: {record.document.file_path}")
-        self.detail.setPlainText(
+        set_reading_text(self.detail,
             f"프로그램: {record.application} · 프로세스: {record.process_name}\n"
             f"시작: {format_timestamp(record.started_at)}\n"
             f"마지막 활성: {format_timestamp(record.last_active_at)}\n"
@@ -178,7 +239,8 @@ class RecentRecordsWidget(QWidget):
     def _attach_document(self) -> None:
         """선택된 실제 저장 기록을 연결 대상으로 전달하고 파일 내용을 직접 추출하지 않는다."""
         row = self.table.currentRow()
-        if self.connected and 0 <= row < len(self.records):
+        if (self.connected and 0 <= row < len(self.records)
+                and not self.table.isRowHidden(row)):
             self.document_requested.emit(self.records[row])
 
     def _detail_tab_changed(self, index: int) -> None:
@@ -193,6 +255,7 @@ class RecentRecordsWidget(QWidget):
     def _clear_rows(self) -> None:
         """이전 응답과 선택된 상세 내용이 새 결과에 섞이지 않도록 비운다."""
         self.records = []
+        self.loaded = False
         self.attach_button.setEnabled(False)
         self.table.setRowCount(0)
         self.detail.clear()
