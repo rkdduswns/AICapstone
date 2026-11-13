@@ -1,7 +1,7 @@
 """명시적으로 선택한 문서를 Backend에 전송하고 저장된 문서 목록을 조회한다."""
 
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from PySide6.QtCore import QFile, QIODevice, QObject, QUrl, Signal
 from PySide6.QtNetwork import QHttpMultiPart, QHttpPart, QNetworkRequest
@@ -16,6 +16,17 @@ from shared.document import (
     read_document,
 )
 
+MAX_LINKED_RECORD_ID = 2**63 - 1
+
+
+def _read_upload_record_id(value: object) -> str:
+    """실제 SQLite 작업 ID의 정규형만 전송해 저장 뒤 다른 ID로 해석되는 일을 막는다."""
+    if (not isinstance(value, str) or len(value) > 19 or not value.isascii()
+            or not value.isdecimal() or value.startswith("0")
+            or int(value) > MAX_LINKED_RECORD_ID):
+        raise ValueError("Invalid upload record ID")
+    return value
+
 
 def read_imported_document(row: object) -> ImportedDocument:
     """실제 업로드 API의 필드를 검사하고 이름만 받은 파일을 절대 경로로 꾸미지 않는다."""
@@ -23,13 +34,14 @@ def read_imported_document(row: object) -> ImportedDocument:
         raise ValueError("Invalid document ID")
     name, kind, text = row.get("file_name"), row.get("file_type"), row.get("extracted_text")
     if (not isinstance(name, str) or not name.strip() or kind not in (".pdf", ".docx")
+            or Path(name).suffix.lower() != kind
             or not isinstance(text, str) or not text.strip()):
         raise ValueError("Invalid imported document")
     parse_timestamp(row.get("captured_at"))
     record_id = row.get("activity_record_id")
     path = None
     if record_id is not None:
-        if type(record_id) is not int or record_id < 1:
+        if type(record_id) is not int or not 1 <= record_id <= MAX_LINKED_RECORD_ID:
             raise ValueError("Invalid linked record ID")
         path = read_document({"file_path": row.get("file_path"), "file_type": kind[1:]}).file_path
     return ImportedDocument(row["id"], name, kind[1:], row["captured_at"], text,
@@ -49,6 +61,8 @@ class DocumentsClient(JsonRequest):
         super().__init__(port, parent)
         self.operation = "list"
         self.expected_record_id: str | None = None
+        self.expected_file_name: str | None = None
+        self.expected_source_path: str | None = None
         self.received.connect(self._received)
         self.failed.connect(self._failed)
 
@@ -70,10 +84,11 @@ class DocumentsClient(JsonRequest):
             return
         if record_id is not None:
             try:
-                if not record_id.isascii() or not record_id.isdecimal() or int(record_id) < 1:
-                    raise ValueError("Invalid record ID")
+                record_id = _read_upload_record_id(record_id)
                 source_path = source_path or str(Path(path).absolute())
                 read_document({"file_path": source_path, "file_type": Path(name).suffix.lower()[1:]})
+                if PureWindowsPath(source_path).name != name:
+                    raise ValueError("Source file name does not match upload")
             except (ValueError, AttributeError):
                 self.documents_failed.emit("연결할 실제 작업과 Windows 파일 경로를 확인해 주세요.")
                 return
@@ -104,6 +119,8 @@ class DocumentsClient(JsonRequest):
                              QNetworkRequest.RedirectPolicy.ManualRedirectPolicy)
         self.operation = "upload"
         self.expected_record_id = record_id
+        self.expected_file_name = name
+        self.expected_source_path = source_path if record_id is not None else None
         self.timed_out = False
         self.reply = self.manager.post(request, multipart)
         multipart.setParent(self.reply)
@@ -122,6 +139,10 @@ class DocumentsClient(JsonRequest):
                 result = read_imported_document(data)
                 if result.record_id != self.expected_record_id:
                     raise ValueError("Linked record does not match upload request")
+                # 서버 사본 경로를 사용자가 선택한 원본 경로로 표시하지 않는다.
+                if (result.file_name != self.expected_file_name
+                        or result.file_path != self.expected_source_path):
+                    raise ValueError("Document source does not match upload request")
             else:
                 rows = data.get("documents") if isinstance(data, dict) else None
                 if not isinstance(rows, list) or len(rows) > DOCUMENT_LIST_LIMIT:
@@ -145,13 +166,14 @@ class DocumentsClient(JsonRequest):
                     "문서 저장이 거부됐습니다. 수집 일시정지·민감정보 여부를 확인해 주세요."
                     if self.operation == "upload" else "문서 목록 조회가 거부됐습니다."
                 ),
-                404: "기능 준비 중 — Backend가 문서 가져오기를 지원하지 않습니다.",
+                404: "문서 기능 미지원 또는 연결할 작업이 없습니다. 최근 기록을 확인해 주세요.",
                 413: "20 MiB 이하의 문서를 선택해 주세요.",
                 415: "PDF 또는 DOCX 파일만 지원합니다.",
-                422: "문서에서 텍스트를 추출할 수 없습니다. 파일 내용과 암호 설정을 확인해 주세요.",
+                422: "문서 요청을 처리할 수 없습니다. 파일 내용·암호 설정과 작업 연결 지원을 확인해 주세요.",
             }.get(status, "문서 요청에 실패했습니다.")
         elif reason == "content_type":
-            message = "호환되지 않는 문서 응답입니다."
+            message = ("호환되지 않는 문서 응답입니다. 저장·연결 여부를 확인하려면 "
+                       "다시 가져오기 전에 목록과 최근 기록을 새로고침해 주세요.")
         else:
             message = "문서 응답을 확인하지 못했습니다. 다시 가져오기 전에 목록을 새로고침해 주세요."
         self.documents_failed.emit(message)

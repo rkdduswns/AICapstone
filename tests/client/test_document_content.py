@@ -248,7 +248,9 @@ def test_empty_snapshot_limit_and_source_mismatch():
         read_record_document_content(json.dumps(body).encode(), "one", PDF)
 
 
-def test_lazy_plain_text_file_path_refresh_and_empty(app, window, server):
+@pytest.mark.parametrize("partial_text", ["일부만 확보된 가상 문서", "한" * 50000],
+                         ids=["short-partial", "display-limit"])
+def test_lazy_plain_text_file_path_refresh_and_empty(app, window, server, partial_text):
     """파일 목록·상세·본문의 출처를 유지하고 지연 조회·일부 본문·빈 결과를 구분한다."""
     widget = open_records(app, window)
     assert server[1]["requests"] == [] and PDF.file_path in window.recent.detail.toPlainText()
@@ -262,11 +264,12 @@ def test_lazy_plain_text_file_path_refresh_and_empty(app, window, server):
     window.recent.detail_tabs.setCurrentIndex(0)
     window.recent.detail_tabs.setCurrentWidget(widget)
     assert len(server[1]["requests"]) == 1
-    server[1]["contents"]["one"] = replace(CONTENT, text="한" * 50000, truncated=True)
+    server[1]["contents"]["one"] = replace(CONTENT, text=partial_text, truncated=True)
     widget.button.click()
     assert not widget.source.toPlainText() and not widget.text.toPlainText()
     wait_for(app, lambda: widget.loaded)
-    assert "일부만 저장" in widget.status.text() and len(widget.text.toPlainText()) == 50000
+    assert "일부만 제공" in widget.status.text() and widget.text.toPlainText() == partial_text
+    assert "일부만 저장" not in widget.status.text()
     server[1]["contents"]["one"] = None
     widget.button.click()
     wait_for(app, lambda: widget.loaded)

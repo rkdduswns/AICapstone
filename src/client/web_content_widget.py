@@ -114,7 +114,8 @@ class WebContentWidget(QWidget):
             self.text.setPlainText(content.text)
             message = f"저장된 웹 본문 · {len(content.text):,}자"
             if content.truncated:
-                message += " · 길이 제한으로 전체 본문 중 일부만 표시됩니다."
+                # 서버의 표시를 따르되 수집 제한과 조회 제한 중 어느 원인인지 추정하지 않는다.
+                message += " · 전체 본문 중 일부만 제공되었습니다."
             self.status.setText(message)
         self.updated_at.setText("마지막 정상 조회: "
                                + QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss"))
