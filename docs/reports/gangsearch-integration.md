@@ -43,8 +43,12 @@
 
 ## 새 검증과 실제 반영
 
-새 커밋의 전체 Python·확장·정적 검사, Windows EXE 빌드·실행 결과와 최종 main 병합 결과를 실제 확인 후 아래에 기록한다.
-현재 진행 중인 검증을 완료로 간주하지 않는다.
+- `2e3b68e` 실행 코드: 로컬 Windows Python 3.14.7 전체 **680 통과·1 건너뜀**(POSIX 날짜 경계), Node **11 통과**, Ruff·의존성 검사 통과.
+- 52개 Markdown의 로컬 링크 대상 누락 0건, 14개 Phase의 개별 체크와 통합표 개수 일치 확인.
+- 기획 원문은 `69473fe` 대비 이름 교체만 있고 학습 폴더 변경은 없음을 확인.
+- 최초 `2e3b68e` 패키징에서 두 환경 문제를 확인하고 수정했다. 영문 Windows cp1252 출력에서 한글 경로가 실패하므로 빌드/검증 출력은 UTF-8로 설정한다.
+- 로컬 PATH의 Poppler ICU DLL은 `ucnv_open_78`만 제공하고 Qt가 요구하는 Windows ICU의 `ucnv_open`과 호환되지 않았다. PyInstaller 자식의 PATH를 Python·Windows 경로로 제한하여 다른 도구 DLL 혼입을 막는다.
+- Backend EXE의 실제 HTTP·PDF/DOCX·SQLite와 재시작 후 일시정지 복원은 확인했다. 수정 후 Client를 포함한 전체 실행 검증과 최종 CI·main 결과는 확인 후 기록한다.
 
 Windows 10/11의 실제 창 전환·복사·파일 경로, Chrome/Edge 확장 설치·수동 캡처·403 안내,
 IME·배율·다중 모니터 수동 검증은 수행하지 않았다. 자동 탭/파일 감지·URL 차단·재방문 합산과 실제 검색/LLM도 미완료다.

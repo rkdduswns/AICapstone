@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -27,7 +28,15 @@ def build_program(component: str) -> None:
                     "--exclude-module", "client", "--exclude-module", "PySide6",
                     "--exclude-module", "shiboken6"]
     command.append(str(ROOT / "src" / component / "__main__.py"))
-    subprocess.run(command, cwd=ROOT, check=True)
+    # 다른 개발 도구의 동명 DLL이 PATH에서 섞이지 않게 Python·Windows 경로만 사용한다.
+    # Qt의 icuuc.dll은 Windows 제공 API를 사용하며 Poppler 등의 ICU와 호환되지 않는다.
+    windows = Path(os.environ["SystemRoot"])
+    environment = dict(os.environ)
+    environment["PATH"] = os.pathsep.join(map(str, [
+        Path(sys.executable).parent, Path(sys.base_prefix), windows / "System32", windows,
+    ]))
+    environment["PYTHONIOENCODING"] = "utf-8"
+    subprocess.run(command, cwd=ROOT, env=environment, check=True)
 
 
 def assemble_bundle() -> Path:
@@ -65,6 +74,8 @@ def assemble_bundle() -> Path:
 
 def main() -> None:
     """Windows x64에서만 빌드하여 Linux 실행 파일을 EXE로 오인해 배포하지 않는다."""
+    # 영문 Windows의 cp1252 콘솔에서도 한글 산출물 경로를 출력한다.
+    sys.stdout.reconfigure(encoding="utf-8")
     if sys.platform != "win32" or sys.maxsize <= 2**32:
         raise SystemExit("Windows x64 Python에서 실행해 주세요.")
     OUTPUT.mkdir(parents=True, exist_ok=True)

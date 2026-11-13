@@ -58,6 +58,7 @@ def stop(process: subprocess.Popen) -> None:
 
 def main() -> None:
     """빌드 산출물 사본을 한글/공백 경로에서 실행하고 실제 결과만 JSON에 기록한다."""
+    sys.stdout.reconfigure(encoding="utf-8")
     if sys.platform != "win32":
         raise SystemExit("Windows EXE 검증은 Windows에서 실행해 주세요.")
     output = ROOT / "dist/강써치-Windows-x64"

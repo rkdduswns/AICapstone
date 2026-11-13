@@ -11,6 +11,12 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 원래 작업 브랜치·검증 이력과 실제 Phase 체크는 보존하고 `main` 반영 여부는 별도로 관리한다.
 [브랜치별 포함 범위와 정리 기준](../../docs/dev/branch-integration.md)을 따른다.
 
+## 2026-11-13 강써치 후속 통합
+
+기존 Client 묶음에 PR #17의 최근 정렬과 PR #18의 보호 설정 영속화, PR #19·#20의 읽기 전용 전처리·청크를 합류했다.
+아래 과거 행의 main 미병합 표기는 당시 상태다. 최종 main 결과와 새 검증은 [강써치 통합 기록](../../docs/reports/gangsearch-integration.md)을 따른다.
+`c95b440`의 전체 Backend와 `d274643` 색인 저장은 미통합이다. [다음 Backend 단계 설계](../../docs/dev/backend-integration-plan.md)를 따른다.
+
 ## 읽는 방법과 갱신 규칙
 
 - 아래에는 개별 Phase의 모든 체크 항목을 영역별로 모았다. 목표·설계 설명은 개별 문서를 따른다.
