@@ -208,7 +208,7 @@ def test_lazy_plain_text_refresh_truncated_and_empty(app, window, server, partia
     window.recent.detail_tabs.setCurrentWidget(web)
     wait_for(app, lambda: web.loaded)
     assert web.text.toPlainText() == TEXT and web.text.isReadOnly()
-    assert "일부만 표시" not in web.status.text()
+    assert "일부만 제공" not in web.status.text()
     assert PAGE.url in web.source.toPlainText() and PAGE.page_title in web.source.toPlainText()
     assert "수집 시각:" in web.source.toPlainText() and window.width() == 620
     assert server[1]["requests"] == [{"record_id": ["one"]}]
@@ -219,7 +219,8 @@ def test_lazy_plain_text_refresh_truncated_and_empty(app, window, server, partia
     web.button.click()
     assert not web.source.toPlainText() and not web.text.toPlainText()
     wait_for(app, lambda: web.loaded)
-    assert "일부만 표시" in web.status.text() and web.text.toPlainText() == partial_text
+    assert "일부만 제공" in web.status.text() and web.text.toPlainText() == partial_text
+    assert "길이 제한" not in web.status.text()
     server[1]["contents"]["one"] = None
     web.button.click()
     wait_for(app, lambda: web.loaded)

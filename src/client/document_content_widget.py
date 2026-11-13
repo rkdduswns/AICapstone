@@ -112,7 +112,8 @@ class DocumentContentWidget(QWidget):
             self.text.setPlainText(content.text)
             message = f"저장된 문서 본문 · {len(content.text):,}자"
             if content.truncated:
-                message += " · 길이 제한으로 일부만 저장됨"
+                # 전체 저장 원문이 남아 있을 수 있으므로 조회 잘림을 저장 손실로 단정하지 않는다.
+                message += " · 전체 본문 중 일부만 제공되었습니다."
             self.status.setText(message)
         self.updated_at.setText("마지막 정상 조회: "
                                + QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss"))
