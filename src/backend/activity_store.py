@@ -5,6 +5,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
 
+from backend.privacy_settings import StoredPrivacySettings
 from shared.activity import (
     ActiveWindow,
     ActivityRecord,
@@ -158,6 +159,46 @@ class ActivityStore:
                         f"source_id INTEGER NOT NULL UNIQUE REFERENCES {source_table}(id) "
                         "ON DELETE CASCADE, PRIMARY KEY(record_id, source_id))"
                     )
+                # 설정만 한 행에 저장하며 기존 작업·출처 행에는 손대지 않는다.
+                connection.execute(
+                    "CREATE TABLE IF NOT EXISTS privacy_settings ("
+                    "singleton INTEGER PRIMARY KEY CHECK(singleton = 1), payload TEXT NOT NULL)"
+                )
+        finally:
+            connection.close()
+
+    def load_privacy_settings(self) -> StoredPrivacySettings | None:
+        """저장 행 없음과 잘못된 저장 값을 구분하여 복원 실패를 호출자에게 알린다."""
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT payload FROM privacy_settings WHERE singleton = 1"
+            ).fetchone()
+            return StoredPrivacySettings.model_validate_json(row["payload"]) if row else None
+        finally:
+            connection.close()
+
+    def update_privacy_settings(
+        self, changes: dict, defaults: StoredPrivacySettings,
+    ) -> StoredPrivacySettings:
+        """최신 저장 상태에 요청 필드만 원자적으로 적용하고 커밋된 전체 설정을 반환한다."""
+        connection = self._connect()
+        try:
+            with connection:
+                # 읽기 전에 쓰기 잠금을 잡아 다른 필드의 동시 갱신을 덮어쓰지 않는다.
+                connection.execute("BEGIN IMMEDIATE")
+                row = connection.execute(
+                    "SELECT payload FROM privacy_settings WHERE singleton = 1"
+                ).fetchone()
+                current = (StoredPrivacySettings.model_validate_json(row["payload"])
+                           if row else defaults)
+                updated = StoredPrivacySettings.model_validate({**current.model_dump(), **changes})
+                connection.execute(
+                    "INSERT INTO privacy_settings(singleton, payload) VALUES (1, ?) "
+                    "ON CONFLICT(singleton) DO UPDATE SET payload = excluded.payload",
+                    (updated.model_dump_json(),),
+                )
+            return updated
         finally:
             connection.close()
 

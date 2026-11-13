@@ -35,12 +35,12 @@ Client 선행 기록 (Phase 1~11은 2026-10-15)과 2026-10-22의 `feat/client-ba
 | 2 | DONE · 현재 창 표시/자동 조회 | IN_PROGRESS · 실제 API 연결 완료, Windows 창 전환 수동 검증 잔여 |
 | 3 | DONE · 시작 시각/누적 활성 시간 표시 | IN_PROGRESS · 세션 시간/종료 저장 연결, 재방문 집계 잔여 |
 | 4 | DONE · 최근 기록 조회/새로고침 | IN_PROGRESS · 실제 SQLite 저장/조회·DB 재조회 검증, 진행 중 갱신 완료, 재방문/Windows 수동 검증 잔여 |
-| 5 | DONE · 일시정지/차단 목록/기록 상태 | IN_PROGRESS · 실제 설정 API/수집기 연결, 설정 영속화·Windows 수동 검증 잔여 |
+| 5 | DONE · 일시정지/차단 목록/기록 상태 | IN_PROGRESS · 실제 설정 API/수집기 및 설정 영속화 연결, Windows 수동 검증 잔여 |
 | 6 | DONE · 클립보드 기록 설정/복사 텍스트 상세 | IN_PROGRESS · 실제 수집기/DB/조회 연결, Windows 실제 복사 수동 검증 잔여 |
 | 7 | DONE · 브라우저 출처/URL 차단 설정 | IN_PROGRESS · 수동 확장/작업 ID 연결 완료, 자동 탭 이벤트·URL 차단·Windows 수동 검증 잔여 |
 | 8 | DONE · 저장 웹 본문/수집 시각/출처 상세 | IN_PROGRESS · 수동 캡처/저장 본문 조회/재전송 갱신 완료, 정제·자동 갱신·URL 차단 잔여 |
 | 9 | DONE · 파일 출처/저장 본문 및 문서 가져오기 | IN_PROGRESS · 실제 추출·명시적 작업/선택 경로 연결 완료, 자동 파일 감지·Windows 수동 검증 잔여 |
-| 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 정규화·분할·임베딩·저장/삭제·역추적 통합 |
+| 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 저장 본문 전처리·조각 생성 완료, 임베딩·색인 저장/삭제·역추적 통합 잔여 |
 | 11 | Client DONE · 명시적 조건 검색·목록·출처 상세 | IN_PROGRESS · Backend 실제 필터·조회·정렬·통합 |
 | 12 | Client 미리보기 완료 (2026-11-06) · 자연어 입력·조건·관련 본문·순위 | IN_PROGRESS · 실제 의미 검색과 혼합 조건, API 연결 |
 | 13 | Client 표시 미리보기 정리 (2026-11-13) · 근거 선택·인용 강조·본문과 출처 정보 전환 | IN_PROGRESS · 실제 RAG 요청·응답 계약과 API 연결 |
@@ -55,10 +55,16 @@ Client Phase 2–4는 2026-10-02, Phase 5–11 Client/Shared는 2026-10-16 main�
 Backend 활성 창·세션 저장·브라우저 수신·PDF/DOCX 추출 구현은 2026-10-21 main에 반영됐다.
 `feat/client-backend-integration`에서 실제 HTTP/Qt/SQLite 통합과 문서 가져오기를 검증한다.
 2026-10-26 Windows Client·Backend의 단일 EXE 빌드·패키지 실행 검증을 추가했다.
+2026-11-05 `feat/privacy-settings-persistence`에서 지원 설정의 SQLite 저장·재시작 복원을 추가했다.
+[설정 검증 보고서](../../docs/reports/privacy-settings-persistence.md)를 따르며, 기존 EXE ZIP에는 포함되지 않는다.
+2026-11-06 `feat/phase10-search-text-preparation`에서 지정 작업의 저장 웹·문서 본문을 보호 정책에 따라 읽고 정규화하는 로컬 명령을 추가했다.
+[전처리 사용법과 검증 범위](../../docs/dev/search-data-contract.md#저장-본문-전처리)를 따른다.
+같은 날 `feat/phase10-search-chunks`에서 실제 작업과 출처가 연결된 로컬 검색 조각 생성을 추가했다.
+[조각 생성 사용법과 규칙](../../docs/dev/search-data-contract.md#검색-조각-생성)을 따른다.
 [배포 안내](../../docs/dev/windows-exe.md)를 따르며 기능별 Phase 완료 개수와 구분한다.
 [통합 보고서](../../docs/reports/client-backend-integration.md)에 연결 범위·검증 결과·제한을 기록한다.
 브라우저 수동 캡처·문서 선택 경로의 실제 작업 ID 연결과 저장 본문 조회를 추가했다.
-자동 탭/파일 감지, URL 차단, 검색 데이터/조건 검색 API, LLM은 미구현이다.
+자동 탭/파일 감지, URL 차단, 임베딩·색인, 조건 검색 API, LLM은 미구현이다.
 가상 OS 입력을 실제 Backend로 처리한 검증과 Windows 데스크톱 수동 검증을 구분한다.
 
 Phase 12 Client는 `main`에서 분기한 `feat/phase12-client`에서 가상 웹·PDF 결과로 자연어 입력과 결과 표현을 구현했다.

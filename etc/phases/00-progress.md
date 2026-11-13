@@ -30,12 +30,12 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 | [002](phase002.md) | Windows 활성 창 감지 | IN_PROGRESS · Client DONE | 6/20 | 2026-10-21 (연결) / 2026-11-13 (문서 대조) | `feat/phase2-client` → `client_dev` (실제 연결) | 2026-10-02 (Client) |
 | [003](phase003.md) | 작업 시간 및 재방문 추적 | IN_PROGRESS · Client DONE | 2/17 | 2026-10-21 (연결) / 2026-11-13 (문서 대조) | `feat/phase3-client` → `client_dev` (실제 연결) | 2026-10-02 (Client) |
 | [004](phase004.md) | 작업 기록 저장 및 조회 | IN_PROGRESS · Client DONE | 17/21 | 2026-11-05 (조회 정렬) | `feat/client-backend-integration` / `fix/recent-record-order` | 2026-10-02 (Client) |
-| [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 13/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
+| [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 15/22 | 2026-11-05 (설정 영속화) | `feat/client-backend-integration` / `feat/privacy-settings-persistence` | 2026-10-16 (Client) |
 | [006](phase006.md) | 클립보드 수집 | IN_PROGRESS · Client DONE | 9/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [007](phase007.md) | 브라우저 기본 연동 | IN_PROGRESS · Client DONE | 10/26 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 8/23 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [009](phase009.md) | 로컬 문서 내용 수집 | IN_PROGRESS · Client DONE | 16/21 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
-| [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE | 4/20 | 2026-10-14 | feat/phase10-shared | 2026-10-16 (Shared) |
+| [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE · Backend 전처리·조각 생성 DONE | 15/22 | 2026-10-14 (Shared) / 2026-11-06 (전처리·조각 생성) | `feat/phase10-shared` / `feat/phase10-search-text-preparation` / `feat/phase10-search-chunks` | 2026-10-16 (Shared) |
 | [011](phase011.md) | 조건 검색 | IN_PROGRESS · Client DONE | 9/25 | 2026-10-15 | feat/phase11-client | 2026-10-16 (Client) |
 | [012](phase012.md) | 의미 검색 및 혼합 검색 | IN_PROGRESS · Client 미리보기 완료 | 3/20 | 2026-11-06 | `feat/phase12-client` | — |
 | [013](phase013.md) | 근거 기반 RAG | IN_PROGRESS · Client 표시 미리보기 | 0/25 | 2026-11-13 | `feat/client-evidence-highlights` | — |
@@ -43,7 +43,7 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 
 2026-10-15 선행 기록에서 후속으로 남긴 Phase 2~9 감지·시간 계산·저장·보호 검사·수집은 이후 가상 OS 입력과 실제 Backend HTTP·SQLite·문서 추출 라이브러리로 부분 통합했다.
 작업 ID 기반 출처 연결은 가상 OS 입력과 실제 HTTP·SQLite·Qt로 검증했다. 실제 Windows 작업/복사 및 확장 설치 후 수동 검증은 남아 있다.
-Phase 10의 실제 정규화·분할·임베딩·검색 데이터 저장/삭제 및 역추적 통합 검증은 남아 있다.
+Phase 10은 지정 작업의 실제 웹·문서 본문을 정규화하고 출처가 붙은 검색 조각을 생성한다. 임베딩·색인 저장/삭제 및 검색 결과의 역추적 검증은 남아 있다.
 Phase 11의 실제 저장소 조건 검색·정렬·보호 정책 적용 및 통합 검증은 남아 있다.
 Phase 12는 가상 결과를 표시하는 Client 미리보기까지 구현했다. 실제 의미·혼합 검색과 출처 연결 검증은 남아 있다.
 Phase 13의 답변·근거 표시, 정렬·복사·명시적 인용 강조는 Client 미리보기로 구현했다.
@@ -59,6 +59,10 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이 절의 2026-10-22 
 설정 영속화, 실제 Windows 수동 검증, 자동 탭/파일 감지·URL 차단·실제 검색은 잔여 범위다.
 문서의 선택 경로를 보존하지만 수동 연결을 자동 열람 감지 완료로 확대하지 않는다.
 
+2026-11-05 후속 단계에서는 일시정지·프로그램 차단·클립보드 설정의 지속 저장과 최초 수집 전 복원을 구현했다.
+저장·복원 실패와 실제 Backend 프로세스 재시작은 [설정 검증 보고서](../../docs/reports/privacy-settings-persistence.md)를 따른다.
+Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하며 전체 상태는 IN_PROGRESS다.
+
 ## 작업 이력
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
@@ -69,6 +73,9 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이 절의 2026-10-22 
 | 2026-11-13 | Client 읽기 UI 정리 | `feat/client-reading-design` | 안내·시각 규칙 정리, 전체 답변·접는 근거 영역 분리와 같은 근거 영역의 본문·출처 정보 전환. [범위·검증 기준](../compact-search-window.md#client-읽기-ui-단계-2026-11-13), 실제 RAG API 연결 잔여, main 미병합 |
 | 2026-11-13 | 소형 Client와 기존 HTTP 연결 통합 | `feat/compact-backend-integration` | `8947c21`의 소형 창과 `37c9b4a`의 수동 수집·403·잘림 안내를 연결. Windows Python 전체 568 통과·1 건너뜀, Node 11 통과. 최신 Backend `c95b440`은 계약 차이를 기록하고 별도 유지. [범위·검증](../../docs/dev/compact-backend-integration.md), main 미병합 |
 | 2026-11-05 | 최근 기록 정렬 보정 | `fix/recent-record-order` | PR #16의 `b12a82a` 기반. 실제 순간·ID 문자열 정렬 후 제한 조회를 검증. [정렬 검증 보고서](../../docs/reports/recent-record-order.md). main 미병합, Phase 완료 개수 유지 |
+| 2026-11-06 | Phase 10 Backend 조각 생성 | `feat/phase10-search-chunks` | [PR #19](https://github.com/rkdduswns/AICapstone/pull/19) `fa78f7f` 기반. 실제 작업 ID와 웹·문서 출처가 붙은 검색 조각을 읽기 전용으로 생성. [조각 사용법과 검증 범위](../../docs/dev/search-data-contract.md#검색-조각-생성). main 미병합 |
+| 2026-11-06 | Phase 10 Backend 전처리 | `feat/phase10-search-text-preparation` | [PR #18](https://github.com/rkdduswns/AICapstone/pull/18) `fa99946` 기반. 저장된 웹·문서 본문을 실제 작업 ID와 연결해 읽기 전용으로 정규화하고 보호 정책을 적용. [전처리 사용법·검증 범위](../../docs/dev/search-data-contract.md#저장-본문-전처리). main 미병합 |
+| 2026-11-05 | 설정 영속화 | `feat/privacy-settings-persistence` | PR #16의 `b12a82a` 기반, 세 설정의 저장·최초 수집 전 복원·실패 복구·프로세스 재시작. [검증 보고서](../../docs/reports/privacy-settings-persistence.md). main 미병합 |
 | 2026-10-26 | Windows EXE 배포 도구 | `feat/client-backend-integration` | Client/Backend 각각 onefile 빌드·실제 EXE 자동 검증·ZIP 배포, [실행·검증 범위](../../docs/dev/windows-exe.md). main 미병합, Phase 완료 개수는 유지 |
 | 2026-10-22 | 웹·문서 작업 이력 연결 | `feat/client-backend-integration` | 실제 FK/본문 조회·명시적 경로·수동 확장, Python 529·Node 8 통과. [실행/제한](../../docs/dev/history-source-linking.md), [검증](../../docs/reports/client-backend-integration.md). main 미병합 |
 | 2026-10-21 | Client–Backend 부분 통합 | `feat/client-backend-integration` | 실제 HTTP/Qt/SQLite·문서 추출 연결, [통합 검증](../../docs/reports/client-backend-integration.md). Windows 수동 검증 및 출처 연결/검색 잔여 |
@@ -205,6 +212,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이 절의 2026-10-22 
 | Backend | 전체 기록 일시정지 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Backend | 프로그램 차단 검사 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Backend | 민감 문자열 패턴 검사 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
+| Backend | 지원 설정의 지속 저장 및 최초 수집 전 복원 | 완료 | 2026-11-05 | `feat/privacy-settings-persistence` | [설정 검증](../../docs/reports/privacy-settings-persistence.md) · 기존 SQLite에 세 필드 저장 |
 | Backend | 저장 전 개인정보 보호 검사 | 미완료 | — | — | 미착수 |
 | Backend | 차단 사유 구분 | 미완료 | — | — | 미착수 |
 | Shared | 개인정보 설정 구조 | 완료 | 2026-10-07 | `feat/phase5-client` | [개인정보 API](../../docs/dev/privacy-api.md) |
@@ -215,6 +223,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이 절의 2026-10-22 
 | Tests | 차단 프로그램 활성 시 저장되지 않음 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
 | Tests | 민감 문자열 차단 | 미완료 | — | — | Backend 연결 후 실제 저장소로 검증 |
 | Tests | 기록 재개 후 정상 저장 | 완료 | 2026-10-21 | `feat/client-backend-integration` | [통합 검증](../../docs/reports/client-backend-integration.md) · 가상 입력/실제 Backend·DB |
+| Tests | 설정 재시작 복원·저장 실패·손상 설정·복사 기준 복구 | 완료 | 2026-11-05 | `feat/privacy-settings-persistence` | [설정 검증](../../docs/reports/privacy-settings-persistence.md) · 가상 OS 입력·실제 SQLite/API·프로세스 재시작 |
 | Tests | 기존 기록에는 영향 없음 | 미완료 | — | — | Backend 연결 후 실제 저장소로 검증 |
 | 완료 조건 | 사용자가 전체 기록을 즉시 중지할 수 있다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 지정 프로그램의 기록이 저장되지 않는다. | 미완료 | — | — | 미착수 |
@@ -344,26 +353,28 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이 절의 2026-10-22 
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Backend | 텍스트 정규화 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 긴 문서 분할 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 짧은/불필요한 조각 제거 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 각 조각에 원본 작업 ID 연결 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 의미 검색용 데이터 생성 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 검색용 데이터 저장 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Backend | 원본 삭제 시 검색 데이터 처리 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Backend | 텍스트 정규화 | 완료 | 2026-11-06 | `feat/phase10-search-text-preparation` | [정규화 방식과 원본 커밋](../../docs/dev/search-data-contract.md#저장-본문-전처리) |
+| Backend | 긴 문서 분할 | 완료 | 2026-11-06 | `feat/phase10-search-chunks` | [분할 규칙](../../docs/dev/search-data-contract.md#검색-조각-생성) · 최대 1,000 코드 포인트, 겹침 없음 |
+| Backend | 짧은/불필요한 조각 제거 | 미완료 | — | — | 공백과 출처 내 정확 중복 제외 완료 · 추가 제외 기준은 후속 |
+| Backend | 각 조각에 원본 작업 ID 연결 | 완료 | 2026-11-06 | `feat/phase10-search-chunks` | [조각 계약](../../docs/dev/search-data-contract.md#검색-조각-생성) · 실제 작업 ID와 확보 당시 출처를 보존 |
+| Backend | 의미 검색용 데이터 생성 | 미완료 | — | — | 검색 조각 임베딩 |
+| Backend | 검색용 데이터 저장 | 미완료 | — | — | 조각·의미 데이터 색인 |
+| Backend | 원본 삭제 시 검색 데이터 처리 | 미완료 | — | — | 색인 삭제 연동 |
 | Shared | 검색 문서 조각 구조 정의 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
 | Shared | 출처 메타데이터 구조 정의 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
 | Tests | 가상 웹/PDF/DOCX 조각의 JSON 직렬화·검증·출처 복원 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
 | Tests | 작업 ID·출처·시각·본문 계약 오류 거부 | 완료 | 2026-10-14 | feat/phase10-shared | [검증 보고서](../../docs/reports/phase10-shared.md) · Shared/가상 계약 범위 |
-| Tests | 긴 웹페이지 분할 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 긴 PDF 분할 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 아주 짧은 텍스트 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 중복 조각 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 검색 조각 → 원본 URL 복원 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| Tests | 검색 조각 → 원본 파일 경로 복원 | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| 완료 조건 | 웹/문서 내용을 동일한 검색 단위로 다룰 수 있다. | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| 완료 조건 | 모든 검색 단위가 실제 원본 작업과 연결된다. | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
-| 완료 조건 | 의미 검색에 사용할 데이터가 준비된다. | 미완료 | — | — | Backend 정규화·분할·의미 데이터 생성/저장·실제 통합 필요 |
+| Tests | 실제 SQLite의 작업·출처를 연결한 전처리와 보호 정책·읽기 전용 동작 검증 | 완료 | 2026-11-06 | `feat/phase10-search-text-preparation` | [검증 범위](../../docs/dev/search-data-contract.md#검증-범위) · 전처리 연동 8개 포함 관련 78개 통과 |
+| Tests | 실제 SQLite 본문의 조각 생성과 출처·안정 ID·보호 정책·읽기 전용 동작 검증 | 완료 | 2026-11-06 | `feat/phase10-search-chunks` | [검증 범위](../../docs/dev/search-data-contract.md#검증-범위) · 새 조각 테스트 8개 포함 전체 573개 통과, 1개 건너뜀 |
+| Tests | 긴 웹페이지 분할 | 완료 | 2026-11-06 | `feat/phase10-search-chunks` | 저장된 웹 본문에서 Unicode 길이와 분할 순서 확인 |
+| Tests | 긴 PDF 분할 | 완료 | 2026-11-06 | `feat/phase10-search-chunks` | PDF 출처에 연결된 가상 추출 본문 분할 확인 |
+| Tests | 아주 짧은 텍스트 | 완료 | 2026-11-06 | `feat/phase10-search-chunks` | 한 글자 마지막 조각 보존 |
+| Tests | 중복 조각 | 완료 | 2026-11-06 | `feat/phase10-search-chunks` | 동일 출처에서만 정확 중복 제거 |
+| Tests | 검색 조각 → 원본 URL 복원 | 완료 | 2026-11-06 | `feat/phase10-search-chunks` | Client 파싱 후 실제 URL 확인 |
+| Tests | 검색 조각 → 원본 파일 경로 복원 | 완료 | 2026-11-06 | `feat/phase10-search-chunks` | Client 파싱 후 실제 PDF 출처 경로 확인 |
+| 완료 조건 | 웹/문서 내용을 동일한 검색 단위로 다룰 수 있다. | 미완료 | — | — | 공통 조각 생성 완료 · 색인 저장과 검색 연동 잔여 |
+| 완료 조건 | 모든 검색 단위가 실제 원본 작업과 연결된다. | 미완료 | — | — | 저장된 조각의 작업·출처 역추적 검증 |
+| 완료 조건 | 의미 검색에 사용할 데이터가 준비된다. | 미완료 | — | — | 임베딩·색인 및 원본 삭제 연동 |
 
 ## Phase 011 — 조건 검색
 

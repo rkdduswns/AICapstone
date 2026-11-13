@@ -14,7 +14,7 @@ from importlib.metadata import version
 from pathlib import Path, PureWindowsPath
 from typing import Callable, Literal
 
-from fastapi import FastAPI, File, Form, Header, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -36,6 +36,7 @@ from backend.history_sources import (
     save_linked_browser,
 )
 from backend.privacy import PrivacyPolicy
+from backend.privacy_settings import StoredPrivacySettings
 from shared.activity import (
     ACTIVITY_HISTORY_PATH,
     ACTIVITY_PATH,
@@ -111,9 +112,81 @@ def create_app(
     policy = privacy_policy or tracker.privacy_policy
     tracker.configure(store=activity_store, privacy_policy=policy)
     collector = ClipboardCollector(tracker, privacy_policy=policy, clipboard_reader=clipboard_reader)
+    initial_settings = StoredPrivacySettings(
+        paused=policy.collection_paused,
+        blocked_processes=sorted(policy.blocked_applications),
+        clipboard_enabled=False,
+    )
+    settings_loaded = False
+
+    def stop_for_settings_failure() -> None:
+        """설정 오류의 수집 중단 구간을 시간에 더하지 않고 복사 수집도 즉시 끈다."""
+        tracker.finish()
+        policy.collection_paused = True
+        collector.set_enabled(False)
+        app.state.clipboard_enabled = False
+
+    def apply_settings(settings: StoredPrivacySettings, *, restoring: bool = False) -> None:
+        """정책 경계의 세션과 복사 기준을 정리한 뒤 복원·저장된 전체 상태를 적용한다."""
+        if restoring:
+            # 적용 실패 뒤 내부 사용 여부가 같아도 복원 이전의 복사를 새 이벤트로 읽지 않는다.
+            collector.reset_baseline()
+        policy_changed = (settings.paused != policy.collection_paused
+                          or set(settings.blocked_processes) != policy.blocked_applications)
+        if policy_changed:
+            tracker.finish()
+            if settings.clipboard_enabled == app.state.clipboard_enabled:
+                collector.reset_baseline()
+        collector.set_enabled(settings.clipboard_enabled)
+        policy.collection_paused = settings.paused
+        policy.blocked_applications = set(settings.blocked_processes)
+        app.state.clipboard_enabled = settings.clipboard_enabled
+
+    def ensure_settings() -> None:
+        """생성 시 DB를 열지 않고 최초 수집·요청 전에 저장된 보호 선택을 복원한다."""
+        nonlocal settings_loaded
+        if settings_loaded:
+            return
+        try:
+            saved = tracker.store.load_privacy_settings()
+            apply_settings(saved if saved is not None else initial_settings, restoring=True)
+        except Exception:
+            # 행 없음만 기본값이다. 손상·읽기 실패는 수집을 막고 저장 원문을 보존한다.
+            stop_for_settings_failure()
+            raise RuntimeError("개인정보 설정을 복원하지 못해 수집을 중지했습니다.") from None
+        settings_loaded = True
+
+    async def require_settings() -> None:
+        """lifespan 없는 요청도 수신 처리·저장 로직이나 추적기 호출 전에 설정을 복원한다."""
+        try:
+            ensure_settings()
+        except RuntimeError:
+            raise HTTPException(503) from None
+
+    def update_settings(changes: dict) -> None:
+        """설정 커밋 성공 이후에만 메모리에 반영하여 저장 실패를 성공으로 표시하지 않는다."""
+        nonlocal settings_loaded
+        ensure_settings()
+        defaults = StoredPrivacySettings(
+            paused=policy.collection_paused,
+            blocked_processes=sorted(policy.blocked_applications),
+            clipboard_enabled=app.state.clipboard_enabled,
+        )
+        try:
+            saved = tracker.store.update_privacy_settings(changes, defaults)
+        except Exception:
+            raise HTTPException(503) from None
+        try:
+            apply_settings(saved)
+        except Exception:
+            # 커밋 후 네이티브 기준 갱신이 실패해도 다음 복원 전까지 수집은 허용하지 않는다.
+            settings_loaded = False
+            stop_for_settings_failure()
+            raise HTTPException(503) from None
 
     def sample_activity():
         """한 스냅샷을 공유하고 클립보드 실패가 현재 창 조회를 중단하지 않게 한다."""
+        ensure_settings()
         activity = tracker.get_current_activity()
         try:
             collector.collect_once(activity)
@@ -123,13 +196,22 @@ def create_app(
 
     async def collect_loop():
         """동일 이벤트 루프에서 설정 변경과 직렬화하여 변경 완료 후 옛 정책으로 쓰지 않는다."""
+        restore_failed = False
         while True:
-            sample_activity()
+            try:
+                sample_activity()
+                restore_failed = False
+            except RuntimeError:
+                # 설정 적용 오류 뒤에도 루프는 유지하되 복원이 성공하기 전에는 수집하지 않는다.
+                if not restore_failed:
+                    logger.warning("Privacy settings unavailable; collection remains paused")
+                restore_failed = True
             await asyncio.sleep(collection_interval)
 
     @asynccontextmanager
     async def lifespan(app):
         """서버 시작 시 수집을 예약하고 종료 시 타이머와 마지막 기록을 정리한다."""
+        ensure_settings()
         task = asyncio.create_task(collect_loop()) if collection_interval is not None else None
         try:
             yield
@@ -148,6 +230,7 @@ def create_app(
         openapi_url=None,
         redirect_slashes=False,
         lifespan=lifespan,
+        dependencies=[Depends(require_settings)],
     )
     app.state.activity_tracker = tracker
     app.state.clipboard_collector = collector
@@ -159,6 +242,7 @@ def create_app(
     )
     app.state.activity_store = activity_store
     app.state.browser_privacy_policy = policy
+    app.state.update_privacy_settings = update_settings
     install_client_routes(app)
     install_source_routes(app)
 

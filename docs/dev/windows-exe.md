@@ -1,7 +1,13 @@
 # ContextTrace Windows 실행 파일
 
 대상: Windows 10/11 x64. Client와 Backend는 서로 독립된 단일 EXE다.
-Python·pip 설치 없이 실행하며 현재 통합 브랜치의 기능을 포함한다.
+Python·pip 설치 없이 실행한다. 실행 안내와 현재 소스의 기능 범위는 빌드 커밋으로 구분한다.
+
+- [PR #16](https://github.com/rkdduswns/AICapstone/pull/16)의 기존 ZIP은 `b12a82a` 빌드다.
+  설정 영속화를 포함하지 않으며 이 EXE에서는 Backend 재실행 시 설정이 초기화된다.
+- `feat/privacy-settings-persistence` 소스는 같은 DB에 저장한 일시정지·차단 프로그램·클립보드 사용 설정을 복원한다.
+  이 변경을 포함한 EXE는 아직 새로 빌드·실행 검증하지 않았다. 아래 재빌드 명령과 패키징 검증이 필요하다.
+  소스 검증 근거는 [설정 영속화 보고서](../reports/privacy-settings-persistence.md)를 따른다.
 
 ## 실행
 
@@ -13,7 +19,8 @@ Python·pip 설치 없이 실행하며 현재 통합 브랜치의 기능을 포�
 첫 실행에는 포함된 런타임을 임시 폴더에 풀기 때문에 시간이 걸릴 수 있다.
 Backend는 현재 작업을 수집하고 `127.0.0.1:8765`에서만 응답한다. DB는 사용자 홈의
 `.contexttrace/activity.db`에 저장하며 EXE 옆이나 임시 압축 해제 폴더에 저장하지 않는다.
-클립보드는 기본 꺼짐이며 설정은 Backend 종료 시 초기화된다. 개발용 빌드에는 코드 서명이 없다.
+신규 DB의 클립보드 초기 설정은 꺼짐이다. 설정 재시작 동작은 위의 빌드 범위를 따른다.
+개발용 빌드에는 코드 서명이 없다.
 
 브라우저의 수동 페이지 연결을 쓰려면 `browser-extension` 폴더를 Chrome/Edge에서 압축해제 확장으로 로드한다.
 Backend 토큰은 같은 PowerShell에서 설정하고 실행한다. 설정값은 사용자가 확장 설정에 복사한다.
@@ -32,6 +39,8 @@ $env:CONTEXTTRACE_BROWSER_TOKEN
 
 기본 포트를 다른 프로그램이 사용 중이면 두 프로그램에 같은 포트를 지정한다.
 Backend가 이미 켜져 있다면 하나만 실행한다.
+설정 영속화 소스를 재빌드한 버전에서는 `--db-path`로 지정한 DB의 설정도 함께 사용한다.
+같은 DB를 사용하는 별도 Backend 프로세스 사이의 정책 실시간 동기화는 지원하지 않는다.
 
 ```powershell
 .\ContextTrace-Backend.exe --port 8766 --db-path "C:\검증 자료\activity.db"
