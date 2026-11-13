@@ -14,6 +14,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "httpx>=0.27,<1", "ruff>=0.9,<1"]
+# 실행 사용자에게는 설치되지 않는 Windows 패키징 전용 도구다.
+build = ["pyinstaller>=6.16,<7"]
 
 [build-system]
 requires = ["setuptools>=68"]

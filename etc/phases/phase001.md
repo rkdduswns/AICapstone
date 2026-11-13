@@ -4,6 +4,12 @@
 
 검증 근거: [자동 및 사용자 검증 결과](../../docs/reports/phase1-client-windows.md).
 
+## 2026-10-26 Windows 배포 도구
+
+`feat/client-backend-integration`에서 Client·Backend 단일 EXE 빌드와 패키지 실행 검증을 추가했다.
+[빌드·실행 안내](../../docs/dev/windows-exe.md)를 따른다. 기존 Phase 완료 조건과 별개이며
+검색·LLM 또는 Windows 사용자 환경의 전체 수동 검증을 완료 처리하지 않는다.
+
 ## 목표
 Client와 Backend가 각각 실행되고, 최소한의 상태 요청/응답이 가능한 프로젝트 실행 골격을 만든다.
 

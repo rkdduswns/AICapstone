@@ -2,8 +2,9 @@
 
 저장된 페이지 본문과 수집 시각을 확인하는 후속 기능은 [Phase 8 웹 본문 계약](web-content-api.md)을 따른다.
 
-상태: Client/Shared 및 가상 HTTP 검증 완료. Browser 확장, Backend 수집·연결·차단·저장은 미구현이다.
-이 문서는 Client가 사용할 조회/설정 계약이며 Browser → Backend 전송 방식은 별도 구현 시 정한다.
+상태: 2026-10-22 통합 브랜치에 수동 Chrome/Edge 확장·Backend 작업 ID 연결·저장·본문 조회를 구현했다.
+확장 설치 후 Windows 수동 검증·자동 탭 이벤트·URL 차단은 남아 있다. 전송·설치는 [이력 연결 계약](history-source-linking.md)을 따른다.
+아래 URL 차단 설정은 Client의 후속 Backend 계약이며 현재 실제 API는 기능 미지원으로 표시한다.
 기획의 `ContextRecord.url` 개념을 브라우저 종류·페이지 제목·URL을 가진 선택적 `browser` 객체로 구체화했다.
 Windows 창 제목과 페이지 제목을 구분하고 기존 기록 응답을 유지하기 위한 구조다. 기획 원문과 저장 모델은 변경하지 않는다.
 
