@@ -134,8 +134,11 @@ def test_answer_expands_from_summary_to_exact_ordered_sources(app, search, answe
     assert window.detail_text.toPlainText() == FULL_ANSWER
     assert window.evidence_picker.count() == 2
     assert not window.evidence_body.isVisible()
-    assert not window.copy_source_action.isEnabled()
-    window.evidence_toggle.click()
+    assert window.evidence_picker.isVisible()
+    assert window.evidence_heading.text() == "근거 2개"
+    assert window.evidence_heading.width() >= window.evidence_heading.fontMetrics().horizontalAdvance("근거 2개")
+    assert window.copy_source_action.isEnabled()
+    window.evidence_content_action.trigger()
     assert window.evidence_body.isVisible()
     assert not window.source_details.isVisible()
     window.evidence_picker.setCurrentIndex(0)
@@ -191,8 +194,8 @@ def test_sorting_evidence_keeps_citation_numbers_and_selected_source(search, ans
     ))
     assert not any(action.isEnabled() for action in window.evidence_order_actions.values())
     window.detail_button.click()
-    assert not any(action.isEnabled() for action in window.evidence_order_actions.values())
-    window.evidence_toggle.click()
+    assert all(action.isEnabled() for action in window.evidence_order_actions.values())
+    window.evidence_content_action.trigger()
     assert all(action.isEnabled() for action in window.evidence_order_actions.values())
     window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
 
@@ -312,6 +315,8 @@ def test_empty_error_and_insufficient_look_distinct_and_only_evidence_expands(se
     assert window.detail_text.toPlainText() == ""
     assert URL in window.source_details.toPlainText()
     assert window.evidence_text.toPlainText() == WEB_TEXT
+    assert window.detail_text.extraSelections() == []
+    assert not window.answer_citation_action.isEnabled()
 
 
 def test_no_summary_uses_a_labeled_preview_and_preserves_full_answer(search, answer):
@@ -350,7 +355,7 @@ def test_long_source_address_wraps_without_changing_original(app, search, answer
     window.submit()
     window.receive_result(requests[-1][0], response)
     window.detail_button.click()
-    window.evidence_toggle.click()
+    window.evidence_content_action.trigger()
     window.source_details_action.trigger()
     app.processEvents()
     document = window.source_details.document()
@@ -373,7 +378,7 @@ def test_long_source_summary_stays_two_lines_and_cleared_text_cannot_reappear(ap
     window.submit()
     window.receive_result(requests[-1][0], replace(answer, evidence=(replace(web, source=source),)))
     window.detail_button.click()
-    window.evidence_toggle.click()
+    window.evidence_content_action.trigger()
     app.processEvents()
 
     summary = window.source_summary
@@ -482,8 +487,8 @@ def test_detail_actions_copy_original_values_and_return_to_answer_start(app, sea
         app.processEvents()
         assert window.answer_top_action.isEnabled()
         assert window.copy_answer_action.isEnabled()
-        assert not window.copy_source_action.isEnabled()
-        window.evidence_toggle.click()
+        assert window.copy_source_action.isEnabled()
+        window.evidence_content_action.trigger()
         assert window.copy_source_action.isEnabled()
         window.copy_answer_action.trigger()
         assert clipboard.text() == full
@@ -559,7 +564,7 @@ def test_source_selection_keeps_answer_and_reading_position(app, search, answer)
     window.submit()
     window.receive_result(requests[-1][0], replace(answer, full_answer=full))
     window.detail_button.click()
-    window.evidence_toggle.click()
+    window.evidence_content_action.trigger()
     app.processEvents()
     scrollbar = window.detail_text.verticalScrollBar()
     scrollbar.setValue(scrollbar.maximum() // 2)
@@ -582,7 +587,7 @@ def test_folding_detail_preserves_selection_and_new_response_resets_sources(app,
     window.submit()
     window.receive_result(requests[-1][0], answer)
     window.detail_button.click()
-    window.evidence_toggle.click()
+    window.evidence_content_action.trigger()
     window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
     window.source_details_action.trigger()
     assert window.source_details.isVisible()
@@ -621,8 +626,10 @@ def test_answer_without_sources_does_not_offer_empty_evidence_controls(app, sear
     app.processEvents()
     assert window.answer_section.isVisible()
     assert window.detail_text.toPlainText() == "제공된 전체 답변"
+    assert window.detail_text.extraSelections() == []
+    assert not window.answer_citation_action.isEnabled()
     assert not window.evidence_section.isVisible()
-    assert not window.evidence_toggle.isVisible()
+    assert not window.evidence_heading.isVisible()
     assert not window.copy_source_action.isEnabled()
 
 
@@ -681,9 +688,19 @@ def test_context_menus_expose_only_current_answer_and_source_actions(app, search
     assert window.copy_answer_action in answer_actions
     assert window.answer_top_action in answer_actions
     assert all(action.menu() is None for action in answer_actions)
-    assert not window.evidence_menu_button.isVisible()
+    assert window.evidence_menu_button.isVisible()
+    for button, name in (
+        (window.menu_button, "메뉴"),
+        (window.answer_menu_button, "답변"),
+        (window.evidence_menu_button, "근거"),
+    ):
+        assert button.text() == "" and not button.icon().isNull()
+        assert name in button.accessibleName()
+        assert button.toolTip()
+    assert window.evidence_heading.text() == "근거 2개"
+    assert window.evidence_picker.isVisible() and not window.evidence_body.isVisible()
 
-    window.evidence_toggle.click()
+    window.evidence_content_action.trigger()
     assert window.evidence_menu_button.isVisible()
     source_actions = window.evidence_menu_button.menu().actions()
     assert window.copy_source_action in source_actions
@@ -699,10 +716,11 @@ def test_context_menus_expose_only_current_answer_and_source_actions(app, search
     window.source_details_action.trigger()
     assert not window.source_details_action.isChecked()
     assert window.evidence_text.isVisible() and not window.source_details.isVisible()
-    window.evidence_toggle.click()
-    assert not window.evidence_menu_button.isVisible()
-    assert not window.copy_source_action.isEnabled()
-    assert not window.source_details_action.isEnabled()
+    window.evidence_content_action.trigger()
+    assert not window.evidence_body.isVisible()
+    assert window.evidence_picker.isVisible() and window.evidence_menu_button.isVisible()
+    assert window.copy_source_action.isEnabled()
+    assert window.source_details_action.isEnabled()
     assert len(requests) == 1
 
 
@@ -715,7 +733,7 @@ def test_single_source_hides_sort_and_new_query_disables_stale_actions(
     window.submit()
     window.receive_result(requests[-1][0], replace(answer, evidence=answer.evidence[:1]))
     window.detail_button.click()
-    window.evidence_toggle.click()
+    window.evidence_content_action.trigger()
     app.processEvents()
     assert all(not action.isVisible() and not action.isEnabled()
                for action in window.evidence_order_actions.values())
@@ -733,3 +751,108 @@ def test_single_source_hides_sort_and_new_query_disables_stale_actions(
     assert window.detail_text.toPlainText() == ""
     assert window.source_details.toPlainText() == ""
     assert window.evidence_text.toPlainText() == ""
+
+
+def test_selected_citation_highlight_preserves_unicode_answer_and_jumps_only_on_request(
+    app, search, answer, clipboard,
+):
+    """CRLF·이모지·한글 인용 문장을 강조하고 선택·정렬로 읽던 위치나 원문을 바꾸지 않는다."""
+    window, requests, _ = search
+    web_sentence = "🙂 웹 자료는 수집 제외 기준을 설명합니다. [1]"
+    pdf_sentence = "PDF 자료는 일시정지 동작을 설명합니다. [2]"
+    web_again = "웹 기준을 다시 확인했습니다. [1]"
+    full = web_sentence + "\n\n" + ("인용 없는 중간 설명입니다.\n" * 80)
+    full += "\n" + pdf_sentence + "\n\n" + web_again
+    full = full.replace("\n", "\r\n")
+    displayed = full.replace("\r\n", "\n")
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], replace(answer, full_answer=full))
+    window.detail_button.click()
+    app.processEvents()
+
+    def highlighted():
+        """Qt가 실제 선택한 원문으로 UTF-16 위치 변환까지 함께 검증한다."""
+        return [item.cursor.selectedText().replace("\u2029", "\n")
+                for item in window.detail_text.extraSelections()]
+
+    assert highlighted() == [web_sentence, web_again]
+    assert window.detail_text.toPlainText() == displayed
+    selected = window.detail_text.document().find("웹 자료")
+    assert not selected.isNull()
+    window.detail_text.setTextCursor(selected)
+    user_selection = (selected.position(), selected.anchor(), selected.selectedText())
+    scrollbar = window.detail_text.verticalScrollBar()
+    assert scrollbar.maximum() > 0
+    position = scrollbar.value()
+    window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
+    app.processEvents()
+    assert highlighted() == [pdf_sentence]
+    assert scrollbar.value() == position
+    cursor = window.detail_text.textCursor()
+    assert (cursor.position(), cursor.anchor(), cursor.selectedText()) == user_selection
+    assert window.answer_citation_action.isEnabled()
+    window.evidence_order_actions["longest"].trigger()
+    assert window.evidence_picker.currentData() == 1
+    assert highlighted() == [pdf_sentence]
+
+    window.answer_citation_action.trigger()
+    app.processEvents()
+    assert scrollbar.value() > position
+    assert window.detail_text.textCursor().block().text() == pdf_sentence
+    window.copy_answer_action.trigger()
+    assert clipboard.text() == full
+    assert window.detail_text.toPlainText() == displayed
+    assert len(requests) == 1
+
+
+def test_shared_citations_highlight_the_same_answer_for_each_selected_source(app, search, answer):
+    """공동 인용과 이어진 인용 표시는 선택한 원래 근거 번호에 따라 같은 문장을 강조한다."""
+    window, requests, _ = search
+    grouped = "🙂 두 자료를 함께 확인했습니다. [1, 2]"
+    adjacent = "공통 기준입니다. [1] [2]"
+    web_only = "웹 자료에만 있는 설명입니다. [1]"
+    full = "\n\n".join((grouped, adjacent, web_only))
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], replace(answer, full_answer=full))
+    window.detail_button.click()
+    app.processEvents()
+    assert [item.cursor.selectedText() for item in window.detail_text.extraSelections()] == [
+        grouped, adjacent, web_only,
+    ]
+    window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
+    assert [item.cursor.selectedText() for item in window.detail_text.extraSelections()] == [
+        grouped, adjacent,
+    ]
+    assert window.detail_text.toPlainText() == full
+
+
+@pytest.mark.parametrize("clear_by", ["edit", "close"])
+def test_uncited_source_and_invalidated_result_clear_answer_highlights(app, search, answer, clear_by):
+    """인용되지 않은 근거를 추정해 강조하지 않고 새 입력·종료 후에는 강조도 정리한다."""
+    window, requests, _ = search
+    cited = "실제로 첫 근거를 인용한 문장입니다. [1]"
+    full = cited + "\n\n범위 밖 번호는 연결할 수 없습니다. [20]"
+    window.query.setText(QUERY)
+    window.submit()
+    request_id = requests[-1][0]
+    response = replace(answer, full_answer=full)
+    window.receive_result(request_id, response)
+    window.detail_button.click()
+    app.processEvents()
+    assert [item.cursor.selectedText() for item in window.detail_text.extraSelections()] == [cited]
+    window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
+    assert window.detail_text.extraSelections() == []
+    assert not window.answer_citation_action.isEnabled()
+    window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(0))
+    assert window.detail_text.extraSelections()
+    if clear_by == "edit":
+        window.query.setText("다음 가상 질문")
+    else:
+        window.close()
+    window.receive_result(request_id, response)
+    app.processEvents()
+    assert window.detail_text.extraSelections() == []
+    assert window.detail_text.toPlainText() == ""
+    assert not window.answer_citation_action.isEnabled()

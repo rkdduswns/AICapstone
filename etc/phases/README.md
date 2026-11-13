@@ -37,7 +37,7 @@ Client 선행 기록 (Phase 1~11은 2026-10-15)과 2026-10-22의 `feat/client-ba
 | 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 정규화·분할·임베딩·저장/삭제·역추적 통합 |
 | 11 | Client DONE · 명시적 조건 검색·목록·출처 상세 | IN_PROGRESS · Backend 실제 필터·조회·정렬·통합 |
 | 12 | Client 미리보기 완료 (2026-11-06) · 자연어 입력·조건·관련 본문·순위 | IN_PROGRESS · 실제 의미 검색과 혼합 조건, API 연결 |
-| 13 | Client 표시 미리보기 정리 (2026-11-13) · 답변·근거 분리·본문과 출처 정보 전환 | IN_PROGRESS · 실제 RAG 요청·응답 계약과 API 연결 |
+| 13 | Client 표시 미리보기 정리 (2026-11-13) · 근거 선택·인용 강조·본문과 출처 정보 전환 | IN_PROGRESS · 실제 RAG 요청·응답 계약과 API 연결 |
 
 Phase 1~11 개발 이력은 각 작업 시점의 검증 범위를 기록한다.
 구현 및 검증 근거: [Phase 2](../../docs/reports/phase2-client.md),
@@ -66,6 +66,8 @@ Phase 12 Client는 `main`에서 분기한 `feat/phase12-client`에서 가상 웹
 2026-11-13 `feat/client-reading-design`에서는 Client 안내·버튼·글자·여백을 정리하고 전체 답변과 근거의 읽기 영역을 나눈다. 일반 실행의 준비 상태는 최근 기록·문서 가져오기를 안내하며, 답변 화면은 가상 응답으로 검증한다. [Client 읽기 UI의 범위·검증 기준](../compact-search-window.md#client-읽기-ui-단계-2026-11-13)을 따른다. 실제 RAG 통합 체크와 Backend 계약은 기존 상태를 유지한다.
 
 후속 `feat/client-action-menus`는 보조 동작을 기본 `메뉴`, `답변 메뉴`, `근거 메뉴`의 한 단계 목록으로 정리한다. 검색·상세 복귀·근거 펼침은 화면에 두고, 복사·이동·출처 정보·정렬과 관리 화면 이동은 해당 메뉴에서 실행한다. [Client 메뉴 정리의 범위·검증 기준](../compact-search-window.md#client-메뉴-정리-단계-2026-11-13)을 따른다.
+
+`feat/client-evidence-highlights`에서는 근거 수·선택 목록·아이콘 메뉴를 상세 한 줄에 유지하고 내용 표시를 메뉴에서 제어한다. 선택한 원래 번호의 명시적 인용 문장을 강조하고, 사용자가 요청하면 첫 매칭으로 이동한다. 메뉴 버튼은 툴팁·접근성 이름을 가진 아이콘으로 표시한다. [Client 근거 선택·인용 강조의 범위·검증 기준](../compact-search-window.md#client-근거-선택과-인용-강조-단계-2026-11-13)을 따른다.
 
 매 작업의 구현·검증·미완료 항목을 코드·문서·PR에 기록하고, 최신 브랜치와 검증 근거로 완료 상태를 판단한다.
 

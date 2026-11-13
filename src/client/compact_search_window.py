@@ -5,11 +5,12 @@ from html import escape
 from math import ceil
 from typing import Literal
 
-from PySide6.QtCore import QRect, QSignalBlocker, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QRect, QSignalBlocker, QSize, Qt, Signal
 from PySide6.QtGui import (
     QActionGroup,
     QCloseEvent,
     QKeySequence,
+    QPalette,
     QResizeEvent,
     QShortcut,
     QShowEvent,
@@ -29,10 +30,13 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSplitter,
     QStackedWidget,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
+from client.citation_highlights import citation_spans
+from client.icons import apply_menu_icon
 from client.search_presentation import RESULT_ORDERS, chunk_metadata, chunk_source, ordered_chunks
 from client.theme import apply_client_style, set_role
 from client.time_values import format_timestamp
@@ -120,6 +124,7 @@ class CompactSearchWindow(QWidget):
         self._reveal_on_completion = True
         self._notice = ""
         self._evidence_was_expanded = False
+        self._citation_spans: list[tuple[int, int]] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 10)
@@ -139,8 +144,8 @@ class CompactSearchWindow(QWidget):
         self.connection_button.setAccessibleName("Backend 연결 및 기록 상태")
         self.connection_button.hide()
         self.evidence_button = QPushButton("근거 보기")
-        self.menu_button = QPushButton("메뉴")
-        self.menu_button.setAccessibleName("화면과 설정 메뉴")
+        self.menu_button = QPushButton()
+        apply_menu_icon(self.menu_button, "menu", "화면과 설정 메뉴")
         self.menu_button.setProperty("menuControl", True)
         self.main_menu = QMenu(self.menu_button)
         self.result_view_action = self.main_menu.addAction("결과 보기")
@@ -174,12 +179,13 @@ class CompactSearchWindow(QWidget):
         detail_controls = QHBoxLayout()
         self.collapse_button = QPushButton("요약으로")
         self.detail_heading = _plain_label("전체 답변")
-        self.answer_menu_button = QPushButton("답변 메뉴")
-        self.answer_menu_button.setAccessibleName("답변 복사와 읽기 메뉴")
+        self.answer_menu_button = QPushButton()
+        apply_menu_icon(self.answer_menu_button, "more", "답변 복사와 읽기 메뉴")
         self.answer_menu_button.setProperty("menuControl", True)
         self.answer_menu = QMenu(self.answer_menu_button)
         self.copy_answer_action = self.answer_menu.addAction("답변 복사")
         self.answer_top_action = self.answer_menu.addAction("답변 처음으로")
+        self.answer_citation_action = self.answer_menu.addAction("선택 근거의 답변으로")
         self.answer_menu_button.setMenu(self.answer_menu)
         detail_controls.addWidget(self.detail_heading, 1)
         detail_controls.addWidget(self.answer_menu_button)
@@ -208,28 +214,23 @@ class CompactSearchWindow(QWidget):
         evidence_layout = QVBoxLayout(self.evidence_section)
         evidence_layout.setContentsMargins(10, 8, 10, 8)
         evidence_layout.setSpacing(8)
-        evidence_header = QHBoxLayout()
-        self.evidence_toggle = QPushButton("근거 보기")
-        self.evidence_toggle.setCheckable(True)
-        self.evidence_toggle.setAccessibleName("근거 펼치기·접기")
-        evidence_header.addWidget(self.evidence_toggle)
-        evidence_header.addStretch(1)
-        evidence_layout.addLayout(evidence_header)
-        self.evidence_body = QWidget()
-        evidence_body_layout = QVBoxLayout(self.evidence_body)
-        evidence_body_layout.setContentsMargins(0, 0, 0, 0)
-        evidence_body_layout.setSpacing(6)
         evidence_controls = QHBoxLayout()
+        self.evidence_heading = _plain_label()
+        self.evidence_heading.setWordWrap(False)
+        self.evidence_heading.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        evidence_controls.addWidget(self.evidence_heading)
         self.evidence_picker = QComboBox()
         self.evidence_picker.setAccessibleName("근거 선택")
         self.evidence_picker.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon,
         )
-        self.evidence_menu_button = QPushButton("근거 메뉴")
-        self.evidence_menu_button.setAccessibleName("출처 정보·복사·정렬 메뉴")
+        self.evidence_menu_button = QPushButton()
+        apply_menu_icon(self.evidence_menu_button, "more", "근거 본문·출처 정보·복사·정렬 메뉴")
         self.evidence_menu_button.setProperty("menuControl", True)
         self.evidence_menu = QMenu(self.evidence_menu_button)
         self.copy_source_action = self.evidence_menu.addAction("출처 복사")
+        self.evidence_content_action = self.evidence_menu.addAction("근거 내용 표시")
+        self.evidence_content_action.setCheckable(True)
         self.source_details_action = self.evidence_menu.addAction("출처 정보 보기")
         self.source_details_action.setCheckable(True)
         self.evidence_sort_section = self.evidence_menu.addSection("정렬")
@@ -247,7 +248,11 @@ class CompactSearchWindow(QWidget):
         self.evidence_menu_button.setMenu(self.evidence_menu)
         evidence_controls.addWidget(self.evidence_picker, 1)
         evidence_controls.addWidget(self.evidence_menu_button)
-        evidence_body_layout.addLayout(evidence_controls)
+        evidence_layout.addLayout(evidence_controls)
+        self.evidence_body = QWidget()
+        evidence_body_layout = QVBoxLayout(self.evidence_body)
+        evidence_body_layout.setContentsMargins(0, 0, 0, 0)
+        evidence_body_layout.setSpacing(6)
         self.source_summary = _SourceSummary()
         evidence_body_layout.addWidget(self.source_summary)
         self.source_details = QPlainTextEdit()
@@ -280,9 +285,9 @@ class CompactSearchWindow(QWidget):
         for button in (self.detail_button, self.evidence_button, self.collapse_button):
             set_role(button, "secondary")
         for button in (self.connection_button, self.menu_button, self.answer_menu_button,
-                       self.evidence_menu_button, self.evidence_toggle):
+                       self.evidence_menu_button):
             set_role(button, "quiet")
-        for heading in (self.summary_heading, self.detail_heading):
+        for heading in (self.summary_heading, self.detail_heading, self.evidence_heading):
             set_role(heading, "heading")
         set_role(self.source_summary, "muted")
         set_role(self.detail_feedback, "muted")
@@ -296,10 +301,11 @@ class CompactSearchWindow(QWidget):
         self.evidence_button.clicked.connect(self._show_detail)
         self.collapse_button.clicked.connect(self._fold_detail)
         self.answer_top_action.triggered.connect(self._answer_top)
+        self.answer_citation_action.triggered.connect(self._goto_citation)
         self.copy_answer_action.triggered.connect(self._copy_answer)
         self.copy_source_action.triggered.connect(self._copy_source)
-        self.evidence_toggle.toggled.connect(self._update_evidence_visibility)
-        self.source_details_action.toggled.connect(self._update_evidence_visibility)
+        self.evidence_content_action.toggled.connect(self._change_evidence_content)
+        self.source_details_action.toggled.connect(self._change_source_view)
         self.evidence_picker.currentIndexChanged.connect(self._select_evidence)
         self.evidence_order_group.triggered.connect(lambda _action: self._order_evidence())
         self._escape = QShortcut(QKeySequence("Escape"), self)
@@ -342,7 +348,7 @@ class CompactSearchWindow(QWidget):
     def _fill_result(self, result: CompactAnswer) -> None:
         """요약과 전체 답변을 분리하고 현재 표시 순서로 근거를 채운다."""
         self.detail_text.setPlainText(result.full_answer if result.status == "answer" else "")
-        self.evidence_toggle.setChecked(result.status == "insufficient")
+        self.evidence_content_action.setChecked(result.status == "insufficient")
         self._order_evidence()
 
     def _update_summary_preview(self, width: int) -> None:
@@ -436,14 +442,75 @@ class CompactSearchWindow(QWidget):
         )
         self.source_details.setPlainText(f"근거 {index + 1}\n\n{chunk_metadata(chunk)}")
         self.evidence_text.setPlainText(chunk.text)
+        self._highlight_citations()
+        self._update_action_state()
+
+    def _highlight_citations(self) -> None:
+        """선택한 원래 근거 번호의 명시적 인용만 강조하고 텍스트·커서·스크롤은 바꾸지 않는다."""
+        self._citation_spans = []
+        selections = []
+        result = self._result
+        index = self.evidence_picker.currentData()
+        description = ""
+        if result is not None and result.status == "answer" and index is not None:
+            number = index + 1
+            # 표시 문서는 CRLF 등을 Qt 줄바꿈으로 정규화한다. 복사 원문과 분리해 표시 좌표를 계산한다.
+            displayed_text = self.detail_text.toPlainText()
+            self._citation_spans = citation_spans(displayed_text, number, len(result.evidence))
+            color = self.detail_text.palette().color(QPalette.ColorRole.Highlight)
+            color.setAlpha(64)
+            for first, last in self._citation_spans:
+                # Qt 커서 위치는 UTF-16 단위이므로 이모지가 앞에 있어도 원문 범위를 정확히 선택한다.
+                start = len(displayed_text[:first].encode("utf-16-le")) // 2
+                end = len(displayed_text[:last].encode("utf-16-le")) // 2
+                cursor = QTextCursor(self.detail_text.document())
+                cursor.setPosition(start)
+                cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+                selection = QTextEdit.ExtraSelection()
+                selection.cursor = cursor
+                selection.format.setBackground(color)
+                selections.append(selection)
+            description = (f"선택한 근거 [{number}]를 인용한 답변 {len(selections)}곳을 강조합니다."
+                           if selections else f"선택한 근거 [{number}]의 인용 표시가 답변에 없습니다.")
+        self.detail_text.setExtraSelections(selections)
+        self.detail_text.setAccessibleDescription(description)
+        self.detail_heading.setToolTip(description)
+
+    def _goto_citation(self) -> None:
+        """사용자가 요청할 때만 첫 인용 문장으로 이동한다."""
+        if not self._citation_spans or self._result is None:
+            return
+        if self.answer_section.isHidden():
+            self.evidence_content_action.setChecked(False)
+        first = self._citation_spans[0][0]
+        cursor = self.detail_text.textCursor()
+        displayed_text = self.detail_text.toPlainText()
+        cursor.setPosition(len(displayed_text[:first].encode("utf-16-le")) // 2)
+        self.detail_text.setTextCursor(cursor)
+        self.detail_text.ensureCursorVisible()
+        self.detail_text.setFocus()
+
+    def _change_evidence_content(self, visible: bool) -> None:
+        """내용을 숨기면 출처 정보 선택도 해제하고 드롭다운은 그대로 둔다."""
+        if not visible:
+            with QSignalBlocker(self.source_details_action):
+                self.source_details_action.setChecked(False)
+        self._update_evidence_visibility()
+
+    def _change_source_view(self, showing_source: bool) -> None:
+        """출처 정보를 요청하면 같은 읽기 영역을 함께 연다."""
+        if showing_source:
+            with QSignalBlocker(self.evidence_content_action):
+                self.evidence_content_action.setChecked(True)
+        self._update_evidence_visibility()
 
     def _update_evidence_visibility(self) -> None:
         """현재 응답의 근거와 상세 출처를 요청 없이 펼치고 숨은 공간을 회수한다."""
-        expanded = self.evidence_toggle.isChecked()
+        expanded = self.evidence_content_action.isChecked()
         newly_expanded = expanded and not self._evidence_was_expanded
         self.evidence_body.setVisible(expanded)
         count = len(self._result.evidence) if self._result is not None else 0
-        self.evidence_toggle.setText(f"근거 {count}개 {'접기' if expanded else '보기'}")
+        self.evidence_heading.setText(f"근거 {count}개")
         showing_source = self.source_details_action.isChecked()
         self.evidence_reading.setCurrentWidget(self.source_details if showing_source else self.evidence_text)
         answered = self._result is not None and self._result.status == "answer"
@@ -476,12 +543,15 @@ class CompactSearchWindow(QWidget):
         answered = bool(result and result.status == "answer")
         detail = self._view == "detail"
         evidence = bool(result and result.evidence and result.status in ("answer", "insufficient"))
-        source_active = detail and evidence and self.evidence_toggle.isChecked()
+        source_active = detail and evidence
         self.answer_menu_button.setVisible(detail and answered)
         self.copy_answer_action.setEnabled(detail and answered)
         self.answer_top_action.setEnabled(detail and answered)
+        self.answer_citation_action.setEnabled(detail and answered and bool(self._citation_spans))
         self.copy_source_action.setEnabled(source_active)
         self.source_details_action.setEnabled(source_active)
+        self.evidence_content_action.setVisible(answered)
+        self.evidence_content_action.setEnabled(source_active and answered)
         self.evidence_menu_button.setVisible(source_active)
         sortable = bool(source_active and len(result.evidence) > 1)
         self.evidence_sort_section.setVisible(sortable)
@@ -492,7 +562,7 @@ class CompactSearchWindow(QWidget):
     def _answer_top(self) -> None:
         """현재 답변 문서의 처음으로 돌아가 읽기를 이어갈 수 있게 한다."""
         if self._view == "detail" and self.answer_section.isHidden():
-            self.evidence_toggle.setChecked(False)
+            self.evidence_content_action.setChecked(False)
         self.detail_text.moveCursor(QTextCursor.MoveOperation.Start)
         self.detail_text.verticalScrollBar().setValue(0)
         self.detail_text.setFocus()
@@ -533,13 +603,17 @@ class CompactSearchWindow(QWidget):
         self._result = None
         self.summary.clear()
         self.detail_text.clear()
+        self.detail_text.setExtraSelections([])
+        self.detail_text.setAccessibleDescription("")
+        self.detail_heading.setToolTip("")
+        self._citation_spans = []
         self.source_summary.clear()
         self.source_details.clear()
         self.evidence_text.clear()
         self.answer_menu.close()
         self.evidence_menu.close()
-        with QSignalBlocker(self.evidence_toggle), QSignalBlocker(self.source_details_action):
-            self.evidence_toggle.setChecked(False)
+        with QSignalBlocker(self.evidence_content_action), QSignalBlocker(self.source_details_action):
+            self.evidence_content_action.setChecked(False)
             self.source_details_action.setChecked(False)
         self._update_evidence_visibility()
         self.detail_feedback.clear()
@@ -644,6 +718,12 @@ class CompactSearchWindow(QWidget):
         if self._view == "open":
             margins = self.layout().contentsMargins()
             self._update_summary_preview(max(1, self.width() - margins.left() - margins.right()))
+
+    def changeEvent(self, event: QEvent) -> None:
+        """운영체제 색상이 바뀌면 강조색도 현재 팔레트에 맞춘다."""
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.PaletteChange and hasattr(self, "detail_text"):
+            self._highlight_citations()
 
     def _fit_window(self, target: QSize) -> None:
         """단독 실행에서는 자신을, 포함된 화면에서는 부모 창을 목표 크기로 맞춘다."""

@@ -22,8 +22,12 @@ def main() -> int:
     parser.add_argument("--view", choices=("compact", "summary", "detail"), default="summary",
                         help="PNG 저장 시 열어 둘 화면")
     parser.add_argument("--evidence-view", choices=("collapsed", "expanded", "source"),
-                        default="collapsed", help="상세 PNG의 근거·출처 정보 펼침 상태")
+                        default="collapsed", help="상세 PNG의 근거 내용·출처 정보 표시 상태")
+    parser.add_argument("--selected-evidence", type=int, default=1,
+                        help="미리보기에서 선택할 원래 근거 번호(1부터)")
     args = parser.parse_args()
+    if args.selected_evidence < 1:
+        parser.error("근거 번호는 1 이상이어야 합니다.")
     app = QApplication([sys.argv[0]])
     if args.font_file is not None:
         # 화면 없는 환경에서도 지정한 실제 글꼴로만 미리보기를 검증한다. 일반 Client 설정은 바꾸지 않는다.
@@ -51,6 +55,8 @@ def main() -> int:
         "insufficient": CompactAnswer("insufficient", evidence=chunks[:1]),
         "error": CompactAnswer("error"),
     }[args.state]
+    if response.evidence and args.selected_evidence > len(response.evidence):
+        parser.error("응답에 존재하는 근거 번호를 선택해 주세요.")
     timer = QTimer(window)
     timer.setSingleShot(True)
     pending: int | None = None
@@ -79,6 +85,8 @@ def main() -> int:
             return
         request_id, pending = pending, None
         window.receive_result(request_id, response)
+        if response.evidence:
+            window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(args.selected_evidence - 1))
         if args.snapshot is not None:
             if args.view == "detail":
                 if response.status == "answer":
@@ -86,7 +94,7 @@ def main() -> int:
                 elif response.status == "insufficient":
                     window.evidence_button.click()
                 if args.evidence_view != "collapsed" and response.evidence:
-                    window.evidence_toggle.setChecked(True)
+                    window.evidence_content_action.setChecked(True)
                     window.source_details_action.setChecked(args.evidence_view == "source")
             QTimer.singleShot(50, snapshot)
 

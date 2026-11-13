@@ -152,7 +152,7 @@ def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
     search.query.setText(QUERY)
     search.submit()
     search.detail_button.click()
-    search.evidence_toggle.click()
+    search.evidence_content_action.trigger()
     search.evidence_order_actions["longest"].trigger()
     search.source_details_action.trigger()
     previous_size = shell.size()
@@ -338,7 +338,7 @@ def test_source_information_fits_small_screen_and_keeps_detail_collapse_accessib
     search.query.setText(QUERY)
     search.submit()
     search.detail_button.click()
-    search.evidence_toggle.click()
+    search.evidence_content_action.trigger()
     search.source_details_action.trigger()
     app.processEvents()
 

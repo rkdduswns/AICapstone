@@ -43,6 +43,8 @@ QPushButton[uiRole="quiet"]:checked {
     border-color: palette(highlight);
 }
 QPushButton[menuControl="true"] { padding-right: 18px; }
+QPushButton[iconOnly="true"] { padding: 4px; }
+QPushButton[iconOnly="true"]::menu-indicator { image: none; width: 0px; height: 0px; }
 QMenu {
     background: palette(base);
     color: palette(text);
