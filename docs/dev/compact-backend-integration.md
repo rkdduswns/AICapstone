@@ -5,7 +5,8 @@
 작은 검색창의 일반 실행에서 기존 실제 Backend 연결과 관리 기능을 함께 사용한다.
 작업 확인일은 2026-11-13 (KST), 작업 브랜치는 `feat/compact-backend-integration`이다.
 Client UI 기반은 `8947c21` (`feat/compact-client-usability`), 수집·이력 연결 기반은 `37c9b4a` (`fix/capture-truncation-privacy`, PR #16 후속)다.
-이 문서는 해당 미병합 작업의 통합 범위를 기록하며 Phase 전체 완료나 main 병합을 뜻하지 않는다.
+이 문서는 해당 작업 시점의 통합 범위를 기록한다. 이후 Client 변경은 `client_dev`에 모았으며 실제 `main` 반영 여부는 [브랜치 통합 기준](branch-integration.md)을 따른다.
+이 문서의 자동 검증 결과를 Phase 전체 완료나 실제 Windows 수동 검증 완료로 해석하지 않는다.
 
 ## 범위와 선행조건
 

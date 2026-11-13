@@ -1,6 +1,8 @@
 # Phase 10 검색 문서 조각 및 출처 계약
 
-상태: Shared 구조·Client 수신 검증 선행 구현. 실제 검색 데이터 생성은 Backend 미구현이다.
+상태: 현재 `client_dev`에는 Shared 구조·Client 수신 검증까지 통합돼 있으며, 실제 검색 데이터 생성과 조회 API 연결은 미완료다.
+별도 `feat/phase10-backend`의 `c95b440`에는 검색·임베딩 내부 구현이 있으나 이 계약 및 현재 수집/보호 API와의 정합은 별도 작업이다.
+브랜치 내부 구현을 현재 Client에서 사용할 수 있는 검색 API나 RAG 완료로 해석하지 않는다. [확인한 계약 차이](compact-backend-integration.md#최신-backend-별도-브랜치와의-차이)를 따른다.
 기획의 DocumentChunk 모델을 구체화하고 확보 당시 출처를 함께 반환하는 경계를 정의한다.
 이 계약은 조회용 객체이며 DB 스키마·분할 방식·임베딩 모델·벡터 차원을 지정하지 않는다.
 Phase 11 검색 응답에서 사용할 개별 조각/출처 구조다. HTTP 요청·응답 envelope는 해당 Phase에서 정의한다.

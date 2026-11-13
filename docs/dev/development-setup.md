@@ -15,7 +15,7 @@ Python 3.11 이상과 Git을 준비한다. 기존 프로젝트의 Python 최소 
 ```powershell
 git clone https://github.com/rkdduswns/AICapstone.git
 cd AICapstone
-git switch main
+git switch client_dev
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m pip check
@@ -23,10 +23,11 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m ruff check src tests
 ```
 
-Client Phase 2–11과 Backend 구현이 통합된 main을 기준으로 한다.
-실제 연결 작업은 `feat/client-backend-integration` 브랜치에서 진행한다.
+위 예시는 2026-11-13에 완료된 Client 작업과 기존 실제 연결 기반을 모은 `client_dev` 기준이다.
+확인 당시 `main`의 `7c30798`에는 소형 창과 PR #16 연결 후속 변경이 모두 들어 있지 않다.
+이후 실제 `main` 반영과 별도 Backend 적용 여부는 [브랜치 통합 기준](branch-integration.md)을 확인한다.
 가상환경 활성화 없이 해당 Python을 직접 사용하므로 PowerShell 실행 정책 변경이 필요 없다.
-이미 clone했다면 작업 중인 변경을 저장하고 `git fetch origin`, `git switch main`, `git pull --ff-only origin main`으로 갱신한다.
+이미 clone했다면 작업 중인 변경을 저장하고 `git fetch origin`, `git switch client_dev`, `git pull --ff-only origin client_dev`로 갱신한다.
 
 ## 다른 개발 환경에서 공통 코드 확인
 
@@ -123,7 +124,7 @@ GitHub Windows runner의 자동 테스트는 Windows Server 환경일 수 있으
 일반 실행은 `python -m client`이며 연결 확인 성공 후 현재 창 정보를 자동 조회한다.
 Phase 1 Backend에는 현재 창 API가 없어 `기능 준비 중`으로 표시된다.
 
-Backend 감지 구현 전에 가상 데이터로 화면을 확인하려면 저장소 루트에서 실행한다.
+실제 Windows 수집 대신 가상 데이터로 화면을 확인하려면 저장소 루트에서 실행한다.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/preview_phase2_client.py
@@ -173,7 +174,7 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 
 ## Phase 5 Client 확인
 
-추가 의존성 없이 `feat/phase5-client`의 제어 화면과 가상 HTTP 응답을 확인한다.
+추가 의존성 없이 현재 통합본에 포함된 Phase 5 제어 화면과 가상 HTTP 응답을 확인한다.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/preview_phase5_client.py
@@ -185,14 +186,15 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 - `--reason sensitive_content`로 가상 민감 문자열 차단 표시를, `--snapshot <PNG 경로>`로 화면 저장을 확인한다.
 - 미리보기 입력은 프로세스 메모리에만 존재하고 창을 닫으면 사라진다. 실제 작업은 수집/필터/저장하지 않는다.
 
-자동 검증은 기존 pytest/Ruff/pip check 명령을 사용한다. 신규 검증 범위는 Client 계약·UI·가상 HTTP 요청이다.
-실제 일시정지 중 저장 방지, 차단 프로그램/민감 문자열 차단, 재개 후 저장 및 기존 기록 불변은 Backend 연결 후 수행한다.
+자동 검증은 기존 pytest/Ruff/pip check 명령을 사용한다. 위 미리보기는 Client 계약·UI·가상 HTTP 요청 범위다.
+현재 통합본의 실제 HTTP·SQLite 검증은 [통합 보고서](../reports/client-backend-integration.md)를 따르며,
+실제 Windows에서 일시정지·차단·재개 중 수집과 기존 기록 불변을 확인하는 수동 검증은 남아 있다.
 최신 통합 Backend는 실제 일시정지·프로그램 차단을 지원한다. 예전 Backend의 미지원 응답에서는 변경 버튼을 비활성화한다.
 [개인정보 API 계약](privacy-api.md)과 [검증 보고서](../reports/phase5-client.md)를 따른다.
 
 ## Phase 6 Client 확인
 
-`feat/phase6-client`는 미병합 Phase 5 Client에 의존한다. 추가 의존성은 없다.
+Phase 5·6 Client는 현재 통합본에 함께 포함돼 있다. 아래 가상 미리보기만을 위한 추가 의존성은 없다.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/preview_phase6_client.py
@@ -209,12 +211,13 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 - 기존 Phase 5 응답에 클립보드 설정이 없으면 `기능 미지원`으로 표시하고 클립보드 변경 버튼만 잠근다.
 
 가상 HTTP 검증 및 기존 기능 회귀에는 기존 pytest/Ruff/pip check 명령을 사용한다.
-실제 클립보드 수집·중복 방지·작업 전환 연결·민감정보/일시정지 차단·저장은 Backend 연결 후 검증한다.
+현재 Backend의 수집기·작업 연결·중복 방지·필터·저장 경계는 자동 테스트에서 검증한다.
+실제 Windows 복사·빠른 창 전환·일시정지/차단 중 복사와 저장소 재조회는 남아 있는 수동 검증이다.
 [클립보드 API 계약](clipboard-api.md)과 [Phase 6 보고서](../reports/phase6-client.md)를 따른다.
 
 ## Phase 8 Client 확인
 
-`feat/phase8-client`는 미병합 Phase 7 Client에 의존한다. 추가 의존성은 없다.
+Phase 7·8 Client는 현재 통합본에 함께 포함돼 있다. 아래 가상 미리보기만을 위한 추가 의존성은 없다.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/preview_phase8_client.py

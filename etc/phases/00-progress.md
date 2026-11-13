@@ -27,8 +27,8 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 | Phase | 내용 | 전체 상태 | 체크 완료/전체 | 작업 확인일 | 작업 브랜치 | main 병합일 |
 |---|---|---|---|---|---|---|
 | [001](phase001.md) | 실행 골격 및 Client-Backend 연결 | DONE | 17/17 | 2026-09-19 ~ 2026-09-24 | `chore/phase1-preparation` | 2026-09-24 |
-| [002](phase002.md) | Windows 활성 창 감지 | IN_PROGRESS · Client DONE | 6/20 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` / `feat/phase2-backend`(준비·미병합) | 2026-10-02 (Client) |
-| [003](phase003.md) | 작업 시간 및 재방문 추적 | IN_PROGRESS · Client DONE | 2/17 | 2026-10-01 | `feat/phase3-client` | 2026-10-02 (Client) |
+| [002](phase002.md) | Windows 활성 창 감지 | IN_PROGRESS · Client DONE | 6/20 | 2026-10-21 (연결) / 2026-11-13 (문서 대조) | `feat/phase2-client` → `client_dev` (실제 연결) | 2026-10-02 (Client) |
+| [003](phase003.md) | 작업 시간 및 재방문 추적 | IN_PROGRESS · Client DONE | 2/17 | 2026-10-21 (연결) / 2026-11-13 (문서 대조) | `feat/phase3-client` → `client_dev` (실제 연결) | 2026-10-02 (Client) |
 | [004](phase004.md) | 작업 기록 저장 및 조회 | IN_PROGRESS · Client DONE | 17/21 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-02 (Client) |
 | [005](phase005.md) | 기본 개인정보 보호 | IN_PROGRESS · Client DONE | 13/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [006](phase006.md) | 클립보드 수집 | IN_PROGRESS · Client DONE | 9/20 | 2026-10-21 (통합 검증) | `feat/client-backend-integration` | 2026-10-16 (Client) |
@@ -46,11 +46,15 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 Phase 10의 실제 정규화·분할·임베딩·검색 데이터 저장/삭제 및 역추적 통합 검증은 남아 있다.
 Phase 11의 실제 저장소 조건 검색·정렬·보호 정책 적용 및 통합 검증은 남아 있다.
 Phase 12는 가상 결과를 표시하는 Client 미리보기까지 구현했다. 실제 의미·혼합 검색과 출처 연결 검증은 남아 있다.
+Phase 13의 답변·근거 표시, 정렬·복사·명시적 인용 강조는 Client 미리보기로 구현했다.
+아래 0/25는 실제 RAG 응답·Shared 계약·출처 연결 검증 체크이며, 표시 UI가 미구현이라는 뜻은 아니다.
+현재 코드와 문서의 차이를 대조한 [문서 정합 검토](../../docs/reports/documentation-reconciliation.md)를 함께 따른다.
 
 ## 2026-10-22 통합 범위
 
 현재 창·시간·최근 기록, 일시정지/차단/클립보드 설정 및 저장 조회, 수동 문서 가져오기를 실제 Backend와 연결했다.
-Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜치는 main 미병합 상태다.
+Backend 구현 자체는 2026-10-21 main에 병합됐다. 이 절의 2026-10-22 통합 작업은 당시 main 미병합 상태였다.
+이후 Client 작업의 `client_dev` 포함과 현재 main 반영 여부는 [브랜치 통합 기준](../../docs/dev/branch-integration.md)을 따른다.
 브라우저 수동 캡처와 문서의 명시적 작업 ID/Windows 경로 연결, 저장 본문 조회를 추가했다.
 설정 영속화, 실제 Windows 수동 검증, 자동 탭/파일 감지·URL 차단·실제 검색은 잔여 범위다.
 문서의 선택 경로를 보존하지만 수동 연결을 자동 열람 감지 완료로 확대하지 않는다.
@@ -118,23 +122,23 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 | Client | 현재 감지 프로그램 표시 | 완료 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` | [검증 보고서](../../docs/reports/phase2-client.md) · Client/가상 응답 범위 |
 | Client | 현재 창 제목 표시 | 완료 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` | [검증 보고서](../../docs/reports/phase2-client.md) · Client/가상 응답 범위 |
 | Client | 수집 상태 표시 | 완료 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` | [검증 보고서](../../docs/reports/phase2-client.md) · Client/가상 응답 범위 |
-| Backend | 활성 창 감지 | 미완료 | — | `feat/phase2-backend` (준비) | Backend 구현 및 실제 통합 검증 필요 |
-| Backend | 프로세스 ID 확인 | 미완료 | — | `feat/phase2-backend` (준비) | Backend 구현 및 실제 통합 검증 필요 |
-| Backend | 프로세스명 확인 | 미완료 | — | `feat/phase2-backend` (준비) | Backend 구현 및 실제 통합 검증 필요 |
-| Backend | 프로그램명 정규화 | 미완료 | — | `feat/phase2-backend` (준비) | Backend 구현 및 실제 통합 검증 필요 |
-| Backend | 창 제목 추출 | 미완료 | — | `feat/phase2-backend` (준비) | Backend 구현 및 실제 통합 검증 필요 |
-| Backend | 지원하지 않는 창 처리 | 미완료 | — | `feat/phase2-backend` (준비) | Backend 구현 및 실제 통합 검증 필요 |
+| Backend | 활성 창 감지 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | Windows API 코드·감지기 주입 HTTP 연결 구현, 실제 창 확인 잔여 |
+| Backend | 프로세스 ID 확인 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | Windows API 코드·감지기 주입 HTTP 연결 구현, 실제 프로세스 확인 잔여 |
+| Backend | 프로세스명 확인 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | Windows API 코드·감지기 주입 HTTP 연결 구현, 실제 프로세스 확인 잔여 |
+| Backend | 프로그램명 정규화 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | 정규화 코드·감지기 주입 연결 구현, 실제 프로그램 확인 잔여 |
+| Backend | 창 제목 추출 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | Windows API 코드·감지기 주입 HTTP 연결 구현, 실제 제목 확인 잔여 |
+| Backend | 지원하지 않는 창 처리 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | 비수집 상태 처리·HTTP 연결 구현, 실제 창 경계 확인 잔여 |
 | Shared | 현재 작업 정보 구조 정의 | 완료 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` | [검증 보고서](../../docs/reports/phase2-client.md) · Client/가상 응답 범위 |
 | Tests | 가상 HTTP 응답으로 전환/동일 창/활성 창 없음/미지원/감지 오류 검증 | 완료 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` | [검증 보고서](../../docs/reports/phase2-client.md) · Client/가상 응답 범위 |
 | Tests | 통신 실패·시간 초과·응답 검증·자동 복구·요청 취소 검증 | 완료 | 2026-09-24 / 2026-10-01 재검증 | `feat/phase2-client` | [검증 보고서](../../docs/reports/phase2-client.md) · Client/가상 응답 범위 |
-| Tests | Chrome → VS Code 전환 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| Tests | Word → Explorer 전환 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| Tests | 동일 창 유지 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| Tests | 최소화 / 바탕화면 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| Tests | 종료되는 프로그램 처리 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| 완료 조건 | 현재 활성 프로그램을 확인할 수 있다. | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| 완료 조건 | 현재 창 제목을 확인할 수 있다. | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| 완료 조건 | 창 전환이 Client에 반영된다. | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
+| Tests | Chrome → VS Code 전환 | 미완료 | — | — | 실제 Windows 수동 검증 잔여 |
+| Tests | Word → Explorer 전환 | 미완료 | — | — | 실제 Windows 수동 검증 잔여 |
+| Tests | 동일 창 유지 | 미완료 | — | — | 실제 Windows 수동 검증 잔여 |
+| Tests | 최소화 / 바탕화면 | 미완료 | — | — | 실제 Windows 수동 검증 잔여 |
+| Tests | 종료되는 프로그램 처리 | 미완료 | — | — | 실제 Windows 수동 검증 잔여 |
+| 완료 조건 | 현재 활성 프로그램을 확인할 수 있다. | 미완료 | — | — | 실제 API 연결 구현, 실제 Windows에서의 확인 잔여 |
+| 완료 조건 | 현재 창 제목을 확인할 수 있다. | 미완료 | — | — | 실제 API 연결 구현, 실제 Windows에서의 확인 잔여 |
+| 완료 조건 | 창 전환이 Client에 반영된다. | 미완료 | — | — | 실제 API 연결 구현, 실제 Windows 전환 검증 잔여 |
 
 ## Phase 003 — 작업 시간 및 재방문 추적
 
@@ -144,20 +148,20 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 |---|---|---|---|---|---|
 | Client | 현재 작업 시작 시각 표시 | 완료 | 2026-10-01 | `feat/phase3-client` | [검증 보고서](../../docs/reports/phase3-client.md) · Client/가상 응답 범위 |
 | Client | 현재 활성 시간 표시 | 완료 | 2026-10-01 | `feat/phase3-client` | [검증 보고서](../../docs/reports/phase3-client.md) · Client/가상 응답 범위 |
-| Backend | 작업 시작 시각 기록 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| Backend | 마지막 활성 시각 갱신 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| Backend | 활성 시간 누적 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| Backend | 창 전환 시 이전 작업 종료 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
+| Backend | 작업 시작 시각 기록 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | 세션 시작·HTTP/SQLite 연결 구현, 실제 Windows 시간 확인 잔여 |
+| Backend | 마지막 활성 시각 갱신 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | 같은 작업 ID 갱신 구현, 실제 Windows 시간 확인 잔여 |
+| Backend | 활성 시간 누적 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | 단조 시계 기반 세션 누적 구현, 실제 Windows 시간 확인 잔여 |
+| Backend | 창 전환 시 이전 작업 종료 | 미완료 | 2026-11-13 (문서 대조) | `client_dev` | 전환 경계 종료 저장 구현, 실제 Windows 전환 확인 잔여 |
 | Backend | 동일 작업 재활성화 판단 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
 | Backend | 재방문 횟수 계산 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
 | Backend | 짧은 반복 감지 병합 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| Tests | 동일 창 1분 유지 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
+| Tests | 동일 창 1분 유지 | 미완료 | — | — | 세션 시간 구현, 실제 Windows 유지 시간 검증 잔여 |
 | Tests | A → B → A 재방문 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
 | Tests | 빠른 Alt+Tab | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
 | Tests | 짧은 반복 이벤트 병합 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| Tests | Client 표시 시간과 Backend 값 일치 | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| 완료 조건 | 작업별 시작/종료 시각을 구분할 수 있다. | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
-| 완료 조건 | 실제 활성 시간을 계산할 수 있다. | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
+| Tests | Client 표시 시간과 Backend 값 일치 | 미완료 | — | — | 실제 API 표시 연결, 실제 Windows 시간 대조 잔여 |
+| 완료 조건 | 작업별 시작/종료 시각을 구분할 수 있다. | 미완료 | — | — | 세션 경계 구현, 실제 Windows 검증 잔여 |
+| 완료 조건 | 실제 활성 시간을 계산할 수 있다. | 미완료 | — | — | 단조 시계 누적 구현, 실제 Windows 검증 잔여 |
 | 완료 조건 | 동일 작업 재방문을 식별할 수 있다. | 미완료 | — | — | Backend 구현 및 실제 통합 검증 필요 |
 
 ## Phase 004 — 작업 기록 저장 및 조회

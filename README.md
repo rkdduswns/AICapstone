@@ -10,6 +10,7 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [개발 지침](etc/개발-지침.md)
 - [개발 Phase](etc/phases/README.md)
 - [Client 개발 브랜치 통합 기준](docs/dev/branch-integration.md)
+- [현재 코드·문서 정합 검토](docs/reports/documentation-reconciliation.md)
 - [Phase 전체 체크리스트·작업 이력](etc/phases/00-progress.md)
 - [Phase 1 완료 조건](etc/phases/phase001.md)
 - [개발 환경 설치](docs/dev/development-setup.md)
@@ -50,6 +51,8 @@ Windows 수동 검증, 재방문 집계, 자동 탭/파일 감지와 실제 검�
 2026-11-13부터 완료된 Client 작업의 개발 통합 기준은 `client_dev`입니다.
 소형 UI와 기존 실제 연결 기반을 함께 보존하며, `main` 반영과 별도 Backend 작업은
 [브랜치 통합 기준](docs/dev/branch-integration.md)에 따라 구분합니다.
+문서 대조 기준은 `client_dev`의 `69473fe`, 확인 당시 `main`은 `7c30798`입니다.
+Phase 12·13의 자연어 검색·답변·근거 화면은 가상 응답 미리보기까지 구현됐고, 일반 실행의 실제 검색·LLM API는 연결 전입니다.
 
 설치 후 `python -m backend`로 Backend를 실행하고 `http://127.0.0.1:8765/health`에서 확인합니다.
 검증 명령: `python -m pytest -q`, `python -m ruff check src tests`.
