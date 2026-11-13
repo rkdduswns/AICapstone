@@ -116,7 +116,7 @@ class CompactSearchWindow(QWidget):
         """기본 입력과 필요할 때만 표시하는 결과 영역을 같은 창에 둔다."""
         super().__init__()
         apply_client_style(self)
-        self.setWindowTitle("ContextTrace — 검색 미리보기")
+        self.setWindowTitle("강써치 — 검색 미리보기")
         self._view = "compact"
         self._result: CompactAnswer | None = None
         self._pending_id: int | None = None

@@ -75,8 +75,8 @@ class BrowserContentRequest(BaseModel):
 
 
 def get_health() -> HealthResponse:
-    """Return the backend health status."""
-    return HealthResponse(data=HealthStatus(version=version("contexttrace")))
+    """강써치 배포 메타데이터에서 버전을 읽고 기존 API 식별자를 유지한다."""
+    return HealthResponse(data=HealthStatus(version=version("gangsearch")))
 
 
 def error_response(
@@ -235,10 +235,11 @@ def create_app(
     app.state.activity_tracker = tracker
     app.state.clipboard_collector = collector
     app.state.clipboard_enabled = False
+    # 새 이름이 명시적으로 비어 있으면 구형 토큰으로 되돌리지 않는다.
     app.state.browser_token = (
         browser_token
         if browser_token is not None
-        else os.environ.get("CONTEXTTRACE_BROWSER_TOKEN", "")
+        else os.environ.get("GANGSEARCH_BROWSER_TOKEN", os.environ.get("CONTEXTTRACE_BROWSER_TOKEN", ""))
     )
     app.state.activity_store = activity_store
     app.state.browser_privacy_policy = policy
@@ -334,7 +335,7 @@ def create_app(
 
         try:
             with tempfile.NamedTemporaryFile(
-                prefix="contexttrace-",
+                prefix="gangsearch-",
                 suffix=suffix,
                 delete=False,
             ) as temporary_file:

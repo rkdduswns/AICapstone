@@ -122,7 +122,7 @@ def main() -> int:
     thread.start()
     app = QApplication([sys.argv[0]])
     window = MainWindow(server.server_port)
-    window.setWindowTitle("ContextTrace — Phase 11 가상 검색")
+    window.setWindowTitle("강써치 — Phase 11 가상 검색")
     window.layout().insertWidget(0, display_label("가상 검색 미리보기 · 실제 저장 기록은 조회하지 않습니다."))
     window.tabs.setCurrentWidget(window.search)
     window.search.source.setCurrentIndex(window.search.source.findData(args.source))

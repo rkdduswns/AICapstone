@@ -10,16 +10,16 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "dist" / "ContextTrace-Windows-x64"
+OUTPUT = ROOT / "dist" / "강써치-Windows-x64"
 
 
 def build_program(component: str) -> None:
     """런타임과 필요한 모듈만 포함하고 동적 Uvicorn import·버전 메타데이터를 명시한다."""
-    name = f"ContextTrace-{component.title()}"
+    name = f"강써치-{component.title()}"
     command = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile",
                "--noupx", "--name", name, "--paths", str(ROOT / "src"),
                "--distpath", str(OUTPUT), "--workpath", str(ROOT / "build" / component),
-               "--specpath", str(ROOT / "build"), "--copy-metadata", "contexttrace"]
+               "--specpath", str(ROOT / "build"), "--copy-metadata", "gangsearch"]
     if component == "client":
         command += ["--windowed", "--exclude-module", "backend"]
     else:
@@ -34,19 +34,24 @@ def assemble_bundle() -> Path:
     """검증 가능한 빌드 식별·해시와 수동 브라우저 확장·실행 안내를 함께 배포한다."""
     extension = OUTPUT / "browser-extension"
     if extension.exists():
+        # 기존 산출물을 지우기 전에 실제 경로가 이번 배포 폴더 안인지 확인한다.
+        if extension.resolve().parent != OUTPUT.resolve() or not OUTPUT.resolve().is_relative_to(
+            (ROOT / "dist").resolve()
+        ):
+            raise ValueError("배포 폴더 밖의 확장 경로는 교체할 수 없습니다.")
         shutil.rmtree(extension)
     shutil.copytree(ROOT / "src/browser/extension", extension)
     shutil.copyfile(ROOT / "docs/dev/windows-exe.md", OUTPUT / "README.md")
     shutil.copyfile(ROOT / "docs/dev/history-source-linking.md", OUTPUT / "HISTORY-LINKING.md")
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    packages = {name: version(name) for name in ("contexttrace", "pyinstaller", "PySide6",
+    packages = {name: version(name) for name in ("gangsearch", "pyinstaller", "PySide6",
                                                 "fastapi", "uvicorn", "pypdf", "python-docx")}
     (OUTPUT / "BUILD.json").write_text(
         json.dumps({"commit": sha, "python": sys.version, "packages": packages}, indent=2),
         encoding="utf-8")
     hashes = []
     for name in ("Client", "Backend"):
-        file = OUTPUT / f"ContextTrace-{name}.exe"
+        file = OUTPUT / f"강써치-{name}.exe"
         with file.open("rb") as source:
             hashes.append(f"{hashlib.file_digest(source, 'sha256').hexdigest()}  {file.name}")
     (OUTPUT / "SHA256SUMS.txt").write_text("\n".join(hashes) + "\n", encoding="utf-8")

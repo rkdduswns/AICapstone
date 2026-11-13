@@ -14,7 +14,7 @@ from client.compact_search_window import CompactAnswer, CompactSearchWindow
 
 def main() -> int:
     """실제 검색 연결 없이 답변과 오류 상태를 재현하고 PNG 저장을 지원한다."""
-    parser = argparse.ArgumentParser(description="ContextTrace 소형 검색 창 가상 미리보기")
+    parser = argparse.ArgumentParser(description="강써치 소형 검색 창 가상 미리보기")
     parser.add_argument("--state", choices=("answer", "empty", "insufficient", "error"),
                         default="answer")
     parser.add_argument("--snapshot", type=Path)
@@ -37,7 +37,7 @@ def main() -> int:
             parser.error("지정한 글꼴 파일을 읽을 수 없습니다.")
         app.setFont(QFont(families[0], 10))
     window = CompactSearchWindow()
-    window.setWindowTitle("ContextTrace — 소형 검색 창 · 가상 응답")
+    window.setWindowTitle("강써치 — 소형 검색 창 · 가상 응답")
     chunks = tuple(sample_chunks())
     response = {
         "answer": CompactAnswer(

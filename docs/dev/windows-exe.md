@@ -1,34 +1,34 @@
-# ContextTrace Windows 실행 파일
+# 강써치 Windows 실행 파일
 
 대상: Windows 10/11 x64. Client와 Backend는 서로 독립된 단일 EXE다.
-Python·pip 설치 없이 실행한다. 실행 안내와 현재 소스의 기능 범위는 빌드 커밋으로 구분한다.
+표시명은 강써치이며 Python 배포 식별자는 `gangsearch`다. Python·pip 설치 없이 실행한다. 실행 안내와 현재 소스의 기능 범위는 빌드 커밋으로 구분한다.
 
 - [PR #16](https://github.com/rkdduswns/AICapstone/pull/16)의 기존 ZIP은 `b12a82a` 빌드다.
   설정 영속화를 포함하지 않으며 이 EXE에서는 Backend 재실행 시 설정이 초기화된다.
-- `feat/privacy-settings-persistence` 소스는 같은 DB에 저장한 일시정지·차단 프로그램·클립보드 사용 설정을 복원한다.
-  이 변경을 포함한 EXE는 아직 새로 빌드·실행 검증하지 않았다. 아래 재빌드 명령과 패키징 검증이 필요하다.
+- 현재 통합 소스는 같은 DB에 저장한 일시정지·차단 프로그램·클립보드 사용 설정을 복원한다.
+  새 이름 빌드·실행 결과는 [통합 검증](../reports/gangsearch-integration.md)을 따른다. 과거 ZIP의 검증 결과로 대신하지 않는다.
   소스 검증 근거는 [설정 영속화 보고서](../reports/privacy-settings-persistence.md)를 따른다.
 
 ## 실행
 
-1. `ContextTrace-Windows-x64.zip`을 다운로드하고 압축을 푼다.
-2. `ContextTrace-Backend.exe`를 실행한다. 열린 콘솔은 유지한다.
-3. `ContextTrace-Client.exe`를 실행하고 `연결 확인`을 누른다.
+1. `강써치-Windows-x64.zip`을 다운로드하고 압축을 푼다.
+2. `강써치-Backend.exe`를 실행한다. 열린 콘솔은 유지한다.
+3. `강써치-Client.exe`를 실행하고 `연결 확인`을 누른다.
 4. 종료할 때 Client 창을 닫고 Backend 콘솔에서 Ctrl+C를 누른다.
 
 첫 실행에는 포함된 런타임을 임시 폴더에 풀기 때문에 시간이 걸릴 수 있다.
 Backend는 현재 작업을 수집하고 `127.0.0.1:8765`에서만 응답한다. DB는 사용자 홈의
 `.contexttrace/activity.db`에 저장하며 EXE 옆이나 임시 압축 해제 폴더에 저장하지 않는다.
-신규 DB의 클립보드 초기 설정은 꺼짐이다. 설정 재시작 동작은 위의 빌드 범위를 따른다.
+기존 데이터를 이어 읽기 위해 구형 DB 폴더명은 유지한다. 신규 DB의 클립보드 초기 설정은 꺼짐이다. 설정 재시작 동작은 위의 빌드 범위를 따른다.
 개발용 빌드에는 코드 서명이 없다.
 
 브라우저의 수동 페이지 연결을 쓰려면 `browser-extension` 폴더를 Chrome/Edge에서 압축해제 확장으로 로드한다.
-Backend 토큰은 같은 PowerShell에서 설정하고 실행한다. 설정값은 사용자가 확장 설정에 복사한다.
+Backend 토큰은 같은 PowerShell에서 설정하고 실행한다. `GANGSEARCH_BROWSER_TOKEN`이 없으면 구형 `CONTEXTTRACE_BROWSER_TOKEN`을 읽으며, 새 변수가 빈 값이면 구형 값으로 되돌리지 않는다. 설정값은 사용자가 확장 설정에 복사한다.
 
 ```powershell
-$env:CONTEXTTRACE_BROWSER_TOKEN = [guid]::NewGuid().ToString("N")
-$env:CONTEXTTRACE_BROWSER_TOKEN
-.\ContextTrace-Backend.exe
+$env:GANGSEARCH_BROWSER_TOKEN = [guid]::NewGuid().ToString("N")
+$env:GANGSEARCH_BROWSER_TOKEN
+.\강써치-Backend.exe
 ```
 
 최근 기록에서 작업을 선택한 뒤 문서를 연결할 수 있다. 상세 순서는 함께 제공한 `HISTORY-LINKING.md`를 따른다.
@@ -43,8 +43,8 @@ Backend가 이미 켜져 있다면 하나만 실행한다.
 같은 DB를 사용하는 별도 Backend 프로세스 사이의 정책 실시간 동기화는 지원하지 않는다.
 
 ```powershell
-.\ContextTrace-Backend.exe --port 8766 --db-path "C:\검증 자료\activity.db"
-.\ContextTrace-Client.exe --port 8766
+.\강써치-Backend.exe --port 8766 --db-path "C:\검증 자료\activity.db"
+.\강써치-Client.exe --port 8766
 ```
 
 ## 소스에서 다시 빌드
@@ -58,7 +58,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe tools/smoke_windows_exe.py
 ```
 
-산출물은 `dist/ContextTrace-Windows-x64.zip`이며 내부에 실행 파일 두 개, 확장,
+산출물은 `dist/강써치-Windows-x64.zip`이며 내부에 실행 파일 두 개, 확장,
 실행 안내, `BUILD.json`(소스 커밋·도구 버전), `SHA256SUMS.txt`가 있다.
 GitHub PR의 `Windows EXE package` workflow도 같은 명령으로 빌드·검증한 ZIP을 30일간 보관한다.
 빌드 의존성은 일반 실행 의존성과 분리했다. 생성 EXE·DB·토큰은 Git에 넣지 않는다.

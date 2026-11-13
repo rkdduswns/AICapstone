@@ -27,8 +27,8 @@ jobs:
       - name: Save verified package
         uses: actions/upload-artifact@v4
         with:
-          name: ContextTrace-Windows-x64
-          path: dist/ContextTrace-Windows-x64.zip
+          name: 강써치-Windows-x64
+          path: dist/강써치-Windows-x64.zip
           compression-level: 0
           retention-days: 30
       - name: Save packaging diagnostics
@@ -37,6 +37,6 @@ jobs:
         with:
           name: windows-package-diagnostics
           path: |
-            build/*/ContextTrace-*/warn-*.txt
+            build/*/강써치-*/warn-*.txt
             build/package-smoke.json
           if-no-files-found: ignore

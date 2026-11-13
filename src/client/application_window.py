@@ -20,7 +20,7 @@ class ApplicationWindow(QWidget):
         """기존 API 클라이언트를 관리 화면에 한 번만 구성한다."""
         super().__init__()
         apply_client_style(self)
-        self.setWindowTitle("ContextTrace — 검색")
+        self.setWindowTitle("강써치 — 검색")
         self._management_open = False
         self._search_size = QSize(440, 112)
         self._connection_state = "unknown"

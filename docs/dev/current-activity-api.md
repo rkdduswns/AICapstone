@@ -31,7 +31,7 @@
       "application": "Google Chrome",
       "process_name": "chrome.exe",
       "process_id": 1234,
-      "window_title": "가상 자료 — ContextTrace 소개"
+      "window_title": "가상 자료 — 강써치 소개"
     }
   },
   "error": null

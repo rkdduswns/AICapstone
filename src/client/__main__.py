@@ -14,7 +14,7 @@ from shared.protocol import DEFAULT_PORT
 
 def main() -> int:
     """일반 실행은 창을 유지하며 진단 실행만 실제 연결 결과를 쓰고 자동 종료한다."""
-    parser = argparse.ArgumentParser(description="ContextTrace desktop client")
+    parser = argparse.ArgumentParser(description="강써치 데스크톱 클라이언트")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--smoke-test-result", type=Path,
                         help="실제 창·Backend 연결 진단 결과를 JSON으로 쓰고 종료합니다.")
@@ -22,6 +22,8 @@ def main() -> int:
     if not 1 <= args.port <= 65535:
         parser.error("port must be an integer from 1 to 65535")
     app = QApplication([sys.argv[0]])
+    app.setApplicationName("강써치")
+    app.setApplicationDisplayName("강써치")
     window = ApplicationWindow(args.port)
     window.show()
     if args.smoke_test_result is not None:

@@ -1,7 +1,7 @@
 [project]
-name = "contexttrace"
+name = "gangsearch"
 version = "0.1.0"
-description = "Windows 작업 로그 기반 개인 지식 출처 역추적 시스템"
+description = "강써치: Windows 작업 로그 기반 개인 지식 출처 역추적 시스템"
 requires-python = ">=3.11"
 dependencies = [
     "PySide6>=6.8,<7",

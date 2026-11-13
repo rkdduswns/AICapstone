@@ -22,7 +22,7 @@ def port_number(value: str) -> int:
 
 def main() -> None:
     """같은 loopback API를 실행하며 필요하면 검증용 DB 경로를 명시적으로 받는다."""
-    parser = argparse.ArgumentParser(description="ContextTrace local backend")
+    parser = argparse.ArgumentParser(description="강써치 로컬 Backend")
     parser.add_argument("--port", type=port_number, default=DEFAULT_PORT)
     parser.add_argument("--db-path", type=Path,
                         help="사용할 SQLite 파일 경로. 생략하면 사용자 데이터 폴더를 사용합니다.")

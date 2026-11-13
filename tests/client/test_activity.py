@@ -28,7 +28,7 @@ from shared.protocol import HealthResponse, HealthStatus
 HEALTH = asdict(HealthResponse(HealthStatus(version="test")))
 GOOD = asdict(CurrentActivityResponse(CurrentActivity("collecting", ActiveWindow(
     application="Google Chrome", process_name="chrome.exe", process_id=1234,
-    window_title="가상 자료 — ContextTrace",
+    window_title="가상 자료 — 강써치",
 ))))
 
 

@@ -24,6 +24,7 @@ py -3.11 -m venv .venv
 ```
 
 위 예시는 2026-11-13에 완료된 Client 작업과 기존 실제 연결 기반을 모은 `client_dev` 기준이다.
+후속 통합본은 PR #17~20의 정렬·설정 영속화·읽기 전용 청크를 포함한다.
 확인 당시 `main`의 `7c30798`에는 소형 창과 PR #16 연결 후속 변경이 모두 들어 있지 않다.
 이후 실제 `main` 반영과 별도 Backend 적용 여부는 [브랜치 통합 기준](branch-integration.md)을 확인한다.
 가상환경 활성화 없이 해당 Python을 직접 사용하므로 PowerShell 실행 정책 변경이 필요 없다.
@@ -84,7 +85,7 @@ Invoke-RestMethod http://127.0.0.1:8765/health | ConvertTo-Json -Depth 4
 Linux에서는 `.venv/bin/python -m backend`를 사용한다.
 포트 변경: `python -m backend --port 8766`. 1–65535 범위만 허용한다.
 기본 호스트는 127.0.0.1이며 외부 인터페이스로 변경하는 옵션은 제공하지 않는다.
-검증용 DB를 분리하려면 `--db-path "$env:TEMP\contexttrace-check\activity.db"`를 지정한다.
+검증용 DB를 분리하려면 `--db-path "$env:TEMP\gangsearch-check\activity.db"`를 지정한다.
 생략하면 사용자 홈의 `.contexttrace/activity.db`를 사용하며 저장소 안에 DB를 만들지 않는다.
 설정 영속화 브랜치에서는 일시정지·차단 프로그램·클립보드 사용 설정도 같은 DB에 저장한다.
 같은 DB에는 Backend 하나만 실행한다. 포트를 바꿔 별도 Backend를 실행해도 정책의 실시간 동기화는 제공하지 않는다.

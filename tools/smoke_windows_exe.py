@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def pdf_bytes() -> bytes:
     """폰트·본문·xref를 포함한 개인정보 없는 PDF로 번들 안의 pypdf 실행을 확인한다."""
-    stream = b"BT /F1 12 Tf 72 720 Td (ContextTrace PDF smoke) Tj ET"
+    stream = b"BT /F1 12 Tf 72 720 Td (GangSearch PDF smoke) Tj ET"
     objects = [b"<< /Type /Catalog /Pages 2 0 R >>",
                b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
@@ -60,19 +60,19 @@ def main() -> None:
     """빌드 산출물 사본을 한글/공백 경로에서 실행하고 실제 결과만 JSON에 기록한다."""
     if sys.platform != "win32":
         raise SystemExit("Windows EXE 검증은 Windows에서 실행해 주세요.")
-    output = ROOT / "dist/ContextTrace-Windows-x64"
+    output = ROOT / "dist/강써치-Windows-x64"
     environment = {key: value for key, value in os.environ.items()
                    if key not in {"PYTHONPATH", "PYTHONHOME", "QT_PLUGIN_PATH",
                                   "QT_QPA_PLATFORM_PLUGIN_PATH", "QT_QPA_PLATFORM",
-                                  "CONTEXTTRACE_BROWSER_TOKEN"}}
+                                  "CONTEXTTRACE_BROWSER_TOKEN", "GANGSEARCH_BROWSER_TOKEN"}}
     checks = {"source_imports_disabled": True, "unicode_path": True}
-    with tempfile.TemporaryDirectory(prefix="ContextTrace 한글 ") as directory:
+    with tempfile.TemporaryDirectory(prefix="강써치 한글 ") as directory:
         work = Path(directory)
         for name in ("Client", "Backend"):
-            exe = output / f"ContextTrace-{name}.exe"
+            exe = output / f"강써치-{name}.exe"
             assert exe.read_bytes()[:2] == b"MZ", "Windows PE 실행 파일이 아닙니다."
             shutil.copyfile(exe, work / exe.name)
-        backend = work / "ContextTrace-Backend.exe"
+        backend = work / "강써치-Backend.exe"
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1", 0))
             port = reservation.getsockname()[1]
@@ -87,7 +87,7 @@ def main() -> None:
 
         def upload(name, content):
             """실제 multipart 바이트를 전송해 lxml·docx·pypdf·저장 모듈 누락을 찾는다."""
-            boundary = "ContextTraceSmokeBoundary"
+            boundary = "GangSearchSmokeBoundary"
             data = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; '
                     f'filename="{name}"\r\nContent-Type: application/octet-stream\r\n\r\n').encode()
             return request("/documents", data + content + f"\r\n--{boundary}--\r\n".encode(),
@@ -116,7 +116,7 @@ def main() -> None:
                 checks["activity_and_sqlite"] = True
                 docx = io.BytesIO()
                 document = Document()
-                document.add_paragraph("ContextTrace DOCX smoke")
+                document.add_paragraph("강써치 DOCX smoke")
                 document.save(docx)
                 assert "DOCX smoke" in upload("sample.docx", docx.getvalue())["data"]["extracted_text"]
                 assert "PDF smoke" in upload("sample.pdf", pdf_bytes())["data"]["extracted_text"]
@@ -132,8 +132,27 @@ def main() -> None:
                 else:
                     raise AssertionError("일시정지 중 업로드가 허용됐습니다.")
                 checks["privacy_pause"] = True
+                # 소스 서버뿐 아니라 실제 번들도 같은 DB의 일시정지 설정을 복원해야 한다.
+                stop(process)
+                process = subprocess.Popen(
+                    [str(backend), "--port", str(port), "--db-path", str(work / "검증.db")],
+                    cwd=work, env=environment, stdout=log, stderr=log,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                )
+                deadline = time.monotonic() + 60
+                while True:
+                    assert process.poll() is None, "Backend EXE 재시작 실패"
+                    try:
+                        request("/health")
+                        break
+                    except (OSError, urllib.error.URLError):
+                        assert time.monotonic() < deadline, "Backend EXE 재시작 시간 초과"
+                        time.sleep(0.1)
+                assert request("/privacy")["data"]["settings"]["paused"] is True
+                assert len(request("/documents")["data"]["documents"]) == 2
+                checks["privacy_restart_persistence"] = True
                 result_path = work / "client-result.json"
-                client = subprocess.Popen([str(work / "ContextTrace-Client.exe"), "--port", str(port),
+                client = subprocess.Popen([str(work / "강써치-Client.exe"), "--port", str(port),
                                            "--smoke-test-result", str(result_path)], cwd=work,
                                           env=environment,
                                           creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)

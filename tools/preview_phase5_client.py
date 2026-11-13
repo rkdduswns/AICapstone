@@ -202,7 +202,7 @@ def main(clipboard: bool = False, browser: bool = False, web_content: bool = Fal
     thread.start()
     app = QApplication([sys.argv[0]])
     window = MainWindow(server.server_port)
-    window.setWindowTitle(f"ContextTrace — Phase {phase} 미리보기 (가상 데이터)")
+    window.setWindowTitle(f"강써치 — Phase {phase} 미리보기 (가상 데이터)")
     window.layout().insertWidget(0, display_label(
         "가상 설정 미리보기 · 실제 작업 정보는 수집하거나 저장하지 않습니다."
         + (" URL 차단 판정은 고정 예시입니다." if browser and not document_content else "")))

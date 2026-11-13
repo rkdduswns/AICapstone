@@ -82,7 +82,7 @@ def create_client(tmp_path):
 
 def test_upload_docx_success(tmp_path):
     client = create_client(tmp_path)
-    content = create_docx("ContextTrace document upload test")
+    content = create_docx("강써치 document upload test")
 
     response = client.post(
         "/documents",
@@ -103,7 +103,7 @@ def test_upload_docx_success(tmp_path):
     assert body["error"] is None
     assert body["data"]["file_name"] == "test_document.docx"
     assert body["data"]["file_type"] == ".docx"
-    assert "ContextTrace document upload test" in body["data"]["extracted_text"]
+    assert "강써치 document upload test" in body["data"]["extracted_text"]
 
 
 def test_upload_unsupported_extension(tmp_path):
@@ -188,7 +188,7 @@ def test_list_documents_rejects_invalid_limit(tmp_path):
 
 def test_upload_pdf_success(tmp_path):
     client = create_client(tmp_path)
-    content = create_pdf("ContextTrace PDF upload test")
+    content = create_pdf("GangSearch PDF upload test")
 
     response = client.post(
         "/documents",
@@ -200,7 +200,7 @@ def test_upload_pdf_success(tmp_path):
     assert body["ok"] is True
     assert body["data"]["file_name"] == "test_document.pdf"
     assert body["data"]["file_type"] == ".pdf"
-    assert "ContextTrace PDF upload test" in body["data"]["extracted_text"]
+    assert "GangSearch PDF upload test" in body["data"]["extracted_text"]
 
 
 def test_upload_document_exceeding_size_limit(tmp_path):

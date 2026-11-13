@@ -1,8 +1,8 @@
-# ContextTrace
+# 강써치
 
 > Windows 작업 로그 기반 개인 지식 출처 역추적 RAG 시스템
 
-ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 기록하고, 자연어 검색을 통해 과거에 확인한 정보의 실제 출처와 작업 맥락을 다시 찾는 프로젝트입니다.
+강써치는 Windows 환경에서 사용자의 작업 맥락을 자동으로 기록하고, 자연어 검색을 통해 과거에 확인한 정보의 실제 출처와 작업 맥락을 다시 찾는 프로젝트입니다.
 
 ## 프로젝트 문서
 
@@ -10,6 +10,8 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [개발 지침](etc/개발-지침.md)
 - [개발 Phase](etc/phases/README.md)
 - [Client 개발 브랜치 통합 기준](docs/dev/branch-integration.md)
+- [Backend 통합 설계](docs/dev/backend-integration-plan.md)
+- [이름 변경·통합 검증](docs/reports/gangsearch-integration.md)
 - [현재 코드·문서 정합 검토](docs/reports/documentation-reconciliation.md)
 - [Phase 전체 체크리스트·작업 이력](etc/phases/00-progress.md)
 - [Phase 1 완료 조건](etc/phases/phase001.md)
@@ -51,7 +53,7 @@ Windows 수동 검증, 재방문 집계, 자동 탭/파일 감지와 실제 검�
 2026-11-13부터 완료된 Client 작업의 개발 통합 기준은 `client_dev`입니다.
 소형 UI와 기존 실제 연결 기반을 함께 보존하며, `main` 반영과 별도 Backend 작업은
 [브랜치 통합 기준](docs/dev/branch-integration.md)에 따라 구분합니다.
-문서 대조 기준은 `client_dev`의 `69473fe`, 확인 당시 `main`은 `7c30798`입니다.
+문서 대조 시작점은 `client_dev 69473fe`와 `main 7c30798`입니다. 후속 통합본은 최근 기록 정렬(PR #17), 보호 설정 영속화(PR #18), 읽기 전용 검색 전처리·청크(PR #19·#20)를 포함합니다. 최종 반영·검증은 [통합 검증](docs/reports/gangsearch-integration.md)을 따릅니다.
 Phase 12·13의 자연어 검색·답변·근거 화면은 가상 응답 미리보기까지 구현됐고, 일반 실행의 실제 검색·LLM API는 연결 전입니다.
 
 설치 후 `python -m backend`로 Backend를 실행하고 `http://127.0.0.1:8765/health`에서 확인합니다.
@@ -61,7 +63,7 @@ Phase 12·13의 자연어 검색·답변·근거 화면은 가상 응답 미리�
 ## 실제 Client–Backend 실행
 
 Python 설치 없이 실행할 Windows x64 배포판은 Client·Backend 각각의 단일 EXE로 빌드합니다.
-ZIP을 푼 뒤 `ContextTrace-Backend.exe` → `ContextTrace-Client.exe` → `연결 확인` 순서로 사용합니다. 소형 창을 포함한 소스 빌드에서는 상태 버튼으로 관리 화면을 열어 연결을 확인합니다.
+ZIP을 푼 뒤 `강써치-Backend.exe` → `강써치-Client.exe` → `연결 확인` 순서로 사용합니다. 소형 창을 포함한 소스 빌드에서는 상태 버튼으로 관리 화면을 열어 연결을 확인합니다.
 [실행·재빌드 안내](docs/dev/windows-exe.md)를 참고하세요.
 
 의존성을 설치한 뒤 프로젝트 루트의 PowerShell 두 개에서 각각 실행합니다.
@@ -79,7 +81,7 @@ ZIP을 푼 뒤 `ContextTrace-Backend.exe` → `ContextTrace-Client.exe` → `연
 `최근 기록 → 선택한 작업에 문서 연결`에서 PDF·DOCX의 경로와 추출 본문을 연결합니다.
 문서 저장 시각과 원래 작업 시각은 별도로 보존합니다. 대상 없이 문서만 가져올 수도 있습니다.
 Chrome/Edge 확장 설치와 토큰 설정은 [이력 연결 안내](docs/dev/history-source-linking.md)를 따릅니다.
-설정은 서버 재실행 시 초기화되며 클립보드 수집은 기본 꺼짐입니다.
+현재 소스는 일시정지·차단 프로그램·클립보드 설정을 같은 DB에서 복원합니다. 신규 DB의 클립보드 수집은 기본 꺼짐입니다. PR #16의 과거 ZIP은 설정 영속화가 없는 구버전입니다.
 [통합 범위·검증·남은 기능](docs/reports/client-backend-integration.md)을 확인하세요.
 아래 Phase별 preview 명령은 가상 데이터 확인용입니다.
 

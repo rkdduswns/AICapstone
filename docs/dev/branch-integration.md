@@ -1,6 +1,19 @@
 # Client 개발 브랜치 통합 기준
 
-## 현재 결정과 범위
+## 2026-11-13 후속 통합
+
+`feat/gangsearch-brand-integration`은 기존 `client_dev 69473fe`를 유지하면서 문서 정합·강써치 이름 변경과 다음 서버 작업을 합류한다.
+
+| 포함한 작업 | 기준 커밋 | 범위 |
+|---|---|---|
+| PR #17 | `79078ec` | 실제 UTC 순간·문자열 ID 정렬 후 LIMIT |
+| PR #18 | `fa99946` | 지원하는 보호 설정의 저장·수집 전 복원·실패 차단 |
+| PR #19·#20 | `fa78f7f`·`ce10c6a` | 실제 출처를 보존하는 읽기 전용 본문 정규화·청크 CLI |
+
+`d274643`의 색인 저장과 `c95b440`의 별도 Backend 전체는 합류하지 않는다. 두 검색 스키마 충돌과 수집 계약 차이는 [Backend 통합 설계](backend-integration-plan.md)에 기록한다.
+최종 main 반영과 새 테스트·실행 파일 검증은 [강써치 통합 기록](../reports/gangsearch-integration.md)을 따른다. 아래 main 미반영·Draft 표기는 최초 정리 당시의 기록이다.
+
+## 최초 client_dev 정리 이력
 
 2026-11-13 확인한 `main`은 `7c307987182c629965da63824b60d36e41db4036`이다.
 완료된 Client 작업은 `client_dev`에 통합하고, 후속 Client 기능은 이 브랜치를 기준으로 작은 `feat/...` 브랜치에서 진행한다.
@@ -37,7 +50,7 @@ Client 폴더만 변경하는 독립 패치로 설명하거나 Backend 의존성
 기반 `feat/client-backend-integration`의 `b12a82a`와 `fix/capture-truncation-privacy`의 `37c9b4a`도
 기존 병합 이력을 통해 포함된다. PR #16의 원격 작업 브랜치와 Draft 검토 상태는 유지한다.
 
-## 별도로 유지하는 작업
+## 최초 정리에서 별도로 유지했던 작업
 
 다음 작업 끝은 이번 `client_dev` 통합에 포함하지 않았다.
 각 변경의 책임과 검증 범위를 확인해 별도의 통합으로 진행한다.

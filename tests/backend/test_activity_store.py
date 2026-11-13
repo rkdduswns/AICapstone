@@ -15,7 +15,7 @@ def store(tmp_path):
 def test_save_and_get_document_record(store, tmp_path):
     """Saved document metadata and extracted text can be retrieved."""
     file_path = tmp_path / "sample.pdf"
-    extracted_text = "ContextTrace document extraction test"
+    extracted_text = "강써치 document extraction test"
     captured_at = "2026-10-16T10:00:00"
 
     document_id = store.save_document_record(

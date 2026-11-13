@@ -33,6 +33,7 @@ class ActivityStore:
     """Persist activity, clipboard, browser, and document records."""
 
     def __init__(self, db_path: str | Path | None = None) -> None:
+        # 표시명 변경 후에도 기존 기록·보호 설정을 같은 DB에서 읽는다.
         self._db_path = (
             Path(db_path)
             if db_path is not None

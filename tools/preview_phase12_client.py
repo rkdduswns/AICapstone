@@ -93,7 +93,7 @@ def main() -> int:
 
     app = QApplication([sys.argv[0]])
     window = SemanticSearchWidget(provider)
-    window.setWindowTitle("ContextTrace — Phase 12 의미 검색 미리보기")
+    window.setWindowTitle("강써치 — Phase 12 의미 검색 미리보기")
     window.resize(820, 640)
     banner = QLabel("가상 미리보기 · 고정 예시에 선택 조건만 적용합니다.")
     window.layout().insertWidget(0, banner)

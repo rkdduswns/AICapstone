@@ -14,7 +14,7 @@ def test_health_contract():
     assert response.json() == {
         "ok": True,
         "data": {"service": "contexttrace-backend", "status": "running",
-                 "version": version("contexttrace"), "api_version": 1},
+                 "version": version("gangsearch"), "api_version": 1},
         "error": None,
     }
     assert type(response.json()["data"]["api_version"]) is int

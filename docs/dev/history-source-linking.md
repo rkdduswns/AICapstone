@@ -25,9 +25,9 @@ Windows에서 실제 활성 Chrome/Edge 작업을 감지할 수 있어야 한다
 Backend를 실행하는 PowerShell에서 토큰을 만든 뒤 서버를 시작한다. 토큰 값은 저장소에 기록하지 않는다.
 
 ```powershell
-$env:CONTEXTTRACE_BROWSER_TOKEN = [guid]::NewGuid().ToString("N")
+$env:GANGSEARCH_BROWSER_TOKEN = [guid]::NewGuid().ToString("N")
 # 이 터미널에서 생성한 값을 확장 설정에 복사한다.
-$env:CONTEXTTRACE_BROWSER_TOKEN
+$env:GANGSEARCH_BROWSER_TOKEN
 .\.venv\Scripts\python.exe -m backend
 ```
 
