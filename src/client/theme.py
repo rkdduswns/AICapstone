@@ -1,7 +1,7 @@
 """OS 글꼴과 색상 팔레트를 유지하며 Client의 정보·동작 우선순위를 통일한다."""
 
-from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QWidget
+from PySide6.QtGui import QFont, QTextBlockFormat, QTextCursor
+from PySide6.QtWidgets import QPlainTextEdit, QWidget
 
 _STYLE = """
 QPushButton {
@@ -68,6 +68,10 @@ QPlainTextEdit, QListWidget, QTableWidget {
     background: palette(base);
     color: palette(text);
 }
+QPlainTextEdit[uiRole="reading"] {
+    border: 0px;
+    padding: 2px;
+}
 QWidget[uiRole="card"] {
     background: palette(base);
     border: 1px solid palette(mid);
@@ -108,3 +112,16 @@ def set_role(widget: QWidget, role: str) -> None:
     style.polish(widget)
     widget.updateGeometry()
     widget.update()
+
+
+def set_reading_text(widget: QPlainTextEdit, text: str) -> None:
+    """원문·인용 위치를 유지하고 읽기 영역의 여백과 문단 간격만 조절한다."""
+    widget.setPlainText(text)
+    widget.document().setDocumentMargin(8)
+    cursor = QTextCursor(widget.document())
+    cursor.select(QTextCursor.SelectionType.Document)
+    block = QTextBlockFormat()
+    block.setLineHeight(125, QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
+    block.setBottomMargin(4)
+    cursor.mergeBlockFormat(block)
+    set_role(widget, "reading")

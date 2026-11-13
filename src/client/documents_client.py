@@ -55,6 +55,9 @@ class DocumentsClient(JsonRequest):
     documents_received = Signal(object)
     document_uploaded = Signal(object)
     documents_failed = Signal(str)
+    # Qt의 qint64 전송량을 32비트 Signal(int)로 줄이지 않는다.
+    upload_started = Signal(str, object)
+    upload_progress = Signal(object, object)
 
     def __init__(self, port: int, parent: QObject | None = None) -> None:
         """기존 loopback·프록시 차단·요청 취소를 재사용한다."""
@@ -124,8 +127,18 @@ class DocumentsClient(JsonRequest):
         self.timed_out = False
         self.reply = self.manager.post(request, multipart)
         multipart.setParent(self.reply)
+        reply = self.reply
+        reply.uploadProgress.connect(
+            lambda sent, total: self._forward_upload_progress(reply, sent, total),
+        )
         self.reply.finished.connect(self._finished)
         self.timer.start(30000)
+        self.upload_started.emit(name, source.size())
+
+    def _forward_upload_progress(self, reply: object, sent: int, total: int) -> None:
+        """현재 업로드의 전송량만 알리고 취소·완료된 reply의 늦은 진행 신호는 버린다."""
+        if self.reply is reply and self.operation == "upload":
+            self.upload_progress.emit(sent, total)
 
     def _received(self, payload: bytes) -> None:
         """업로드와 목록 응답을 구분하고 유효한 전체 결과만 화면에 전달한다."""

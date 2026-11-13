@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (
 from client.citation_highlights import citation_spans
 from client.icons import apply_menu_icon
 from client.search_presentation import RESULT_ORDERS, chunk_metadata, chunk_source, ordered_chunks
-from client.theme import apply_client_style, set_role
+from client.theme import apply_client_style, set_reading_text, set_role
 from client.time_values import format_timestamp
 from client.window_geometry import fit_window
 from shared.search_data import DocumentChunk
@@ -124,6 +124,7 @@ class CompactSearchWindow(QWidget):
         self._reveal_on_completion = True
         self._notice = ""
         self._evidence_was_expanded = False
+        self.reading_ratio: int | None = None
         self._citation_spans: list[tuple[int, int]] = []
 
         layout = QVBoxLayout(self)
@@ -347,7 +348,7 @@ class CompactSearchWindow(QWidget):
 
     def _fill_result(self, result: CompactAnswer) -> None:
         """요약과 전체 답변을 분리하고 현재 표시 순서로 근거를 채운다."""
-        self.detail_text.setPlainText(result.full_answer if result.status == "answer" else "")
+        set_reading_text(self.detail_text, result.full_answer if result.status == "answer" else "")
         self.evidence_content_action.setChecked(result.status == "insufficient")
         self._order_evidence()
 
@@ -440,8 +441,8 @@ class CompactSearchWindow(QWidget):
             f"[{index + 1}] {title}",
             f"{kind} · 열람 {format_timestamp(chunk.source.last_active_at)}{partial}",
         )
-        self.source_details.setPlainText(f"근거 {index + 1}\n\n{chunk_metadata(chunk)}")
-        self.evidence_text.setPlainText(chunk.text)
+        set_reading_text(self.source_details, f"근거 {index + 1}\n\n{chunk_metadata(chunk)}")
+        set_reading_text(self.evidence_text, chunk.text)
         self._highlight_citations()
         self._update_action_state()
 
@@ -533,7 +534,9 @@ class CompactSearchWindow(QWidget):
             # 근거를 요청한 순간에는 읽기 공간을 먼저 확보하고 이후 사용자가 조절한 비율은 유지한다.
             self.evidence_section.layout().activate()
             height = max(1, self.reading_splitter.height())
-            self.reading_splitter.setSizes([max(64, height // 4), max(1, height * 3 // 4)])
+            ratio = self.reading_ratio if self.reading_ratio is not None else 25
+            self.reading_splitter.setSizes([max(64, height * ratio // 100),
+                                           max(1, height * (100 - ratio) // 100)])
         self._evidence_was_expanded = expanded
         self._update_action_state()
 
