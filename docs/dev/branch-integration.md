@@ -89,4 +89,12 @@ PR #17~20과 위 별도 작업의 원격 브랜치도 이번 정리에서 유지
 Ruff와 의존성 검사도 통과했다. 운영체제 수집 입력에는 가상 자료를 사용하며 실제 Windows·Chrome/Edge 수동 검증과 구분한다.
 
 Windows 검증 워크플로의 push·PR 대상에 `client_dev`를 추가했다.
-원격 게시와 GitHub Actions 실행 결과는 별도로 확인해 기록한다.
+
+2026-11-13 원격 `client_dev`와 로컬 작업 끝이 `c2f14d7b1f1aab905b081592642633377cd3f10d`로
+일치함을 GitHub API와 다시 가져온 `origin/client_dev` 참조에서 확인했다.
+GitHub 비교에서도 `7586349`가 공통 조상이고 통합본은 그보다 2개 커밋 앞서며 뒤처진 커밋은 없었다.
+위 8개 작업 끝이 원격 이력에 포함된 것을 다시 확인한 후 해당 로컬 브랜치만 `git branch -d`로 정리했다.
+PR #16 기반 참조와 독립 Backend·원격 Draft·학습 관련 참조는 유지했다.
+
+코드 통합본 `c2f14d7`의 [Windows 자동 검증](https://github.com/rkdduswns/AICapstone/actions/runs/43373146175)은
+Python 3.11·3.12 두 환경 모두 성공했다. 이 기록 추가는 실행 코드와 기존 검증 범위를 바꾸지 않는다.
