@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import pytest
 from PySide6.QtCore import QMimeData, QPoint, QRect, Qt
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLabel
 
@@ -106,7 +107,7 @@ def test_starts_compact_and_can_open_results_before_search(app, search):
 
 
 def test_answer_expands_from_summary_to_exact_ordered_sources(app, search, answer):
-    """Enter 검색은 요약을 먼저 열고 상세에서 정확한 출처와 전체 본문을 표시한다."""
+    """요약에서 전체 답변을 먼저 읽고 근거와 출처 세부 정보는 필요할 때 펼친다."""
     window, requests, _ = search
     initial_size = window.size()
     window.query.setText(f"  {QUERY}  ")
@@ -130,19 +131,29 @@ def test_answer_expands_from_summary_to_exact_ordered_sources(app, search, answe
     assert window.detail_panel.isVisible()
     assert window.height() > summary_size.height()
     assert window.detail_text.isReadOnly()
+    assert window.detail_text.toPlainText() == FULL_ANSWER
     assert window.evidence_picker.count() == 2
+    assert not window.evidence_body.isVisible()
+    assert not window.copy_source_button.isVisible()
+    window.evidence_toggle.click()
+    assert window.evidence_body.isVisible()
+    assert not window.source_details.isVisible()
     window.evidence_picker.setCurrentIndex(0)
-    web = window.detail_text.toPlainText()
-    assert FULL_ANSWER in web
+    assert window.evidence_text.toPlainText() == WEB_TEXT
+    assert "확보 당시 웹 제목" in window.source_summary.text()
+    assert "웹" in window.source_summary.text()
+    assert window.source_summary.textFormat() == Qt.TextFormat.PlainText
+    window.source_details_button.click()
+    assert window.source_details.isVisible()
+    web = window.source_details.toPlainText()
     assert URL in web and FILE_PATH not in web
-    assert WEB_TEXT in web
     for timestamp in (STARTED, ACTIVE, CAPTURED):
         assert format_timestamp(timestamp) in web
     window.evidence_picker.setCurrentIndex(1)
-    pdf = window.detail_text.toPlainText()
-    assert FULL_ANSWER in pdf
+    pdf = window.source_details.toPlainText()
+    assert window.detail_text.toPlainText() == FULL_ANSWER
     assert FILE_PATH in pdf and URL not in pdf
-    assert PDF_TEXT in pdf
+    assert window.evidence_text.toPlainText() == PDF_TEXT
     assert len(requests) == 1
 
     QTest.keyClick(window.collapse_button, Qt.Key.Key_Escape)
@@ -180,6 +191,8 @@ def test_sorting_evidence_keeps_citation_numbers_and_selected_source(search, ans
     ))
     assert not window.evidence_order.isVisible()
     window.detail_button.click()
+    assert not window.evidence_order.isVisible()
+    window.evidence_toggle.click()
     assert window.evidence_order.isVisible()
     window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
 
@@ -198,9 +211,10 @@ def test_sorting_evidence_keeps_citation_numbers_and_selected_source(search, ans
             number = original + 1
             assert window.evidence_picker.itemText(row).startswith((f"{number}.", f"[{number}]"))
         assert window.evidence_picker.currentData() == 1
-        detail = window.detail_text.toPlainText()
-        assert full_answer in detail and "\n근거 2\n" in detail
+        assert window.detail_text.toPlainText() == full_answer
+        detail = window.source_details.toPlainText()
         assert FILE_PATH in detail and URL not in detail
+        assert window.evidence_text.toPlainText() == pdf.text
     assert len(requests) == 1
 
 
@@ -291,9 +305,12 @@ def test_empty_error_and_insufficient_look_distinct_and_only_evidence_expands(se
     window.evidence_button.click()
     assert window.detail_panel.isVisible()
     assert window.evidence_picker.count() == 2
+    assert not window.answer_section.isVisible()
+    assert window.evidence_body.isVisible()
     window.evidence_picker.setCurrentIndex(0)
-    detail = window.detail_text.toPlainText()
-    assert URL in detail and FULL_ANSWER not in detail
+    assert window.detail_text.toPlainText() == ""
+    assert URL in window.source_details.toPlainText()
+    assert window.evidence_text.toPlainText() == WEB_TEXT
 
 
 def test_no_summary_uses_a_labeled_preview_and_preserves_full_answer(search, answer):
@@ -332,14 +349,51 @@ def test_long_source_address_wraps_without_changing_original(app, search, answer
     window.submit()
     window.receive_result(requests[-1][0], response)
     window.detail_button.click()
+    window.evidence_toggle.click()
+    window.source_details_button.click()
     app.processEvents()
-    document = window.detail_text.document()
+    document = window.source_details.document()
     match = document.find(long_url)
     assert not match.isNull()
     block = match.block()
     document.documentLayout().blockBoundingRect(block)
     assert block.layout().lineCount() > 2
-    assert window.detail_text.horizontalScrollBar().maximum() == 0
+    assert window.source_details.horizontalScrollBar().maximum() == 0
+
+
+def test_long_source_summary_stays_two_lines_and_cleared_text_cannot_reappear(app, search, answer):
+    """긴 출처는 개요에서 줄여도 원문을 보존하고 입력 편집 후 크기 변경으로 복구하지 않는다."""
+    window, requests, _ = search
+    title = "긴제목원문" * 100
+    url = "https://example.test/" + "original-path-" * 120
+    web = answer.evidence[0]
+    source = replace(web.source, browser=replace(web.source.browser, page_title=title, url=url))
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], replace(answer, evidence=(replace(web, source=source),)))
+    window.detail_button.click()
+    window.evidence_toggle.click()
+    app.processEvents()
+
+    summary = window.source_summary
+    assert 1 <= len(summary.text().splitlines()) <= 2
+    assert "…" in summary.text()
+    assert title in summary.toolTip()
+    assert title in window.source_details.toPlainText()
+    assert url in window.source_details.toPlainText()
+    for line in summary.text().splitlines():
+        assert summary.fontMetrics().horizontalAdvance(line) <= summary.contentsRect().width() + 1
+
+    window.query.setText("새 가상 검색 문장")
+    assert summary.text() == "" and summary.toolTip() == ""
+    assert window.source_details.toPlainText() == ""
+    previous_size = summary.size()
+    summary.resize(300, 50)
+    # 숨은 위젯의 지연된 resizeEvent까지 전달해 이전 원문 캐시가 되살아나지 않게 확인한다.
+    QApplication.sendEvent(summary, QResizeEvent(summary.size(), previous_size))
+    app.processEvents()
+    assert summary.text() == "" and summary.toolTip() == ""
+    assert window.source_details.toPlainText() == ""
 
 
 @pytest.mark.parametrize(
@@ -385,7 +439,7 @@ def test_summary_refits_on_resize_and_short_summary_keeps_original(app, search, 
     font = window.summary.font()
     font.setPointSize(13)
     window.summary.setFont(font)
-    long_summary = "가" * 180
+    long_summary = "가" * 120
     window.query.setText(QUERY)
     window.submit()
     window.receive_result(requests[-1][0], replace(answer, summary=long_summary))
@@ -427,6 +481,8 @@ def test_detail_actions_copy_original_values_and_return_to_answer_start(app, sea
         app.processEvents()
         assert window.answer_top_button.isVisible()
         assert window.copy_answer_button.isVisible()
+        assert not window.copy_source_button.isVisible()
+        window.evidence_toggle.click()
         assert window.copy_source_button.isVisible()
         window.copy_answer_button.click()
         assert clipboard.text() == full
@@ -458,6 +514,9 @@ def test_detail_actions_copy_original_values_and_return_to_answer_start(app, sea
         window.copy_source_button.click()
         assert clipboard.text() == "synthetic-after-edit"
         assert window.detail_text.toPlainText() == ""
+        assert window.evidence_text.toPlainText() == ""
+        assert window.source_details.toPlainText() == ""
+        assert window.source_summary.text() == ""
         assert window.detail_feedback.text() == ""
     finally:
         clipboard.clear()
@@ -478,6 +537,8 @@ def test_insufficient_evidence_only_offers_source_copy(app, search, answer, clip
         app.processEvents()
         assert not window.answer_top_button.isVisible()
         assert not window.copy_answer_button.isVisible()
+        assert not window.answer_section.isVisible()
+        assert window.evidence_body.isVisible()
         assert window.copy_source_button.isVisible()
         assert "가상으로 무시할 답변" not in window.detail_text.toPlainText()
         window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(0))
@@ -487,3 +548,91 @@ def test_insufficient_evidence_only_offers_source_copy(app, search, answer, clip
         assert clipboard.text() == URL
     finally:
         clipboard.clear()
+
+
+def test_source_selection_keeps_answer_and_reading_position(app, search, answer):
+    """여러 출처를 비교해도 답변과 인용 원문 및 답변을 읽던 위치를 유지한다."""
+    window, requests, _ = search
+    full = "답변의 첫 문단 [1]\n" + ("같은 답변을 읽고 있습니다.\n" * 100) + "끝 문단 [2]"
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], replace(answer, full_answer=full))
+    window.detail_button.click()
+    window.evidence_toggle.click()
+    app.processEvents()
+    scrollbar = window.detail_text.verticalScrollBar()
+    scrollbar.setValue(scrollbar.maximum() // 2)
+    position = scrollbar.value()
+    assert position > 0
+
+    window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
+    app.processEvents()
+    assert window.detail_text.toPlainText() == full
+    assert scrollbar.value() == position
+    assert window.evidence_text.toPlainText() == PDF_TEXT
+    assert FILE_PATH in window.source_details.toPlainText()
+    assert len(requests) == 1
+
+
+def test_folding_detail_preserves_selection_and_new_response_resets_sources(app, search, answer):
+    """같은 결과를 접었다 펴면 선택을 유지하고 새 응답은 근거 접힘 상태부터 시작한다."""
+    window, requests, _ = search
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], answer)
+    window.detail_button.click()
+    window.evidence_toggle.click()
+    window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
+    window.source_details_button.click()
+    assert window.source_details.isVisible()
+
+    window.collapse_button.click()
+    window.detail_button.click()
+    app.processEvents()
+    assert window.evidence_body.isVisible()
+    assert window.evidence_picker.currentData() == 1
+    assert window.source_details.isVisible()
+    assert FILE_PATH in window.source_details.toPlainText()
+
+    window.submit()
+    window.receive_result(requests[-1][0], replace(answer, evidence=answer.evidence[:1]))
+    window.detail_button.click()
+    app.processEvents()
+    assert not window.evidence_body.isVisible()
+    assert not window.source_details.isVisible()
+    assert window.evidence_picker.count() == 1
+    assert window.evidence_picker.currentData() == 0
+    assert FILE_PATH not in window.source_details.toPlainText()
+    assert URL in window.source_details.toPlainText()
+    window.close()
+    assert window.evidence_text.toPlainText() == ""
+    assert window.source_details.toPlainText() == ""
+    assert window.source_summary.text() == ""
+
+
+def test_answer_without_sources_does_not_offer_empty_evidence_controls(app, search):
+    """출처가 없는 답변에는 빈 출처 선택이나 복사 동작을 제시하지 않는다."""
+    window, requests, _ = search
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], CompactAnswer("answer", "짧은 요약", "제공된 전체 답변"))
+    window.detail_button.click()
+    app.processEvents()
+    assert window.answer_section.isVisible()
+    assert window.detail_text.toPlainText() == "제공된 전체 답변"
+    assert not window.evidence_section.isVisible()
+    assert not window.evidence_toggle.isVisible()
+    assert not window.copy_source_button.isVisible()
+
+
+def test_unavailable_answer_guidance_only_names_available_management_actions(search):
+    """답변 미지원 안내는 현재 사용할 수 있는 최근 기록·문서 가져오기로 연결한다."""
+    window, requests, _ = search
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], CompactAnswer("unavailable"))
+    message = window.status.text()
+    assert "준비 중" in message
+    assert "최근 기록" in message
+    assert "문서 가져오기" in message
+    assert "조건 검색" not in message

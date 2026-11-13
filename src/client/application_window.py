@@ -5,6 +5,7 @@ from PySide6.QtGui import QCloseEvent, QKeyEvent
 from PySide6.QtWidgets import QMenu, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from client.compact_search_window import CompactAnswer, CompactSearchWindow
+from client.theme import apply_client_style, set_role
 from client.window import MainWindow
 from client.window_geometry import fit_window
 from shared.activity import CurrentActivity
@@ -18,6 +19,7 @@ class ApplicationWindow(QWidget):
     def __init__(self, port: int = DEFAULT_PORT) -> None:
         """기존 API 클라이언트를 관리 화면에 한 번만 구성한다."""
         super().__init__()
+        apply_client_style(self)
         self.setWindowTitle("ContextTrace — 검색")
         self._management_open = False
         self._search_size = QSize(440, 112)
@@ -33,6 +35,7 @@ class ApplicationWindow(QWidget):
         management_layout = QVBoxLayout(self.management_panel)
         management_layout.setContentsMargins(0, 0, 0, 0)
         self.back_button = QPushButton("검색으로 돌아가기")
+        set_role(self.back_button, "secondary")
         management_layout.addWidget(self.back_button)
         self.management = MainWindow(port)
         # 작은 작업 영역에서는 관리 화면을 스크롤해 맨 아래 기능에도 접근한다.
@@ -61,7 +64,7 @@ class ApplicationWindow(QWidget):
         self.management.privacy.client.state_failed.connect(self._privacy_failed)
         self.management.privacy.client.changing.connect(self._privacy_changing)
         self._show_connection_status()
-        self.search.query.setPlaceholderText("검색어 입력 · 답변 기능 준비 중")
+        self.search.query.setPlaceholderText("검색할 내용 입력 · 검색 기능 준비 중")
         self.search.preferred_size_changed.connect(self._resize_search)
         self.search.search_requested.connect(self._answer_unavailable)
         self.back_button.clicked.connect(self.show_search)

@@ -37,6 +37,7 @@ Client 선행 기록 (Phase 1~11은 2026-10-15)과 2026-10-22의 `feat/client-ba
 | 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 정규화·분할·임베딩·저장/삭제·역추적 통합 |
 | 11 | Client DONE · 명시적 조건 검색·목록·출처 상세 | IN_PROGRESS · Backend 실제 필터·조회·정렬·통합 |
 | 12 | Client 미리보기 완료 (2026-11-06) · 자연어 입력·조건·관련 본문·순위 | IN_PROGRESS · 실제 의미 검색과 혼합 조건, API 연결 |
+| 13 | Client 표시 미리보기 정리 (2026-11-13) · 답변·근거 분리·본문과 출처 정보 전환 | IN_PROGRESS · 실제 RAG 요청·응답 계약과 API 연결 |
 
 Phase 1~11 개발 이력은 각 작업 시점의 검증 범위를 기록한다.
 구현 및 검증 근거: [Phase 2](../../docs/reports/phase2-client.md),
@@ -61,6 +62,8 @@ Phase 12 Client는 `main`에서 분기한 `feat/phase12-client`에서 가상 웹
 문서 가져오기·수동 브라우저 연결·저장 본문 조회와 `37c9b4a`의 403/잘림 안내를 유지한다.
 확인한 최신 `feat/phase10-backend`의 `c95b440`은 필수 문서 `context_id`, 서버 사본 경로, 브라우저 필드·조회 API 차이가 있어 별도로 유지한다.
 이번 범위와 후속 API 정합 작업은 [소형 Client–Backend 통합](../../docs/dev/compact-backend-integration.md)을 따른다.
+
+2026-11-13 `feat/client-reading-design`에서는 Client 안내·버튼·글자·여백을 정리하고 전체 답변과 근거의 읽기 영역을 나눈다. 일반 실행의 준비 상태는 최근 기록·문서 가져오기를 안내하며, 답변 화면은 가상 응답으로 검증한다. [Client 읽기 UI의 범위·검증 기준](../compact-search-window.md#client-읽기-ui-단계-2026-11-13)을 따른다. 실제 RAG 통합 체크와 Backend 계약은 기존 상태를 유지한다.
 
 매 작업의 구현·검증·미완료 항목을 코드·문서·PR에 기록하고, 최신 브랜치와 검증 근거로 완료 상태를 판단한다.
 

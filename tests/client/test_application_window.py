@@ -163,11 +163,14 @@ def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
 
 
 def test_normal_query_reports_answer_service_preparation_without_example_answer(shell):
-    """일반 검색은 실제 답변 계약의 준비 상태를 알리고 가상 답변을 표시하지 않는다."""
+    """준비 중인 검색은 실제 가능한 관리 경로를 안내하고 가상 답변을 표시하지 않는다."""
     search = shell.search
     search.query.setText(QUERY)
     QTest.keyClick(search.query, Qt.Key.Key_Return)
     assert "준비" in search.status.text()
+    assert "조건 검색" not in search.status.text()
+    assert "최근 기록" in search.status.text()
+    assert "문서" in search.status.text()
     assert not search.summary.isVisible()
     assert search.summary.text() == ""
     assert search.detail_text.toPlainText() == ""
@@ -287,6 +290,51 @@ def test_management_fits_small_screen_and_keeps_back_button_accessible(app, shel
     shell.back_button.click()
     app.processEvents()
     assert shell.search.isVisible()
+    assert bounds.contains(shell.frameGeometry())
+
+
+def test_source_information_fits_small_screen_and_keeps_detail_collapse_accessible(
+    app, shell, monkeypatch,
+):
+    """작은 화면에서도 긴 출처 원문을 읽으며 상세 접기 버튼을 화면 안에서 사용할 수 있다."""
+    bounds = QRect(30, 40, 360, 360)
+    screen = SimpleNamespace(availableGeometry=lambda: bounds)
+    monkeypatch.setattr(shell, "screen", lambda: screen)
+    monkeypatch.setattr(shell.search, "screen", lambda: screen)
+    address = "https://example.test/" + "original-source/" * 60
+    chunk = DocumentChunk(
+        "small-screen-chunk", "small-screen-record", 0, "화면 안에서 확인할 근거 본문",
+        SourceMetadata(
+            "web", "가상 앱", "chrome.exe", "길이가 긴 창 제목 " * 30,
+            "2026-11-13T09:00:00+09:00", "2026-11-13T09:02:00+09:00",
+            "2026-11-13T09:01:00+09:00", False,
+            browser=BrowserPage("chrome", "길이가 긴 페이지 제목 " * 30, address),
+        ),
+    )
+    search = shell.search
+    response = CompactAnswer("answer", "가상 요약", "가상 답변 [1]\n" * 50, (chunk,))
+    search.search_requested.disconnect()
+    search.search_requested.connect(lambda identifier, _query: search.receive_result(identifier, response))
+    search.query.setText(QUERY)
+    search.submit()
+    search.detail_button.click()
+    search.evidence_toggle.click()
+    search.source_details_button.click()
+    app.processEvents()
+
+    assert search.detail_panel.isVisible()
+    assert search.source_details.isVisible()
+    assert not search.evidence_text.isVisible()
+    assert address in search.source_details.toPlainText()
+    assert "small-screen-record" in search.source_details.toPlainText()
+    assert bounds.contains(shell.frameGeometry())
+    collapse_bounds = QRect(search.collapse_button.mapToGlobal(QPoint()), search.collapse_button.size())
+    assert search.collapse_button.isVisible() and bounds.contains(collapse_bounds)
+
+    search.collapse_button.click()
+    app.processEvents()
+    assert search.summary.isVisible()
+    assert not search.detail_panel.isVisible()
     assert bounds.contains(shell.frameGeometry())
 
 

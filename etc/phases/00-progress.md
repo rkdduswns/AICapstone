@@ -33,7 +33,7 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 | [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE | 4/20 | 2026-10-14 | feat/phase10-shared | 2026-10-16 (Shared) |
 | [011](phase011.md) | 조건 검색 | IN_PROGRESS · Client DONE | 9/25 | 2026-10-15 | feat/phase11-client | 2026-10-16 (Client) |
 | [012](phase012.md) | 의미 검색 및 혼합 검색 | IN_PROGRESS · Client 미리보기 완료 | 3/20 | 2026-11-06 | `feat/phase12-client` | — |
-| [013](phase013.md) | 근거 기반 RAG | NOT_STARTED | 0/25 | — | — | — |
+| [013](phase013.md) | 근거 기반 RAG | IN_PROGRESS · Client 표시 미리보기 | 0/25 | 2026-11-13 | `feat/client-reading-design` | — |
 | [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
 
 2026-10-15 선행 기록에서 후속으로 남긴 Phase 2~9 감지·시간 계산·저장·보호 검사·수집은 이후 가상 OS 입력과 실제 Backend HTTP·SQLite·문서 추출 라이브러리로 부분 통합했다.
@@ -54,6 +54,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
 |---|---|---|---|
+| 2026-11-13 | Client 읽기 UI 정리 | `feat/client-reading-design` | 안내·시각 규칙 정리, 전체 답변·접는 근거 영역 분리와 같은 근거 영역의 본문·출처 정보 전환. [범위·검증 기준](../compact-search-window.md#client-읽기-ui-단계-2026-11-13), 실제 RAG API 연결 잔여, main 미병합 |
 | 2026-11-13 | 소형 Client와 기존 HTTP 연결 통합 | `feat/compact-backend-integration` | `8947c21`의 소형 창과 `37c9b4a`의 수동 수집·403·잘림 안내를 연결. Windows Python 전체 568 통과·1 건너뜀, Node 11 통과. 최신 Backend `c95b440`은 계약 차이를 기록하고 별도 유지. [범위·검증](../../docs/dev/compact-backend-integration.md), main 미병합 |
 | 2026-10-26 | Windows EXE 배포 도구 | `feat/client-backend-integration` | Client/Backend 각각 onefile 빌드·실제 EXE 자동 검증·ZIP 배포, [실행·검증 범위](../../docs/dev/windows-exe.md). main 미병합, Phase 완료 개수는 유지 |
 | 2026-10-22 | 웹·문서 작업 이력 연결 | `feat/client-backend-integration` | 실제 FK/본문 조회·명시적 경로·수동 확장, Python 529·Node 8 통과. [실행/제한](../../docs/dev/history-source-linking.md), [검증](../../docs/reports/client-backend-integration.md). main 미병합 |
@@ -416,12 +417,12 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Client | 생성 답변 표시 | 미완료 | — | — | 미착수 |
-| Client | 답변 근거 목록 | 미완료 | — | — | 미착수 |
-| Client | 근거별 URL / 파일 경로 | 미완료 | — | — | 미착수 |
-| Client | 근거별 열람 시각 | 미완료 | — | — | 미착수 |
-| Client | 근거 상세보기 | 미완료 | — | — | 미착수 |
-| Client | 근거 부족 상태 표시 | 미완료 | — | — | 미착수 |
+| Client | 생성 답변 표시 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 가상 응답의 독립된 답변 영역, 실제 RAG 응답 연결 잔여. [읽기 UI](../compact-search-window.md) |
+| Client | 답변 근거 목록 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 가상 근거의 펼침·선택·정렬, 실제 응답 연결 잔여 |
+| Client | 근거별 URL / 파일 경로 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 같은 읽기 영역의 가상 출처 정보 전환·원문 복사, 실제 응답 연결 잔여 |
+| Client | 근거별 열람 시각 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 가상 근거의 열람·확보 시각 구분, 실제 응답 연결 잔여 |
+| Client | 근거 상세보기 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 답변과 독립된 근거 본문·출처 정보, 실제 응답 연결 잔여 |
+| Client | 근거 부족 상태 표시 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 답변 없이 가상 근거만 펼침, 실제 응답 연결 잔여 |
 | Backend | 상위 검색 근거 선택 | 미완료 | — | — | 미착수 |
 | Backend | 중복 근거 제거 | 미완료 | — | — | 미착수 |
 | Backend | 답변용 근거 구성 | 미완료 | — | — | 미착수 |

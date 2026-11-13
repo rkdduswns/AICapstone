@@ -6,6 +6,7 @@ from pathlib import Path
 
 from preview_phase12_client import SAMPLE_QUERY, sample_chunks
 from PySide6.QtCore import QTimer
+from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 from client.compact_search_window import CompactAnswer, CompactSearchWindow
@@ -17,10 +18,20 @@ def main() -> int:
     parser.add_argument("--state", choices=("answer", "empty", "insufficient", "error"),
                         default="answer")
     parser.add_argument("--snapshot", type=Path)
+    parser.add_argument("--font-file", type=Path, help="오프스크린 검증에 사용할 로컬 글꼴 파일")
     parser.add_argument("--view", choices=("compact", "summary", "detail"), default="summary",
                         help="PNG 저장 시 열어 둘 화면")
+    parser.add_argument("--evidence-view", choices=("collapsed", "expanded", "source"),
+                        default="collapsed", help="상세 PNG의 근거·출처 정보 펼침 상태")
     args = parser.parse_args()
     app = QApplication([sys.argv[0]])
+    if args.font_file is not None:
+        # 화면 없는 환경에서도 지정한 실제 글꼴로만 미리보기를 검증한다. 일반 Client 설정은 바꾸지 않는다.
+        font_id = QFontDatabase.addApplicationFont(str(args.font_file))
+        families = QFontDatabase.applicationFontFamilies(font_id)
+        if not families:
+            parser.error("지정한 글꼴 파일을 읽을 수 없습니다.")
+        app.setFont(QFont(families[0], 10))
     window = CompactSearchWindow()
     window.setWindowTitle("ContextTrace — 소형 검색 창 · 가상 응답")
     chunks = tuple(sample_chunks())
@@ -74,6 +85,9 @@ def main() -> int:
                     window.detail_button.click()
                 elif response.status == "insufficient":
                     window.evidence_button.click()
+                if args.evidence_view != "collapsed" and response.evidence:
+                    window.evidence_toggle.setChecked(True)
+                    window.source_details_button.setChecked(args.evidence_view == "source")
             QTimer.singleShot(50, snapshot)
 
     window.search_requested.connect(request)
