@@ -87,7 +87,7 @@ def main() -> int:
                     window.evidence_button.click()
                 if args.evidence_view != "collapsed" and response.evidence:
                     window.evidence_toggle.setChecked(True)
-                    window.source_details_button.setChecked(args.evidence_view == "source")
+                    window.source_details_action.setChecked(args.evidence_view == "source")
             QTimer.singleShot(50, snapshot)
 
     window.search_requested.connect(request)

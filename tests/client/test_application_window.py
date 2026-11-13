@@ -1,6 +1,7 @@
 """일반 실행의 작은 검색 창과 기존 관리 화면 사이의 연결을 검증한다."""
 
 import threading
+from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
@@ -99,26 +100,38 @@ def test_normal_start_is_small_and_opens_empty_results_manually(app, shell):
     assert shell.search.isVisible()
     assert not shell.management.isVisible()
     assert shell.search.query.hasFocus()
-    assert shell.search.management_button.isVisible()
+    assert shell.search.menu_button.isVisible()
+    assert shell.search.result_view_action in shell.search.main_menu.actions()
+    assert shell.search.result_view_action.isEnabled()
     assert shell.search.window() is shell
     assert shell.management.window() is shell
     assert not shell.search.search_button.isEnabled()
 
-    shell.search.results_button.click()
+    shell.search.result_view_action.trigger()
     app.processEvents()
     assert shell.search.empty_message.isVisible()
     assert shell.height() > initial.height()
-    shell.search.results_button.click()
+    shell.search.result_view_action.trigger()
     app.processEvents()
     assert shell.size() == initial
 
 
 def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
-    """관리 동작은 기존 한 인스턴스를 열고 돌아오면 입력·답변·정렬이 복원된다."""
+    """한 단계의 메뉴가 실제 관리 탭을 열고 왕복 뒤 입력·읽기·정렬 상태를 보존한다."""
     search, management = shell.search, shell.management
-    actions = search.management_button.menu().actions()
-    expected_tabs = [management.tabs.tabText(index) for index in range(management.tabs.count())]
-    assert [action.text() for action in actions] == expected_tabs
+    actions = shell.management_actions
+    expected = {
+        management.tabs.indexOf(management.recent): "최근 기록",
+        management.tabs.indexOf(management.documents): "문서 가져오기",
+        management.tabs.indexOf(management.privacy): "개인정보 설정",
+        0: "현재 작업·연결",
+    }
+    assert {index: action.text() for index, action in actions.items()} == expected
+    assert all(action.menu() is None for action in search.main_menu.actions())
+    assert all(action in search.main_menu.actions() for action in actions.values())
+    # 준비 중인 조건 검색은 기존 관리 탭에 남기되 기본 메뉴의 선택지로 권하지 않는다.
+    assert management.tabs.indexOf(management.search) >= 0
+    assert management.tabs.indexOf(management.search) not in actions
     assert shell.findChildren(MainWindow) == [management]
 
     chunk = DocumentChunk(
@@ -130,18 +143,22 @@ def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
             browser=BrowserPage("chrome", "가상 자료", "https://example.test/research"),
         ),
     )
-    response = CompactAnswer("answer", "가상 요약", "가상 전체 답변", (chunk,))
+    response = CompactAnswer("answer", "가상 요약", "가상 전체 답변", (
+        chunk, replace(chunk, id="fixture-second-chunk", chunk_index=1, text="두 번째 가상 본문" * 10),
+    ))
     # 일반 실행의 미지원 응답 대신 화면 상태 보존을 검사할 고정 응답을 주입한다.
     search.search_requested.disconnect()
     search.search_requested.connect(lambda identifier, _query: search.receive_result(identifier, response))
     search.query.setText(QUERY)
     search.submit()
     search.detail_button.click()
-    search.evidence_order.setCurrentIndex(search.evidence_order.findData("longest"))
+    search.evidence_toggle.click()
+    search.evidence_order_actions["longest"].trigger()
+    search.source_details_action.trigger()
     previous_size = shell.size()
     previous_detail = search.detail_text.toPlainText()
 
-    for index, action in enumerate(actions):
+    for index, action in actions.items():
         action.trigger()
         app.processEvents()
         assert shell.management is management and shell.search is search
@@ -158,7 +175,9 @@ def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
         assert search.query.text() == QUERY
         assert search.detail_panel.isVisible()
         assert search.detail_text.toPlainText() == previous_detail
-        assert search.evidence_order.currentData() == "longest"
+        assert search.evidence_order_actions["longest"].isChecked()
+        assert search.source_details_action.isChecked()
+        assert search.source_details.isVisible()
         assert shell.size() == previous_size
 
 
@@ -171,6 +190,7 @@ def test_normal_query_reports_answer_service_preparation_without_example_answer(
     assert "조건 검색" not in search.status.text()
     assert "최근 기록" in search.status.text()
     assert "문서" in search.status.text()
+    assert "메뉴" in search.status.text()
     assert not search.summary.isVisible()
     assert search.summary.text() == ""
     assert search.detail_text.toPlainText() == ""
@@ -319,7 +339,7 @@ def test_source_information_fits_small_screen_and_keeps_detail_collapse_accessib
     search.submit()
     search.detail_button.click()
     search.evidence_toggle.click()
-    search.source_details_button.click()
+    search.source_details_action.trigger()
     app.processEvents()
 
     assert search.detail_panel.isVisible()

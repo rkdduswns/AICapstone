@@ -33,7 +33,7 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 | [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE | 4/20 | 2026-10-14 | feat/phase10-shared | 2026-10-16 (Shared) |
 | [011](phase011.md) | 조건 검색 | IN_PROGRESS · Client DONE | 9/25 | 2026-10-15 | feat/phase11-client | 2026-10-16 (Client) |
 | [012](phase012.md) | 의미 검색 및 혼합 검색 | IN_PROGRESS · Client 미리보기 완료 | 3/20 | 2026-11-06 | `feat/phase12-client` | — |
-| [013](phase013.md) | 근거 기반 RAG | IN_PROGRESS · Client 표시 미리보기 | 0/25 | 2026-11-13 | `feat/client-reading-design` | — |
+| [013](phase013.md) | 근거 기반 RAG | IN_PROGRESS · Client 표시 미리보기 | 0/25 | 2026-11-13 | `feat/client-action-menus` | — |
 | [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
 
 2026-10-15 선행 기록에서 후속으로 남긴 Phase 2~9 감지·시간 계산·저장·보호 검사·수집은 이후 가상 OS 입력과 실제 Backend HTTP·SQLite·문서 추출 라이브러리로 부분 통합했다.
@@ -54,6 +54,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
 |---|---|---|---|
+| 2026-11-13 | Client 동작 메뉴 정리 | `feat/client-action-menus` | 보조 버튼을 기본·답변·근거의 한 단계 메뉴로 이동하고 상태에 맞는 항목만 제공. [범위·검증 기준](../compact-search-window.md#client-메뉴-정리-단계-2026-11-13), 서버 계약과 실제 RAG 체크 유지, main 미병합 |
 | 2026-11-13 | Client 읽기 UI 정리 | `feat/client-reading-design` | 안내·시각 규칙 정리, 전체 답변·접는 근거 영역 분리와 같은 근거 영역의 본문·출처 정보 전환. [범위·검증 기준](../compact-search-window.md#client-읽기-ui-단계-2026-11-13), 실제 RAG API 연결 잔여, main 미병합 |
 | 2026-11-13 | 소형 Client와 기존 HTTP 연결 통합 | `feat/compact-backend-integration` | `8947c21`의 소형 창과 `37c9b4a`의 수동 수집·403·잘림 안내를 연결. Windows Python 전체 568 통과·1 건너뜀, Node 11 통과. 최신 Backend `c95b440`은 계약 차이를 기록하고 별도 유지. [범위·검증](../../docs/dev/compact-backend-integration.md), main 미병합 |
 | 2026-10-26 | Windows EXE 배포 도구 | `feat/client-backend-integration` | Client/Backend 각각 onefile 빌드·실제 EXE 자동 검증·ZIP 배포, [실행·검증 범위](../../docs/dev/windows-exe.md). main 미병합, Phase 완료 개수는 유지 |

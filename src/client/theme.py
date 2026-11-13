@@ -42,6 +42,16 @@ QPushButton[uiRole="quiet"]:checked {
     background: palette(alternate-base);
     border-color: palette(highlight);
 }
+QPushButton[menuControl="true"] { padding-right: 18px; }
+QMenu {
+    background: palette(base);
+    color: palette(text);
+    border: 1px solid palette(mid);
+    padding: 4px;
+}
+QMenu::item { padding: 6px 24px 6px 28px; }
+QMenu::item:selected { background: palette(highlight); color: palette(highlighted-text); }
+QMenu::separator { height: 1px; background: palette(mid); margin: 4px 8px; }
 QLineEdit, QComboBox {
     padding: 4px 6px;
     border: 1px solid palette(mid);

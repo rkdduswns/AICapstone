@@ -1,8 +1,8 @@
 """일반 Client의 검색 화면과 기존 관리 화면을 한 창에서 전환한다."""
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QCloseEvent, QKeyEvent
-from PySide6.QtWidgets import QMenu, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtGui import QAction, QCloseEvent, QKeyEvent
+from PySide6.QtWidgets import QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from client.compact_search_window import CompactAnswer, CompactSearchWindow
 from client.theme import apply_client_style, set_role
@@ -46,14 +46,22 @@ class ApplicationWindow(QWidget):
         layout.addWidget(self.management_panel)
         self.management_panel.hide()
 
-        menu = QMenu(self.search.management_button)
-        for index in range(self.management.tabs.count()):
-            action = menu.addAction(self.management.tabs.tabText(index))
+        # 화면 표시와 관리 진입을 한 단계의 메뉴로 모으고 아직 미지원인 조건 검색은 노출하지 않는다.
+        self.management_actions: dict[int, QAction] = {}
+        self.search.main_menu.addSeparator()
+        for tab, label in (
+            (self.management.recent, "최근 기록"),
+            (self.management.documents, "문서 가져오기"),
+            (self.management.privacy, "개인정보 설정"),
+            (self.management.tabs.widget(0), "현재 작업·연결"),
+        ):
+            index = self.management.tabs.indexOf(tab)
+            action = self.search.main_menu.addAction(label)
+            action.setData(index)
             action.triggered.connect(
                 lambda _checked=False, tab_index=index: self.show_management(tab_index),
             )
-        self.search.management_button.setMenu(menu)
-        self.search.management_button.show()
+            self.management_actions[index] = action
         self.search.connection_button.show()
         self.search.connection_button.clicked.connect(lambda: self.show_management(0))
         self.management.check_started.connect(self._connection_check_started)

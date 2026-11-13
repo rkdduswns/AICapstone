@@ -88,22 +88,22 @@ def test_starts_compact_and_can_open_results_before_search(app, search):
     initial_pos = window.frameGeometry().topLeft()
     assert initial_size.width() <= 480 and initial_size.height() <= 150
     assert window.query.hasFocus()
-    assert window.results_button.isEnabled()
+    assert window.result_view_action.isEnabled()
     assert window.empty_message.isHidden()
     assert window.detail_panel.isHidden()
     assert window.search_button.isEnabled() is False
 
-    window.results_button.click()
+    window.result_view_action.trigger()
     app.processEvents()
     assert window.empty_message.isVisible()
     assert window.height() > initial_size.height()
     assert window.frameGeometry().topLeft() == initial_pos
     assert requests == []
 
-    QTest.keyClick(window.results_button, Qt.Key.Key_Escape)
+    QTest.keyClick(window.menu_button, Qt.Key.Key_Escape)
     assert window.empty_message.isHidden()
     assert window.size() == initial_size
-    assert window.results_button.hasFocus()
+    assert window.menu_button.hasFocus()
 
 
 def test_answer_expands_from_summary_to_exact_ordered_sources(app, search, answer):
@@ -134,7 +134,7 @@ def test_answer_expands_from_summary_to_exact_ordered_sources(app, search, answe
     assert window.detail_text.toPlainText() == FULL_ANSWER
     assert window.evidence_picker.count() == 2
     assert not window.evidence_body.isVisible()
-    assert not window.copy_source_button.isVisible()
+    assert not window.copy_source_action.isEnabled()
     window.evidence_toggle.click()
     assert window.evidence_body.isVisible()
     assert not window.source_details.isVisible()
@@ -143,7 +143,7 @@ def test_answer_expands_from_summary_to_exact_ordered_sources(app, search, answe
     assert "확보 당시 웹 제목" in window.source_summary.text()
     assert "웹" in window.source_summary.text()
     assert window.source_summary.textFormat() == Qt.TextFormat.PlainText
-    window.source_details_button.click()
+    window.source_details_action.trigger()
     assert window.source_details.isVisible()
     web = window.source_details.toPlainText()
     assert URL in web and FILE_PATH not in web
@@ -163,7 +163,7 @@ def test_answer_expands_from_summary_to_exact_ordered_sources(app, search, answe
     QTest.keyClick(window.detail_button, Qt.Key.Key_Escape)
     assert not window.summary.isVisible()
     assert window.size() == initial_size
-    assert window.results_button.hasFocus()
+    assert window.menu_button.hasFocus()
 
 
 def test_sorting_evidence_keeps_citation_numbers_and_selected_source(search, answer):
@@ -189,11 +189,11 @@ def test_sorting_evidence_keeps_citation_numbers_and_selected_source(search, ans
     window.receive_result(requests[0][0], replace(
         answer, full_answer=full_answer, evidence=(web, pdf, tied),
     ))
-    assert not window.evidence_order.isVisible()
+    assert not any(action.isEnabled() for action in window.evidence_order_actions.values())
     window.detail_button.click()
-    assert not window.evidence_order.isVisible()
+    assert not any(action.isEnabled() for action in window.evidence_order_actions.values())
     window.evidence_toggle.click()
-    assert window.evidence_order.isVisible()
+    assert all(action.isEnabled() for action in window.evidence_order_actions.values())
     window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
 
     for key, order in (
@@ -203,9 +203,10 @@ def test_sorting_evidence_keeps_citation_numbers_and_selected_source(search, ans
         ("shortest", [0, 1, 2]),
         ("relevance", [0, 1, 2]),
     ):
-        index = window.evidence_order.findData(key)
-        assert index >= 0
-        window.evidence_order.setCurrentIndex(index)
+        action = window.evidence_order_actions[key]
+        action.trigger()
+        assert action.isChecked()
+        assert window.evidence_order_group.checkedAction() is action
         assert [window.evidence_picker.itemData(row) for row in range(3)] == order
         for row, original in enumerate(order):
             number = original + 1
@@ -225,15 +226,15 @@ def test_hiding_results_during_search_defers_reveal_and_reuses_answer(app, searc
     window.query.setText(QUERY)
     window.submit()
     assert len(requests) == 1
-    window.results_button.click()
-    window.results_button.click()
+    window.result_view_action.trigger()
+    window.result_view_action.trigger()
     window.receive_result(requests[0][0], answer)
     app.processEvents()
     assert window.size() == initial_size
     assert not window.summary.isVisible()
     assert cancellations == []
 
-    window.results_button.click()
+    window.result_view_action.trigger()
     assert window.summary.isVisible()
     assert "".join(window.summary.text().split()) == "".join(SHORT_ANSWER.split())
     assert len(requests) == 1
@@ -350,7 +351,7 @@ def test_long_source_address_wraps_without_changing_original(app, search, answer
     window.receive_result(requests[-1][0], response)
     window.detail_button.click()
     window.evidence_toggle.click()
-    window.source_details_button.click()
+    window.source_details_action.trigger()
     app.processEvents()
     document = window.source_details.document()
     match = document.find(long_url)
@@ -479,39 +480,39 @@ def test_detail_actions_copy_original_values_and_return_to_answer_start(app, sea
         window.receive_result(requests[-1][0], response)
         window.detail_button.click()
         app.processEvents()
-        assert window.answer_top_button.isVisible()
-        assert window.copy_answer_button.isVisible()
-        assert not window.copy_source_button.isVisible()
+        assert window.answer_top_action.isEnabled()
+        assert window.copy_answer_action.isEnabled()
+        assert not window.copy_source_action.isEnabled()
         window.evidence_toggle.click()
-        assert window.copy_source_button.isVisible()
-        window.copy_answer_button.click()
+        assert window.copy_source_action.isEnabled()
+        window.copy_answer_action.trigger()
         assert clipboard.text() == full
         assert "복사" in window.detail_feedback.text()
 
         window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(0))
-        window.evidence_order.setCurrentIndex(window.evidence_order.findData("longest"))
+        window.evidence_order_actions["longest"].trigger()
         assert window.evidence_picker.currentData() == 0
-        window.copy_source_button.click()
+        window.copy_source_action.trigger()
         assert clipboard.text() == URL
         window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
         assert window.detail_feedback.text() == ""
-        window.copy_source_button.click()
+        window.copy_source_action.trigger()
         assert clipboard.text() == FILE_PATH
 
         scrollbar = window.detail_text.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
         assert scrollbar.value() > 0
-        window.answer_top_button.click()
+        window.answer_top_action.trigger()
         assert scrollbar.value() == 0
 
         window.query.setText("새 가상 질문")
         clipboard.setText("synthetic-after-edit")
-        for button in (
-            window.answer_top_button, window.copy_answer_button, window.copy_source_button,
+        for action in (
+            window.answer_top_action, window.copy_answer_action, window.copy_source_action,
         ):
-            assert not button.isVisible()
-        window.copy_answer_button.click()
-        window.copy_source_button.click()
+            assert not action.isEnabled()
+        window.copy_answer_action.trigger()
+        window.copy_source_action.trigger()
         assert clipboard.text() == "synthetic-after-edit"
         assert window.detail_text.toPlainText() == ""
         assert window.evidence_text.toPlainText() == ""
@@ -535,16 +536,16 @@ def test_insufficient_evidence_only_offers_source_copy(app, search, answer, clip
         )
         window.evidence_button.click()
         app.processEvents()
-        assert not window.answer_top_button.isVisible()
-        assert not window.copy_answer_button.isVisible()
+        assert not window.answer_top_action.isEnabled()
+        assert not window.copy_answer_action.isEnabled()
         assert not window.answer_section.isVisible()
         assert window.evidence_body.isVisible()
-        assert window.copy_source_button.isVisible()
+        assert window.copy_source_action.isEnabled()
         assert "가상으로 무시할 답변" not in window.detail_text.toPlainText()
         window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(0))
-        window.copy_source_button.click()
+        window.copy_source_action.trigger()
         assert clipboard.text() == URL
-        window.copy_answer_button.click()
+        window.copy_answer_action.trigger()
         assert clipboard.text() == URL
     finally:
         clipboard.clear()
@@ -583,7 +584,7 @@ def test_folding_detail_preserves_selection_and_new_response_resets_sources(app,
     window.detail_button.click()
     window.evidence_toggle.click()
     window.evidence_picker.setCurrentIndex(window.evidence_picker.findData(1))
-    window.source_details_button.click()
+    window.source_details_action.trigger()
     assert window.source_details.isVisible()
 
     window.collapse_button.click()
@@ -622,7 +623,7 @@ def test_answer_without_sources_does_not_offer_empty_evidence_controls(app, sear
     assert window.detail_text.toPlainText() == "제공된 전체 답변"
     assert not window.evidence_section.isVisible()
     assert not window.evidence_toggle.isVisible()
-    assert not window.copy_source_button.isVisible()
+    assert not window.copy_source_action.isEnabled()
 
 
 def test_unavailable_answer_guidance_only_names_available_management_actions(search):
@@ -636,3 +637,99 @@ def test_unavailable_answer_guidance_only_names_available_management_actions(sea
     assert "최근 기록" in message
     assert "문서 가져오기" in message
     assert "조건 검색" not in message
+
+
+def test_main_menu_has_one_depth_and_escape_does_not_open_results(app, search):
+    """항상 보이는 메뉴에서 빈 결과를 열 수 있고 메뉴만 닫을 때 검색 화면은 유지한다."""
+    window, requests, _ = search
+    assert window.menu_button.isVisible()
+    assert window.menu_button.menu() is window.main_menu
+    assert window.result_view_action in window.main_menu.actions()
+    assert all(action.menu() is None for action in window.main_menu.actions())
+    window.main_menu.popup(window.menu_button.mapToGlobal(QPoint(0, window.menu_button.height())))
+    app.processEvents()
+    assert window.main_menu.isVisible()
+    QTest.keyClick(window.main_menu, Qt.Key.Key_Escape)
+    app.processEvents()
+    assert not window.main_menu.isVisible()
+    assert not window.empty_message.isVisible()
+    assert not window.detail_panel.isVisible()
+    assert requests == []
+
+    window.result_view_action.trigger()
+    app.processEvents()
+    assert window.empty_message.isVisible()
+    assert requests == []
+
+
+def test_context_menus_expose_only_current_answer_and_source_actions(app, search, answer):
+    """답변·근거 메뉴는 한 단계에서 현재 화면에 유효한 복사·이동·정렬만 제공한다."""
+    window, requests, _ = search
+    assert not window.answer_menu_button.isVisible()
+    assert not window.evidence_menu_button.isVisible()
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], answer)
+    assert not window.copy_answer_action.isEnabled()
+    assert not window.copy_source_action.isEnabled()
+    window.detail_button.click()
+    app.processEvents()
+    assert window.answer_menu_button.isVisible()
+    assert window.copy_answer_action.isEnabled()
+    assert window.answer_top_action.isEnabled()
+    answer_actions = window.answer_menu_button.menu().actions()
+    assert window.copy_answer_action in answer_actions
+    assert window.answer_top_action in answer_actions
+    assert all(action.menu() is None for action in answer_actions)
+    assert not window.evidence_menu_button.isVisible()
+
+    window.evidence_toggle.click()
+    assert window.evidence_menu_button.isVisible()
+    source_actions = window.evidence_menu_button.menu().actions()
+    assert window.copy_source_action in source_actions
+    assert window.source_details_action in source_actions
+    assert all(action.menu() is None for action in source_actions)
+    assert all(action in source_actions and action.isEnabled()
+               for action in window.evidence_order_actions.values())
+    assert window.source_details_action.isCheckable()
+    assert not window.source_details_action.isChecked()
+    window.source_details_action.trigger()
+    assert window.source_details_action.isChecked()
+    assert window.source_details.isVisible() and not window.evidence_text.isVisible()
+    window.source_details_action.trigger()
+    assert not window.source_details_action.isChecked()
+    assert window.evidence_text.isVisible() and not window.source_details.isVisible()
+    window.evidence_toggle.click()
+    assert not window.evidence_menu_button.isVisible()
+    assert not window.copy_source_action.isEnabled()
+    assert not window.source_details_action.isEnabled()
+    assert len(requests) == 1
+
+
+def test_single_source_hides_sort_and_new_query_disables_stale_actions(
+    app, search, answer, clipboard,
+):
+    """정렬할 출처가 없으면 정렬을 숨기며 새 입력 뒤 이전 메뉴로 원문을 복사하지 않는다."""
+    window, requests, _ = search
+    window.query.setText(QUERY)
+    window.submit()
+    window.receive_result(requests[-1][0], replace(answer, evidence=answer.evidence[:1]))
+    window.detail_button.click()
+    window.evidence_toggle.click()
+    app.processEvents()
+    assert all(not action.isVisible() and not action.isEnabled()
+               for action in window.evidence_order_actions.values())
+    assert window.copy_source_action.isEnabled()
+    window.source_details_action.trigger()
+    assert window.source_details_action.isChecked()
+    window.query.setText("다음 가상 검색")
+    clipboard.setText("synthetic-no-stale-menu-copy")
+    for action in (window.copy_answer_action, window.answer_top_action,
+                   window.copy_source_action, window.source_details_action):
+        assert not action.isEnabled()
+        action.trigger()
+    assert not window.source_details_action.isChecked()
+    assert clipboard.text() == "synthetic-no-stale-menu-copy"
+    assert window.detail_text.toPlainText() == ""
+    assert window.source_details.toPlainText() == ""
+    assert window.evidence_text.toPlainText() == ""
