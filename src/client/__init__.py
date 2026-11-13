@@ -1,1 +1,1 @@
-"""ContextTrace desktop presentation and backend communication."""
+"""강써치 데스크톱 화면과 Backend 통신을 제공한다."""

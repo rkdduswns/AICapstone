@@ -1,6 +1,7 @@
 # Phase 11 명시적 조건 검색 API
 
-상태: Client/Shared 선행 구현 및 가상 HTTP 검증. Backend의 실제 저장소 검색은 미구현이다.
+상태: Client/Shared 선행 구현 및 가상 HTTP 검증. 현재 `client_dev`와 별도 `feat/phase10-backend`의 `c95b440` 모두 아래 실제 검색 HTTP 경로를 제공하지 않는다.
+이 문서의 Backend 필터·정렬 규칙은 구현할 계약이며, 별도 브랜치의 내부 검색 모듈이 이 API의 완료를 뜻하지 않는다.
 Client는 명시적으로 입력한 조건을 제출하고 반환한 작업 메타데이터를 표시한다.
 검색 요청을 제출하기 전에는 자동으로 기록을 조회하지 않는다.
 

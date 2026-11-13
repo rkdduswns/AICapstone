@@ -199,24 +199,27 @@ def test_empty_snapshot_and_preserved_text_with_limit():
     assert read_record_web_content(json.dumps(GOOD).encode(), "one", PAGE).content.text == TEXT
 
 
-def test_lazy_plain_text_refresh_truncated_and_empty(app, window, server):
-    """탭 진입 시만 요청하며 원문/수집 시각/일부 저장/빈 본문을 구분해 표시한다."""
+@pytest.mark.parametrize("partial_text", ["가상으로 잘린 본문", "한" * 50000],
+                         ids=["short-partial", "display-limit"])
+def test_lazy_plain_text_refresh_truncated_and_empty(app, window, server, partial_text):
+    """길이와 무관하게 서버의 잘림 표시를 따르고 전체·일부·빈 본문을 구분한다."""
     web = open_records(app, window)
     assert server[1]["requests"] == []
     window.recent.detail_tabs.setCurrentWidget(web)
     wait_for(app, lambda: web.loaded)
     assert web.text.toPlainText() == TEXT and web.text.isReadOnly()
+    assert "일부만 표시" not in web.status.text()
     assert PAGE.url in web.source.toPlainText() and PAGE.page_title in web.source.toPlainText()
     assert "수집 시각:" in web.source.toPlainText() and window.width() == 620
     assert server[1]["requests"] == [{"record_id": ["one"]}]
     window.recent.detail_tabs.setCurrentIndex(0)
     window.recent.detail_tabs.setCurrentWidget(web)
     assert len(server[1]["requests"]) == 1
-    server[1]["contents"]["one"] = replace(CONTENT, text="한" * 50000, truncated=True)
+    server[1]["contents"]["one"] = replace(CONTENT, text=partial_text, truncated=True)
     web.button.click()
     assert not web.source.toPlainText() and not web.text.toPlainText()
     wait_for(app, lambda: web.loaded)
-    assert "일부만 저장" in web.status.text() and len(web.text.toPlainText()) == 50000
+    assert "일부만 표시" in web.status.text() and web.text.toPlainText() == partial_text
     server[1]["contents"]["one"] = None
     web.button.click()
     wait_for(app, lambda: web.loaded)

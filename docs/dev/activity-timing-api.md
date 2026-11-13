@@ -1,6 +1,7 @@
 # Phase 3 Client 시간 표시 계약
 
-기준일: 2026-10-01. Client/Shared 구현. 실제 Backend 시간 추적은 미구현이다.
+계약 최초 작성: 2026-10-01. 2026-11-13 문서 대조 기준 `client_dev`에서는 실제 Backend의 세션 시간 추적·SQLite 저장과 Client 표시가 연결돼 있다.
+재방문 합산과 실제 Windows 창 전환 수동 검증은 남아 있다. [현재 통합 범위](compact-backend-integration.md)를 따른다.
 기존 `/activity/current`, API 버전 1 및 Phase 2 필드를 유지한다.
 
 ## 응답 확장
@@ -37,9 +38,9 @@ Client는 로컬 타이머나 현재 시각에서 시작 시각을 빼는 방식
 오류, 창 없음, 재확인 시 두 시간 영역을 즉시 비운다. 다음 정상 응답에서 복구한다.
 폴링 간격, timeout, 종료 취소 및 동일 제목의 선택/스크롤 보존은 Phase 2 규칙을 유지한다.
 
-Backend 구현 시 `src/shared/activity.py`의 `ActivityTiming`을 사용한다.
+현재 Backend는 `src/shared/activity.py`의 `ActivityTiming`을 사용한다.
 이 확장은 기존 Phase 2 Client가 추가 필드를 무시하는 규칙과 호환된다.
-Backend 브랜치에는 아직 적용하지 않았으므로 통합 전에 규격과 Shared 정의를 반영해야 한다.
-실제 Backend 시간 일치·1분 유지·A→B→A 계산·빠른 전환 병합은 후속 통합 검증이다.
+가상 감지기와 제어한 시계로 실제 HTTP·저장 경계를 검증한 결과와 실제 Windows 수동 검증은 구분한다.
+실제 창의 1분 유지·A→B→A 재방문 합산·빠른 전환 정책은 후속 검증이며, 현재 세션별 저장을 재방문 집계 완료로 해석하지 않는다.
 
 미리보기: `python tools/preview_phase3_client.py` (가상 데이터만 사용).

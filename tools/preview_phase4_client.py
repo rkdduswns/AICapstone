@@ -13,7 +13,7 @@ SAMPLES = [
                   "2026-10-01T09:00:00+09:00", "2026-10-01T09:40:00+09:00", 600000, 1),
     ContextRecord("sample-chrome", "Google Chrome", "chrome.exe", "가상 자료 — 작업 맥락 조사",
                   "2026-10-01T10:00:00+09:00", "2026-10-01T10:15:00+09:00", 65000, 3),
-    ContextRecord("sample-code", "Visual Studio Code", "Code.exe", "가상 작업.py — ContextTrace",
+    ContextRecord("sample-code", "Visual Studio Code", "Code.exe", "가상 작업.py — 강써치",
                   "2026-10-01T10:05:00+09:00", "2026-10-01T10:20:00+09:00", 120000, 2),
 ]
 UPDATES = count()

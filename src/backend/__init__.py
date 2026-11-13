@@ -1,1 +1,1 @@
-"""ContextTrace backend interfaces and application logic."""
+"""강써치 Backend 인터페이스와 애플리케이션 로직."""

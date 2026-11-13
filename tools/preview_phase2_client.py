@@ -27,7 +27,7 @@ from shared.records import RECENT_RECORDS_LIMIT, RECENT_RECORDS_PATH, RecentReco
 
 SAMPLES = (
     CurrentActivity("collecting", ActiveWindow(
-        "Google Chrome", "chrome.exe", 1234, "가상 자료 — ContextTrace 소개")),
+        "Google Chrome", "chrome.exe", 1234, "가상 자료 — 강써치 소개")),
     CurrentActivity("collecting", ActiveWindow(
         "Visual Studio Code", "Code.exe", 2345, "가상 작업.py — Visual Studio Code")),
     CurrentActivity("collecting", ActiveWindow(
@@ -100,7 +100,7 @@ def main(timing: bool = False,
     app = QApplication([sys.argv[0]])
     with preview_server(timing, records_provider) as port:
         window = MainWindow(port)
-        window.setWindowTitle(f"ContextTrace — Phase {phase} 미리보기 (가상 데이터)")
+        window.setWindowTitle(f"강써치 — Phase {phase} 미리보기 (가상 데이터)")
         window.layout().insertWidget(0, display_label(
             "가상 데이터 미리보기 · 실제 작업 정보는 수집하거나 저장하지 않습니다."))
         if records_provider:

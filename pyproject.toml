@@ -1,7 +1,7 @@
 [project]
-name = "contexttrace"
+name = "gangsearch"
 version = "0.1.0"
-description = "Windows 작업 로그 기반 개인 지식 출처 역추적 시스템"
+description = "강써치: Windows 작업 로그 기반 개인 지식 출처 역추적 시스템"
 requires-python = ">=3.11"
 dependencies = [
     "PySide6>=6.8,<7",
@@ -14,6 +14,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "httpx>=0.27,<1", "ruff>=0.9,<1"]
+# 실행 사용자에게는 설치되지 않는 Windows 패키징 전용 도구다.
+build = ["pyinstaller>=6.16,<7"]
 
 [build-system]
 requires = ["setuptools>=68"]

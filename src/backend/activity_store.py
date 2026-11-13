@@ -2,8 +2,10 @@
 """SQLite persistence for activity records."""
 
 import sqlite3
-from pathlib import Path
+from datetime import datetime, timezone
+from pathlib import Path, PureWindowsPath
 
+from backend.privacy_settings import StoredPrivacySettings
 from shared.activity import (
     ActiveWindow,
     ActivityRecord,
@@ -14,10 +16,24 @@ from shared.activity import (
 )
 
 
+def _activity_time_key(value: str) -> str | None:
+    """시간대와 소수초를 보존한 UTC 고정 길이 키로 실제 마지막 활성 순간을 비교한다."""
+    try:
+        instant = datetime.fromisoformat(value)
+        # 시간대가 없는 과거 기록은 기존 SQLite 날짜 함수와 같이 UTC로 해석한다.
+        if instant.tzinfo is None:
+            instant = instant.replace(tzinfo=timezone.utc)
+        return instant.astimezone(timezone.utc).isoformat(timespec="microseconds")
+    except (ValueError, OverflowError):
+        # 해석 불가인 기존 값은 julianday와 같이 NULL로 정렬한다. 저장 원문은 바꾸지 않는다.
+        return None
+
+
 class ActivityStore:
     """Persist activity, clipboard, browser, and document records."""
 
     def __init__(self, db_path: str | Path | None = None) -> None:
+        # 표시명 변경 후에도 기존 기록·보호 설정을 같은 DB에서 읽는다.
         self._db_path = (
             Path(db_path)
             if db_path is not None
@@ -135,6 +151,55 @@ class ActivityStore:
                     ON document_records(captured_at DESC, id DESC)
                     """
                 )
+                # 기존 데이터를 추측해 연결하지 않고 명시적인 연결만 새 테이블에 보존한다.
+                for kind, source_table in (("browser", "browser_source_records"),
+                                           ("document", "document_records")):
+                    connection.execute(
+                        f"CREATE TABLE IF NOT EXISTS record_{kind}_sources ("
+                        "record_id INTEGER NOT NULL REFERENCES activity_records(id) ON DELETE CASCADE, "
+                        f"source_id INTEGER NOT NULL UNIQUE REFERENCES {source_table}(id) "
+                        "ON DELETE CASCADE, PRIMARY KEY(record_id, source_id))"
+                    )
+                # 설정만 한 행에 저장하며 기존 작업·출처 행에는 손대지 않는다.
+                connection.execute(
+                    "CREATE TABLE IF NOT EXISTS privacy_settings ("
+                    "singleton INTEGER PRIMARY KEY CHECK(singleton = 1), payload TEXT NOT NULL)"
+                )
+        finally:
+            connection.close()
+
+    def load_privacy_settings(self) -> StoredPrivacySettings | None:
+        """저장 행 없음과 잘못된 저장 값을 구분하여 복원 실패를 호출자에게 알린다."""
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT payload FROM privacy_settings WHERE singleton = 1"
+            ).fetchone()
+            return StoredPrivacySettings.model_validate_json(row["payload"]) if row else None
+        finally:
+            connection.close()
+
+    def update_privacy_settings(
+        self, changes: dict, defaults: StoredPrivacySettings,
+    ) -> StoredPrivacySettings:
+        """최신 저장 상태에 요청 필드만 원자적으로 적용하고 커밋된 전체 설정을 반환한다."""
+        connection = self._connect()
+        try:
+            with connection:
+                # 읽기 전에 쓰기 잠금을 잡아 다른 필드의 동시 갱신을 덮어쓰지 않는다.
+                connection.execute("BEGIN IMMEDIATE")
+                row = connection.execute(
+                    "SELECT payload FROM privacy_settings WHERE singleton = 1"
+                ).fetchone()
+                current = (StoredPrivacySettings.model_validate_json(row["payload"])
+                           if row else defaults)
+                updated = StoredPrivacySettings.model_validate({**current.model_dump(), **changes})
+                connection.execute(
+                    "INSERT INTO privacy_settings(singleton, payload) VALUES (1, ?) "
+                    "ON CONFLICT(singleton) DO UPDATE SET payload = excluded.payload",
+                    (updated.model_dump_json(),),
+                )
+            return updated
         finally:
             connection.close()
 
@@ -180,12 +245,15 @@ class ActivityStore:
             connection.close()
 
     def get_recent_records(self, limit: int = 50) -> list[ActivityRecord]:
-        """Return recent activity records, newest first."""
+        """실제 마지막 활성 순간과 문자열 ID로 정렬한 뒤 요청한 개수만 반환한다."""
         if not 1 <= limit <= 200:
             raise ValueError("limit must be between 1 and 200")
 
         connection = self._connect()
         try:
+            # julianday의 부동소수점 변환은 서로 다른 마이크로초를 동률로 만들 수 있다.
+            # SQLite에서 정밀한 키로 정렬해야 LIMIT 밖으로 빠진 기록을 Client가 잃지 않는다.
+            connection.create_function("activity_time_key", 1, _activity_time_key, deterministic=True)
             rows = connection.execute(
                 """
                 SELECT
@@ -198,7 +266,7 @@ class ActivityStore:
                     ended_at,
                     active_duration_ms
                 FROM activity_records
-                ORDER BY started_at DESC, id DESC
+                ORDER BY activity_time_key(ended_at) DESC, CAST(id AS TEXT) ASC
                 LIMIT ?
                 """,
                 (limit,),
@@ -219,6 +287,91 @@ class ActivityStore:
             )
             for row in rows
         ]
+
+    def update_record(self, record_id: int, ended_at: str, active_duration_ms: int) -> None:
+        """수집 중 저장 ID를 유지하며 마지막 관측 시각과 경과 시간만 갱신한다."""
+        if active_duration_ms < 0:
+            raise ValueError("Invalid duration")
+        connection = self._connect()
+        try:
+            with connection:
+                cursor = connection.execute(
+                    "UPDATE activity_records SET ended_at = ?, active_duration_ms = ? WHERE id = ?",
+                    (ended_at, active_duration_ms, record_id),
+                )
+                if cursor.rowcount != 1:
+                    raise ValueError("Activity record not found")
+        finally:
+            connection.close()
+
+    def _linked_source(self, kind: str, record_id: int):
+        """고정된 내부 테이블 이름과 매개변수화한 실제 ID로 최신 출처를 조회한다."""
+        table, model = {"browser": ("browser_source_records", BrowserSourceRecord),
+                        "document": ("document_records", DocumentRecord)}[kind]
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                f"SELECT source.* FROM {table} AS source JOIN record_{kind}_sources AS link "
+                "ON link.source_id = source.id WHERE link.record_id = ? "
+                "ORDER BY source.id DESC LIMIT 1", (record_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        return model(**dict(row)) if row is not None else None
+
+    def get_record_browser(self, record_id: int) -> BrowserSourceRecord | None:
+        """실제 외래 키로 연결된 브라우저 출처만 반환한다."""
+        return self._linked_source("browser", record_id)
+
+    def get_record_document(self, record_id: int) -> DocumentRecord | None:
+        """명시적으로 연결한 문서 중 최신 항목을 반환한다. 이전 연결도 DB에 보존한다."""
+        return self._linked_source("document", record_id)
+
+    def source_record_id(self, kind: str, source_id: int) -> int | None:
+        """출처가 속한 작업을 확인하여 늦은 본문이 다른 작업에 저장되지 않게 한다."""
+        if kind not in ("browser", "document"):
+            raise ValueError("Invalid source kind")
+        connection = self._connect()
+        try:
+            row = connection.execute(f"SELECT record_id FROM record_{kind}_sources WHERE source_id = ?",
+                                     (source_id,)).fetchone()
+        finally:
+            connection.close()
+        return row[0] if row else None
+
+    def get_record(self, record_id: int) -> ActivityRecord | None:
+        """목록 제한과 무관하게 실제 저장 ID 하나를 조회한다. 외부 값을 SQL에 보간하지 않는다."""
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT * FROM activity_records WHERE id = ?", (record_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        return ActivityRecord(**dict(row)) if row is not None else None
+
+    def get_record_clipboard(self, record: ActivityRecord, limit: int) -> list[ClipboardRecord]:
+        """기존 DB의 애플리케이션·세션 시작 키로 연결된 복사 항목만 조회한다.
+
+        과거 스키마에 작업 외래 키가 없으므로 동일 키의 작업이 여러 개면 연결을 추측하지
+        않는다. 제목이나 단순한 시간 근접도로 다른 작업의 텍스트를 가져오지 않는다.
+        """
+        connection = self._connect()
+        try:
+            count = connection.execute(
+                "SELECT count(*) FROM activity_records WHERE application = ? AND started_at = ?",
+                (record.application, record.started_at),
+            ).fetchone()[0]
+            if count != 1:
+                return []
+            rows = connection.execute(
+                "SELECT * FROM clipboard_records WHERE application = ? AND activity_started_at = ? "
+                "ORDER BY julianday(captured_at) DESC, id DESC LIMIT ?",
+                (record.application, record.started_at, limit),
+            ).fetchall()
+        finally:
+            connection.close()
+        return [ClipboardRecord(**dict(row)) for row in rows]
 
     def save_clipboard_record(
         self,
@@ -299,8 +452,9 @@ class ActivityStore:
         url: str,
         page_title: str,
         captured_at: str,
+        activity_record_id: int | None = None,
     ) -> int:
-        """Save one browser page record and return its database ID."""
+        """브라우저 출처를 저장하고 명시한 작업 연결도 같은 트랜잭션에서 확정한다."""
         if not browser.strip():
             raise ValueError("browser must not be empty")
         if not url.strip():
@@ -325,7 +479,11 @@ class ActivityStore:
                     """,
                     (browser, url, page_title, captured_at),
                 )
-                return int(cursor.lastrowid)
+                source_id = int(cursor.lastrowid)
+                if activity_record_id is not None:
+                    connection.execute("INSERT INTO record_browser_sources VALUES (?, ?)",
+                                       (activity_record_id, source_id))
+                return source_id
         finally:
             connection.close()
 
@@ -379,7 +537,7 @@ class ActivityStore:
         connection = self._connect()
         try:
             with connection:
-                cursor = connection.execute(
+                connection.execute(
                     """
                     INSERT INTO browser_content_records (
                         browser_source_id,
@@ -387,10 +545,15 @@ class ActivityStore:
                         captured_at
                     )
                     VALUES (?, ?, ?)
+                    ON CONFLICT(browser_source_id) DO UPDATE SET
+                        content_text = excluded.content_text, captured_at = excluded.captured_at
                     """,
                     (browser_source_id, content_text, captured_at),
                 )
-                return int(cursor.lastrowid)
+                return connection.execute(
+                    "SELECT id FROM browser_content_records WHERE browser_source_id = ?",
+                    (browser_source_id,),
+                ).fetchone()[0]
         finally:
             connection.close()
 
@@ -431,9 +594,11 @@ class ActivityStore:
         file_path: str | Path,
         extracted_text: str,
         captured_at: str,
+        activity_record_id: int | None = None,
     ) -> int:
-        """Save document metadata and extracted text."""
-        path = Path(file_path)
+        """원문 경로·추출 본문을 보존하고 명시한 작업 연결도 함께 저장한다."""
+        windows_path = PureWindowsPath(file_path)
+        path = windows_path if windows_path.is_absolute() else Path(file_path)
 
         if not str(file_path).strip():
             raise ValueError("file_path must not be empty")
@@ -457,14 +622,18 @@ class ActivityStore:
                     VALUES (?, ?, ?, ?, ?)
                     """,
                     (
-                        str(path),
+                        str(file_path),
                         path.name,
                         path.suffix.lower(),
                         extracted_text,
                         captured_at,
                     ),
                 )
-                return int(cursor.lastrowid)
+                source_id = int(cursor.lastrowid)
+                if activity_record_id is not None:
+                    connection.execute("INSERT INTO record_document_sources VALUES (?, ?)",
+                                       (activity_record_id, source_id))
+                return source_id
         finally:
             connection.close()
 

@@ -1,5 +1,7 @@
 # 개발 환경
 
+Python 설치 없이 실행하려면 [Windows EXE 안내](windows-exe.md)를 따른다.
+
 의존성과 패키지를 설치한 뒤 Backend를 독립 실행할 수 있다. Client도 독립 실행할 수 있다.
 Client는 PySide6 Widgets, Backend는 FastAPI/Uvicorn을 사용한다.
 각각 별도 프로세스로 수동 실행하며 loopback HTTP/JSON으로 통신한다.
@@ -13,7 +15,7 @@ Python 3.11 이상과 Git을 준비한다. 기존 프로젝트의 Python 최소 
 ```powershell
 git clone https://github.com/rkdduswns/AICapstone.git
 cd AICapstone
-git switch main
+git switch client_dev
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m pip check
@@ -21,9 +23,12 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m ruff check src tests
 ```
 
-Phase 1 및 Phase 2–4 Client가 통합된 최신 main을 사용한다.
+위 예시는 2026-11-13에 완료된 Client 작업과 기존 실제 연결 기반을 모은 `client_dev` 기준이다.
+후속 통합본은 PR #17~20의 정렬·설정 영속화·읽기 전용 청크를 포함한다.
+확인 당시 `main`의 `7c30798`에는 소형 창과 PR #16 연결 후속 변경이 모두 들어 있지 않다.
+이후 실제 `main` 반영과 별도 Backend 적용 여부는 [브랜치 통합 기준](branch-integration.md)을 확인한다.
 가상환경 활성화 없이 해당 Python을 직접 사용하므로 PowerShell 실행 정책 변경이 필요 없다.
-이미 clone했다면 작업 중인 변경을 저장하고 `git fetch origin`, `git switch main`, `git pull --ff-only origin main`으로 갱신한다.
+이미 clone했다면 작업 중인 변경을 저장하고 `git fetch origin`, `git switch client_dev`, `git pull --ff-only origin client_dev`로 갱신한다.
 
 ## 다른 개발 환경에서 공통 코드 확인
 
@@ -60,6 +65,10 @@ Backend, Client Qt 이벤트 루프, 실제 HTTP 연결 및 실패/복구를 검
 
 ## Backend 실행 및 확인 (1A)
 
+현재 통합 브랜치의 실제 실행도 아래 두 터미널 명령을 사용한다. 과거 Phase 1 범위와
+현재 연결 상태의 차이는 [통합 검증 보고서](../reports/client-backend-integration.md)를 따른다.
+Windows에서는 창 감지가 동작하며 Linux에서는 `unsupported`가 정상이다.
+
 저장소 루트에서 설치를 마친 뒤 실행한다.
 
 ```powershell
@@ -76,6 +85,10 @@ Invoke-RestMethod http://127.0.0.1:8765/health | ConvertTo-Json -Depth 4
 Linux에서는 `.venv/bin/python -m backend`를 사용한다.
 포트 변경: `python -m backend --port 8766`. 1–65535 범위만 허용한다.
 기본 호스트는 127.0.0.1이며 외부 인터페이스로 변경하는 옵션은 제공하지 않는다.
+검증용 DB를 분리하려면 `--db-path "$env:TEMP\gangsearch-check\activity.db"`를 지정한다.
+생략하면 사용자 홈의 `.contexttrace/activity.db`를 사용하며 저장소 안에 DB를 만들지 않는다.
+현재 통합 소스는 일시정지·차단 프로그램·클립보드 사용 설정도 같은 DB에 저장한다.
+같은 DB에는 Backend 하나만 실행한다. 포트를 바꿔 별도 Backend를 실행해도 정책의 실시간 동기화는 제공하지 않는다.
 종료는 Ctrl+C. 사용 중인 포트로 실행하면 오류 로그와 비정상 종료 코드가 반환된다.
 Windows 자동 실행 검증과 사용자 확인 결과는 [검증 보고서](../reports/phase1-client-windows.md)를 따른다.
 
@@ -88,6 +101,15 @@ Backend와 별도의 터미널에서 실행한다.
 ```
 
 서버 포트를 변경했다면 Client에도 동일하게 `--port 8766`을 지정한다.
+연결 확인 후 현재 창·최근 기록·개인정보 설정을 사용한다. 최근 기록에는 진행 중인 세션도 포함한다.
+클립보드는 개인정보 보호 탭에서 명시적으로 켠다.
+`문서 가져오기` 탭에서는 PDF/DOCX 선택, 업로드, 목록 새로고침, 저장 본문을 확인한다.
+최근 기록에서 `선택한 작업에 문서 연결`을 누르면 해당 작업에 실제 선택 경로·본문을 연결한다.
+가져온 시각과 작업 시각은 별도로 보존한다. 일시정지 상태에서는 새 업로드도 거부된다.
+Chrome/Edge 확장 설치·토큰 설정과 문서 연결 방법은 [이력 연결 안내](history-source-linking.md)를 따른다.
+현재 통합 소스는 같은 DB로 Backend를 재실행하면 저장된 세 설정을 수집 전에 복원한다.
+설정 행이 없는 DB의 기본값은 수집 허용·빈 차단 목록·클립보드 꺼짐이다.
+저장·복원 오류의 중단 동작과 재확인 절차는 [개인정보 API 계약](privacy-api.md#설정-저장과-복원)을 따른다.
 Linux 자동 검증은 Qt offscreen을 사용하며 Windows에서는 기본 Windows Qt 플랫폼을 사용한다.
 
 ## Windows 10/11 수동 검증
@@ -107,7 +129,7 @@ GitHub Windows runner의 자동 테스트는 Windows Server 환경일 수 있으
 일반 실행은 `python -m client`이며 연결 확인 성공 후 현재 창 정보를 자동 조회한다.
 Phase 1 Backend에는 현재 창 API가 없어 `기능 준비 중`으로 표시된다.
 
-Backend 감지 구현 전에 가상 데이터로 화면을 확인하려면 저장소 루트에서 실행한다.
+실제 Windows 수집 대신 가상 데이터로 화면을 확인하려면 저장소 루트에서 실행한다.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/preview_phase2_client.py
@@ -149,7 +171,7 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 최근 20건, 마지막 활성 시각순, 선택 상세의 전체 제목·프로세스·시각·누적 활성 시간·재방문 횟수를 확인한다.
 새로고침 도중 버튼 잠금, 같은 ID 선택 복원, 긴 한글 제목의 상세 스크롤도 확인한다.
 빈 목록과 오류 표시, timeout/연결 재확인/창 종료, 기존 현재 창 표시는 자동 테스트로 검증한다.
-기존 Backend에는 기록 endpoint가 없어 `기능 준비 중`이 정상이다.
+최신 통합 Backend는 실제 SQLite 기록을 제공한다. 예전 Phase 1 Backend의 404 응답은 `기능 준비 중`으로 처리한다.
 
 전체 검증 명령은 위의 pytest/Ruff/pip check와 동일하다.
 [최근 기록 API 계약](recent-records-api.md)과 [Phase 4 검증 보고서](../reports/phase4-client.md)를 참고한다.
@@ -157,7 +179,7 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 
 ## Phase 5 Client 확인
 
-추가 의존성 없이 `feat/phase5-client`의 제어 화면과 가상 HTTP 응답을 확인한다.
+추가 의존성 없이 현재 통합본에 포함된 Phase 5 제어 화면과 가상 HTTP 응답을 확인한다.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/preview_phase5_client.py
@@ -169,14 +191,15 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 - `--reason sensitive_content`로 가상 민감 문자열 차단 표시를, `--snapshot <PNG 경로>`로 화면 저장을 확인한다.
 - 미리보기 입력은 프로세스 메모리에만 존재하고 창을 닫으면 사라진다. 실제 작업은 수집/필터/저장하지 않는다.
 
-자동 검증은 기존 pytest/Ruff/pip check 명령을 사용한다. 신규 검증 범위는 Client 계약·UI·가상 HTTP 요청이다.
-실제 일시정지 중 저장 방지, 차단 프로그램/민감 문자열 차단, 재개 후 저장 및 기존 기록 불변은 Backend 연결 후 수행한다.
-정상 실행에서 기존 Backend에 연결하면 보호 상태 `미확인`과 `기능 준비 중`이 표시되며 변경 버튼은 비활성화된다.
+자동 검증은 기존 pytest/Ruff/pip check 명령을 사용한다. 위 미리보기는 Client 계약·UI·가상 HTTP 요청 범위다.
+현재 통합본의 실제 HTTP·SQLite 검증은 [통합 보고서](../reports/client-backend-integration.md)를 따르며,
+실제 Windows에서 일시정지·차단·재개 중 수집과 기존 기록 불변을 확인하는 수동 검증은 남아 있다.
+최신 통합 Backend는 실제 일시정지·프로그램 차단을 지원한다. 예전 Backend의 미지원 응답에서는 변경 버튼을 비활성화한다.
 [개인정보 API 계약](privacy-api.md)과 [검증 보고서](../reports/phase5-client.md)를 따른다.
 
 ## Phase 6 Client 확인
 
-`feat/phase6-client`는 미병합 Phase 5 Client에 의존한다. 추가 의존성은 없다.
+Phase 5·6 Client는 현재 통합본에 함께 포함돼 있다. 아래 가상 미리보기만을 위한 추가 의존성은 없다.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/preview_phase6_client.py
@@ -193,12 +216,13 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 - 기존 Phase 5 응답에 클립보드 설정이 없으면 `기능 미지원`으로 표시하고 클립보드 변경 버튼만 잠근다.
 
 가상 HTTP 검증 및 기존 기능 회귀에는 기존 pytest/Ruff/pip check 명령을 사용한다.
-실제 클립보드 수집·중복 방지·작업 전환 연결·민감정보/일시정지 차단·저장은 Backend 연결 후 검증한다.
+현재 Backend의 수집기·작업 연결·중복 방지·필터·저장 경계는 자동 테스트에서 검증한다.
+실제 Windows 복사·빠른 창 전환·일시정지/차단 중 복사와 저장소 재조회는 남아 있는 수동 검증이다.
 [클립보드 API 계약](clipboard-api.md)과 [Phase 6 보고서](../reports/phase6-client.md)를 따른다.
 
 ## Phase 8 Client 확인
 
-`feat/phase8-client`는 미병합 Phase 7 Client에 의존한다. 추가 의존성은 없다.
+Phase 7·8 Client는 현재 통합본에 함께 포함돼 있다. 아래 가상 미리보기만을 위한 추가 의존성은 없다.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/preview_phase8_client.py
@@ -211,7 +235,7 @@ Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중
 - `--web-state empty`는 본문 없음, `truncated`는 길이 제한 안내와 50,000자 스크롤을 확인한다.
 - `--web-state unsupported`는 API 미지원, `denied`는 조회 거부를 확인한다.
 - `--snapshot <PNG 경로>`는 해당 결과를 화면 이미지로 저장하고 종료한다.
-- 현재 실제 Backend에는 새 endpoint가 없으며 가상 미리보기만 본문을 제공한다.
+- 최신 통합 Backend는 연결된 작업의 저장 본문 endpoint를 제공한다. 미리보기는 계속 가상 데이터만 사용한다.
 - 실제 브라우저·외부 URL·저장소를 읽지 않는다. 화면 성공은 실제 수집/저장/차단 검증과 별개다.
 
 검증 명령은 기존 pytest/Ruff/pip check와 동일하다.

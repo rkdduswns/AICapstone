@@ -1,17 +1,20 @@
 
 """Local HTTP boundary for health, activity, browser, and document APIs."""
 
+import asyncio
 import hmac
 import logging
 import os
+import sqlite3
 import tempfile
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path, PureWindowsPath
-from typing import Literal
+from typing import Callable, Literal
 
-from fastapi import FastAPI, File, Header, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -19,18 +22,28 @@ from starlette.exceptions import HTTPException
 
 from backend.activity_store import ActivityStore
 from backend.activity_tracker import ActivityTracker
+from backend.client_api import install_client_routes
+from backend.clipboard_collector import ClipboardCollector
 from backend.document_extractor import (
     MAX_DOCUMENT_SIZE,
     SUPPORTED_EXTENSIONS,
     extract_document_text,
 )
+from backend.history_sources import (
+    context_record,
+    install_source_routes,
+    require_browser_activity,
+    save_linked_browser,
+)
 from backend.privacy import PrivacyPolicy
+from backend.privacy_settings import StoredPrivacySettings
 from shared.activity import (
     ACTIVITY_HISTORY_PATH,
     ACTIVITY_PATH,
     BROWSER_CONTENT_PATH,
     BROWSER_SOURCE_PATH,
 )
+from shared.document import read_document
 from shared.protocol import (
     API_VERSION,
     SERVICE_NAME,
@@ -50,6 +63,8 @@ class BrowserSourceRequest(BaseModel):
     browser: Literal["chrome", "edge"]
     url: str = Field(min_length=1, max_length=4096)
     page_title: str = Field(min_length=1, max_length=500)
+    # 기존 수신 전용 요청은 None이다. 새 연결 요청은 관측한 실제 작업 ID를 반드시 보낸다.
+    record_id: int | None = Field(default=None, ge=1, le=2**63 - 1)
 
 
 class BrowserContentRequest(BaseModel):
@@ -60,8 +75,8 @@ class BrowserContentRequest(BaseModel):
 
 
 def get_health() -> HealthResponse:
-    """Return the backend health status."""
-    return HealthResponse(data=HealthStatus(version=version("contexttrace")))
+    """강써치 배포 메타데이터에서 버전을 읽고 기존 API 식별자를 유지한다."""
+    return HealthResponse(data=HealthStatus(version=version("gangsearch")))
 
 
 def error_response(
@@ -83,22 +98,165 @@ def create_app(
     browser_token: str | None = None,
     activity_store: ActivityStore | None = None,
     privacy_policy: PrivacyPolicy | None = None,
+    clipboard_reader: Callable[[], str | None] | None = None,
+    collection_interval: float | None = 1.0,
 ) -> FastAPI:
-    """Create the FastAPI application with injectable dependencies."""
+    """추적·설정·업로드가 같은 정책/저장소를 사용하며 수집 수명은 서버가 관리한다.
+
+    테스트는 감지기와 저장소를 주입하고 collection_interval=None으로 자동 폴링을 끈다.
+    실제 실행은 Client 탭/연결과 관계없이 수집하며 정상 종료 시 마지막 세션을 저장한다.
+    """
+    if collection_interval is not None and collection_interval <= 0:
+        raise ValueError("collection_interval must be positive")
+    tracker = activity_tracker or ActivityTracker()
+    policy = privacy_policy or tracker.privacy_policy
+    tracker.configure(store=activity_store, privacy_policy=policy)
+    collector = ClipboardCollector(tracker, privacy_policy=policy, clipboard_reader=clipboard_reader)
+    initial_settings = StoredPrivacySettings(
+        paused=policy.collection_paused,
+        blocked_processes=sorted(policy.blocked_applications),
+        clipboard_enabled=False,
+    )
+    settings_loaded = False
+
+    def stop_for_settings_failure() -> None:
+        """설정 오류의 수집 중단 구간을 시간에 더하지 않고 복사 수집도 즉시 끈다."""
+        tracker.finish()
+        policy.collection_paused = True
+        collector.set_enabled(False)
+        app.state.clipboard_enabled = False
+
+    def apply_settings(settings: StoredPrivacySettings, *, restoring: bool = False) -> None:
+        """정책 경계의 세션과 복사 기준을 정리한 뒤 복원·저장된 전체 상태를 적용한다."""
+        if restoring:
+            # 적용 실패 뒤 내부 사용 여부가 같아도 복원 이전의 복사를 새 이벤트로 읽지 않는다.
+            collector.reset_baseline()
+        policy_changed = (settings.paused != policy.collection_paused
+                          or set(settings.blocked_processes) != policy.blocked_applications)
+        if policy_changed:
+            tracker.finish()
+            if settings.clipboard_enabled == app.state.clipboard_enabled:
+                collector.reset_baseline()
+        collector.set_enabled(settings.clipboard_enabled)
+        policy.collection_paused = settings.paused
+        policy.blocked_applications = set(settings.blocked_processes)
+        app.state.clipboard_enabled = settings.clipboard_enabled
+
+    def ensure_settings() -> None:
+        """생성 시 DB를 열지 않고 최초 수집·요청 전에 저장된 보호 선택을 복원한다."""
+        nonlocal settings_loaded
+        if settings_loaded:
+            return
+        try:
+            saved = tracker.store.load_privacy_settings()
+            apply_settings(saved if saved is not None else initial_settings, restoring=True)
+        except Exception:
+            # 행 없음만 기본값이다. 손상·읽기 실패는 수집을 막고 저장 원문을 보존한다.
+            stop_for_settings_failure()
+            raise RuntimeError("개인정보 설정을 복원하지 못해 수집을 중지했습니다.") from None
+        settings_loaded = True
+
+    async def require_settings() -> None:
+        """lifespan 없는 요청도 수신 처리·저장 로직이나 추적기 호출 전에 설정을 복원한다."""
+        try:
+            ensure_settings()
+        except RuntimeError:
+            raise HTTPException(503) from None
+
+    def update_settings(changes: dict) -> None:
+        """설정 커밋 성공 이후에만 메모리에 반영하여 저장 실패를 성공으로 표시하지 않는다."""
+        nonlocal settings_loaded
+        ensure_settings()
+        defaults = StoredPrivacySettings(
+            paused=policy.collection_paused,
+            blocked_processes=sorted(policy.blocked_applications),
+            clipboard_enabled=app.state.clipboard_enabled,
+        )
+        try:
+            saved = tracker.store.update_privacy_settings(changes, defaults)
+        except Exception:
+            raise HTTPException(503) from None
+        try:
+            apply_settings(saved)
+        except Exception:
+            # 커밋 후 네이티브 기준 갱신이 실패해도 다음 복원 전까지 수집은 허용하지 않는다.
+            settings_loaded = False
+            stop_for_settings_failure()
+            raise HTTPException(503) from None
+
+    def sample_activity():
+        """한 스냅샷을 공유하고 클립보드 실패가 현재 창 조회를 중단하지 않게 한다."""
+        ensure_settings()
+        activity = tracker.get_current_activity()
+        try:
+            collector.collect_once(activity)
+        except Exception as exc:
+            logger.warning("Clipboard collection failed (%s)", type(exc).__name__)
+        return activity
+
+    async def collect_loop():
+        """동일 이벤트 루프에서 설정 변경과 직렬화하여 변경 완료 후 옛 정책으로 쓰지 않는다."""
+        restore_failed = False
+        while True:
+            try:
+                sample_activity()
+                restore_failed = False
+            except RuntimeError:
+                # 설정 적용 오류 뒤에도 루프는 유지하되 복원이 성공하기 전에는 수집하지 않는다.
+                if not restore_failed:
+                    logger.warning("Privacy settings unavailable; collection remains paused")
+                restore_failed = True
+            await asyncio.sleep(collection_interval)
+
+    @asynccontextmanager
+    async def lifespan(app):
+        """서버 시작 시 수집을 예약하고 종료 시 타이머와 마지막 기록을 정리한다."""
+        ensure_settings()
+        task = asyncio.create_task(collect_loop()) if collection_interval is not None else None
+        try:
+            yield
+        finally:
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass  # 정상 종료 시 취소한 수집 루프의 완료를 기다린 결과다.
+            tracker.finish()
+
     app = FastAPI(
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
         redirect_slashes=False,
+        lifespan=lifespan,
+        dependencies=[Depends(require_settings)],
     )
-    app.state.activity_tracker = activity_tracker or ActivityTracker()
+    app.state.activity_tracker = tracker
+    app.state.clipboard_collector = collector
+    app.state.clipboard_enabled = False
+    # 새 이름이 명시적으로 비어 있으면 구형 토큰으로 되돌리지 않는다.
     app.state.browser_token = (
         browser_token
         if browser_token is not None
-        else os.environ.get("CONTEXTTRACE_BROWSER_TOKEN", "")
+        else os.environ.get("GANGSEARCH_BROWSER_TOKEN", os.environ.get("CONTEXTTRACE_BROWSER_TOKEN", ""))
     )
     app.state.activity_store = activity_store
-    app.state.browser_privacy_policy = privacy_policy or PrivacyPolicy()
+    app.state.browser_privacy_policy = policy
+    app.state.update_privacy_settings = update_settings
+    install_client_routes(app)
+    install_source_routes(app)
+
+    def get_store():
+        """추적기와 업로드 API가 같은 저장소를 지연 생성해 사용한다."""
+        store = tracker.store
+        app.state.activity_store = store
+        return store
+
+    def check_collection(text: str | None = None) -> None:
+        """수신 시작과 저장 직전에 같은 정책을 확인하여 일시정지 중 새 자료를 쓰지 않는다."""
+        if policy.collection_paused or (text is not None and policy.contains_sensitive_data(text)):
+            raise HTTPException(403)
 
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
@@ -106,7 +264,7 @@ def create_app(
 
     @app.get(ACTIVITY_PATH)
     async def current_activity():
-        activity = app.state.activity_tracker.get_current_activity()
+        activity = sample_activity()
         return asdict(activity_response(activity))
 
     @app.get(ACTIVITY_HISTORY_PATH)
@@ -120,7 +278,7 @@ def create_app(
 
     @app.get(RECENT_RECORDS_PATH)
     async def recent_records(
-    limit: int = Query(default=RECENT_RECORDS_LIMIT, ge=1, le=200),
+        limit: int = Query(default=RECENT_RECORDS_LIMIT, ge=1, le=RECENT_RECORDS_LIMIT),
     ):
         records = app.state.activity_tracker.get_recent_records(limit)
 
@@ -129,26 +287,20 @@ def create_app(
             "data": {
                 "service": SERVICE_NAME,
                 "api_version": API_VERSION,
-                "records": [
-                    {
-                        "id": str(record.id),
-                        "application": record.application,
-                        "process_name": record.process_name,
-                        "window_title": record.window_title,
-                        "started_at": record.started_at,
-                        "last_active_at": record.ended_at,
-                        "active_duration_ms": record.active_duration_ms,
-                        "foreground_count": 1,
-                    }
-                    for record in records
-                ],
+                "records": [asdict(context_record(get_store(), record)) for record in records],
             },
             "error": None,
         }
 
     @app.post("/documents", status_code=201)
-    async def upload_document(file: UploadFile = File(...)):
-        """Extract and persist an uploaded PDF or DOCX document."""
+    async def upload_document(
+        request: Request,
+        file: UploadFile = File(...),
+        record_id: int | None = Form(default=None, ge=1, le=2**63 - 1),
+        file_path: str | None = Form(default=None, max_length=8192),
+    ):
+        """선택한 문서를 추출하고 명시된 작업에만 경로와 함께 연결한다. 경로로 파일을 읽지 않는다."""
+        check_collection()
         original_filename = PureWindowsPath(file.filename or "").name
 
         if not original_filename or original_filename in {".", ".."}:
@@ -164,11 +316,26 @@ def create_app(
                 detail="Only PDF and DOCX files are supported",
             )
 
+        if record_id is not None:
+            if (request.headers.get("origin") is not None
+                    or request.headers.get("x-contexttrace-client") != "desktop"):
+                raise HTTPException(403)
+            if get_store().get_record(record_id) is None:
+                raise HTTPException(404)
+            try:
+                source = read_document({"file_path": file_path, "file_type": suffix[1:]})
+                if PureWindowsPath(source.file_path).name.casefold() != original_filename.casefold():
+                    raise ValueError("Filename does not match source")
+            except ValueError as exc:
+                raise HTTPException(422) from exc
+        else:
+            file_path = None  # 연결 없는 기존 업로드에는 출처 경로를 임의로 부여하지 않는다.
+
         temporary_path: Path | None = None
 
         try:
             with tempfile.NamedTemporaryFile(
-                prefix="contexttrace-",
+                prefix="gangsearch-",
                 suffix=suffix,
                 delete=False,
             ) as temporary_file:
@@ -204,17 +371,18 @@ def create_app(
 
         captured_at = datetime.now(timezone.utc).isoformat()
 
-        store = app.state.activity_store
-        if store is None:
-            store = ActivityStore()
-            app.state.activity_store = store
+        store = get_store()
+        check_collection(extracted_text)
 
         try:
             document_id = store.save_document_record(
-                file_path=original_filename,
+                file_path=file_path or original_filename,
                 extracted_text=extracted_text,
                 captured_at=captured_at,
+                activity_record_id=record_id,
             )
+        except sqlite3.IntegrityError as exc:
+            raise HTTPException(404) from exc
         except ValueError as exc:
             raise HTTPException(
                 status_code=422,
@@ -229,6 +397,8 @@ def create_app(
                 "file_type": suffix,
                 "extracted_text": extracted_text,
                 "captured_at": captured_at,
+                "activity_record_id": record_id,
+                "file_path": file_path,
             },
             "error": None,
         }
@@ -237,17 +407,15 @@ def create_app(
     async def list_documents(
         limit: int = Query(default=50, ge=1, le=200),
     ):
-        """Return recently uploaded documents."""
-        store = app.state.activity_store
-        if store is None:
-            store = ActivityStore()
-            app.state.activity_store = store
+        """최근 가져온 문서와 실제로 연결된 작업 ID를 함께 반환한다."""
+        store = get_store()
 
         records = store.get_recent_document_records(limit)
 
         return {
             "ok": True,
-            "data": {"documents": [asdict(record) for record in records]},
+            "data": {"documents": [dict(asdict(record),
+                activity_record_id=store.source_record_id("document", record.id)) for record in records]},
             "error": None,
         }
 
@@ -287,6 +455,7 @@ def create_app(
             )
 
         policy = app.state.browser_privacy_policy
+        check_collection()
         try:
             sanitized_url = policy.sanitize_browser_url(url)
         except ValueError as exc:
@@ -298,17 +467,16 @@ def create_app(
         sanitized_title = policy.sanitize_title(page_title)
         captured_at = datetime.now(timezone.utc).isoformat()
 
-        store = app.state.activity_store
-        if store is None:
-            store = ActivityStore()
-            app.state.activity_store = store
+        store = get_store()
 
-        record_id = store.save_browser_source_record(
-            browser=payload.browser,
-            url=sanitized_url,
-            page_title=sanitized_title,
-            captured_at=captured_at,
-        )
+        linked_record_id = payload.record_id
+        if linked_record_id is not None:
+            record_id, linked_record_id = save_linked_browser(
+                tracker, linked_record_id, payload.browser, sanitized_url, sanitized_title, captured_at)
+            captured_at = store.get_record_browser(linked_record_id).captured_at
+        else:
+            record_id = store.save_browser_source_record(
+                payload.browser, sanitized_url, sanitized_title, captured_at)
 
         return {
             "ok": True,
@@ -318,6 +486,7 @@ def create_app(
                 "url": sanitized_url,
                 "page_title": sanitized_title,
                 "captured_at": captured_at,
+                "activity_record_id": str(linked_record_id) if linked_record_id is not None else None,
             },
             "error": None,
         }
@@ -350,18 +519,23 @@ def create_app(
             )
 
         content_text = payload.content_text.strip()
+        check_collection(content_text)
         if not content_text:
             raise HTTPException(
                 status_code=422,
                 detail="Page content must not be empty",
             )
 
-        store = app.state.activity_store
-        if store is None:
-            store = ActivityStore()
-            app.state.activity_store = store
+        store = get_store()
 
         captured_at = datetime.now(timezone.utc).isoformat()
+
+        linked_record_id = store.source_record_id("browser", payload.browser_source_id)
+        if linked_record_id is not None:
+            page = store.get_record_browser(linked_record_id)
+            if page is None or page.id != payload.browser_source_id:
+                raise HTTPException(409)
+            require_browser_activity(tracker, linked_record_id, page.browser)
 
         try:
             content_id = store.save_browser_content_record(
