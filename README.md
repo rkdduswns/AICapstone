@@ -9,6 +9,7 @@ ContextTrace는 Windows 환경에서 사용자의 작업 맥락을 자동으로 
 - [기획 및 추상설계](etc/기획-및-추상설계.md)
 - [개발 지침](etc/개발-지침.md)
 - [개발 Phase](etc/phases/README.md)
+- [Client 개발 브랜치 통합 기준](docs/dev/branch-integration.md)
 - [Phase 전체 체크리스트·작업 이력](etc/phases/00-progress.md)
 - [Phase 1 완료 조건](etc/phases/phase001.md)
 - [개발 환경 설치](docs/dev/development-setup.md)
@@ -45,6 +46,10 @@ main에 Backend의 Windows 감지·세션 저장·브라우저 수신·문서 �
 Chrome/Edge는 확장 버튼으로 수동 연결하며 문서는 최근 기록에서 대상을 선택해 연결합니다.
 Windows 수동 검증, 재방문 집계, 자동 탭/파일 감지와 실제 검색은 남아 있습니다.
 최신 진행 상태와 검증 근거는 [개발 Phase](etc/phases/README.md)에 기록합니다.
+
+2026-11-13부터 완료된 Client 작업의 개발 통합 기준은 `client_dev`입니다.
+소형 UI와 기존 실제 연결 기반을 함께 보존하며, `main` 반영과 별도 Backend 작업은
+[브랜치 통합 기준](docs/dev/branch-integration.md)에 따라 구분합니다.
 
 설치 후 `python -m backend`로 Backend를 실행하고 `http://127.0.0.1:8765/health`에서 확인합니다.
 검증 명령: `python -m pytest -q`, `python -m ruff check src tests`.

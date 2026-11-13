@@ -6,6 +6,11 @@ Phase 1~11 Client 선행 기록은 **2026-10-15 (KST)**의 main `d9c47d1be546908
 Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서 분기해 별도로 기록했다.
 **2026-11-13 (KST)**에는 `feat/compact-backend-integration`에서 작은 검색창과 기존 수동 수집·이력 연결을 통합한다. 최신 Backend 별도 브랜치와의 계약 차이 및 이번 범위는 [소형 Client–Backend 통합](../../docs/dev/compact-backend-integration.md)에 기록한다.
 
+같은 날 완료된 Client 계열 작업의 개발 통합 기준을 `client_dev`로 모았다.
+병합 커밋 `2927871`은 `main`의 `7c30798`과 Client 작업 끝 `7586349`를 부모로 가지며, 기존 Client 코드 트리를 유지한다.
+원래 작업 브랜치·검증 이력과 실제 Phase 체크는 보존하고 `main` 반영 여부는 별도로 관리한다.
+[브랜치별 포함 범위와 정리 기준](../../docs/dev/branch-integration.md)을 따른다.
+
 ## 읽는 방법과 갱신 규칙
 
 - 아래에는 개별 Phase의 모든 체크 항목을 영역별로 모았다. 목표·설계 설명은 개별 문서를 따른다.
@@ -54,6 +59,7 @@ Backend 구현 자체는 2026-10-21 main에 병합됐다. 이번 통합 브랜�
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
 |---|---|---|---|
+| 2026-11-13 | 완료 Client 작업 통합 기준 정리 | `client_dev` | `7c30798`과 `7586349`를 `2927871`로 병합, 기존 코드 트리 동일·Client 8개 작업 끝의 조상 포함 확인. 원격 게시 확인 후 완료 로컬 참조 정리. [포함·제외 범위와 검증 기록](../../docs/dev/branch-integration.md), main 미반영 |
 | 2026-11-13 | Client 근거 선택·인용 강조 | `feat/client-evidence-highlights` | 근거 선택 줄 상시 표시, 내용 표시를 메뉴로 이동, 세 메뉴 아이콘과 원래 근거 번호의 명시적 인용 강조·직접 이동. [범위·검증 기준](../compact-search-window.md#client-근거-선택과-인용-강조-단계-2026-11-13), 실제 RAG 연결 잔여, main 미병합 |
 | 2026-11-13 | Client 동작 메뉴 정리 | `feat/client-action-menus` | 보조 버튼을 기본·답변·근거의 한 단계 메뉴로 이동하고 상태에 맞는 항목만 제공. [범위·검증 기준](../compact-search-window.md#client-메뉴-정리-단계-2026-11-13), 서버 계약과 실제 RAG 체크 유지, main 미병합 |
 | 2026-11-13 | Client 읽기 UI 정리 | `feat/client-reading-design` | 안내·시각 규칙 정리, 전체 답변·접는 근거 영역 분리와 같은 근거 영역의 본문·출처 정보 전환. [범위·검증 기준](../compact-search-window.md#client-읽기-ui-단계-2026-11-13), 실제 RAG API 연결 잔여, main 미병합 |
