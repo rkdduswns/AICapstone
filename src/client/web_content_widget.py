@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from client.theme import set_reading_text
 from client.time_values import format_timestamp
 from client.web_content_client import WebContentClient
 from shared.browser import BrowserPage
@@ -42,6 +43,11 @@ class WebContentWidget(QWidget):
         header.addWidget(self.status, 1)
         header.addWidget(self.button)
         layout.addLayout(header)
+        self.guidance = QLabel("최근 기록에서 작업을 선택해 주세요.")
+        self.guidance.setTextFormat(Qt.TextFormat.PlainText)
+        self.guidance.setWordWrap(True)
+        self.guidance.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        layout.addWidget(self.guidance)
         # 긴 제목/URL 때문에 앱 전체가 커지지 않도록 출처도 높이가 고정된 텍스트 영역을 쓴다.
         self.source = QPlainTextEdit()
         self.source.setReadOnly(True)
@@ -75,6 +81,9 @@ class WebContentWidget(QWidget):
         else:
             message = "웹 본문 조회 대기"
         self.status.setText(message)
+        self.guidance.setText("최근 기록에서 작업을 선택해 주세요." if identifier is None else
+                              "웹페이지 출처가 있는 다른 기록을 선택해 주세요.")
+        self.guidance.setVisible(not self._can_fetch())
         self.button.setEnabled(self._can_fetch())
 
     def _can_fetch(self) -> bool:
@@ -93,6 +102,7 @@ class WebContentWidget(QWidget):
         self._clear_content()
         self.loaded = False
         self.status.setText("저장된 웹 본문 조회 중")
+        self.guidance.hide()
         self.button.setEnabled(False)
         self.client.fetch(self.record_id, self.page)
 
@@ -105,13 +115,16 @@ class WebContentWidget(QWidget):
         content = result.content
         if content is None:
             self.status.setText("이 작업에 저장된 웹 본문이 없습니다.")
+            self.guidance.setText("다른 작업 기록을 선택하거나, 본문을 저장한 뒤 새로고침해 주세요.")
+            self.guidance.show()
         else:
+            self.guidance.hide()
             browser = "Chrome" if content.page.browser == "chrome" else "Edge"
             self.source.setPlainText(
                 f"{browser} · {content.page.page_title or '(제목 없음)'}\nURL: {content.page.url}\n"
                 f"수집 시각: {format_timestamp(content.captured_at)}")
             # HTML 파싱/외부 리소스 로드를 하지 않는다. 태그 모양의 원문도 글자로만 표시한다.
-            self.text.setPlainText(content.text)
+            set_reading_text(self.text, content.text)
             message = f"저장된 웹 본문 · {len(content.text):,}자"
             if content.truncated:
                 # 서버의 표시를 따르되 수집 제한과 조회 제한 중 어느 원인인지 추정하지 않는다.
@@ -131,4 +144,8 @@ class WebContentWidget(QWidget):
         self._clear_content()
         self.loaded = False
         self.status.setText(message)
+        # 조회 거부·미지원·연결 실패를 빈 본문으로 바꾸거나 저장을 재시도하지 않는다.
+        self.guidance.setText("연결·기능 지원·개인정보 설정을 먼저 확인해 주세요. "
+                              "새로고침은 저장된 본문만 다시 조회합니다.")
+        self.guidance.show()
         self.button.setEnabled(self._can_fetch())

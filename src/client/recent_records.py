@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTableWidget,
@@ -25,6 +26,8 @@ from PySide6.QtWidgets import (
 from client.clipboard_widget import ClipboardWidget
 from client.document_content_widget import DocumentContentWidget
 from client.records_client import RecordsClient
+from client.source_actions import SourceActionsButton
+from client.text_find import TextFindBar
 from client.theme import set_reading_text, set_role
 from client.time_values import format_duration, format_timestamp, parse_timestamp
 from client.web_content_widget import WebContentWidget
@@ -54,6 +57,11 @@ class RecentRecordsWidget(QWidget):
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+        self.guidance = QLabel("현재 작업·연결에서 연결 상태를 확인해 주세요.")
+        self.guidance.setTextFormat(Qt.TextFormat.PlainText)
+        self.guidance.setWordWrap(True)
+        self.guidance.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        layout.addWidget(self.guidance)
         self.button = QPushButton("최근 기록 새로고침")
         self.button.setEnabled(False)
         self.button.clicked.connect(self.refresh)
@@ -66,7 +74,16 @@ class RecentRecordsWidget(QWidget):
         controls.addWidget(self.button)
         controls.addWidget(self.attach_button)
         controls.addStretch(1)
+        self.source_actions = SourceActionsButton(self)
+        self.source_actions.message.connect(self._show_source_message)
+        controls.addWidget(self.source_actions)
         layout.addLayout(controls)
+        self.source_feedback = QLabel()
+        self.source_feedback.setTextFormat(Qt.TextFormat.PlainText)
+        self.source_feedback.setWordWrap(True)
+        self.source_feedback.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.source_feedback.hide()
+        layout.addWidget(self.source_feedback)
         self.filter_edit = QLineEdit()
         self.filter_edit.setAccessibleName("불러온 최근 기록 빠른 필터")
         self.filter_edit.setPlaceholderText(
@@ -132,8 +149,15 @@ class RecentRecordsWidget(QWidget):
         self.document_content = DocumentContentWidget(port, self)
         self.detail_tabs.addTab(self.document_content, "문서 본문")
         self.detail_tabs.setMinimumHeight(170)
+        self.find_bar = TextFindBar(self.detail, self, shortcut_owner=self)
         self.detail_tabs.currentChanged.connect(self._detail_tab_changed)
-        self.reading_splitter.addWidget(self.detail_tabs)
+        reading_panel = QWidget()
+        reading_layout = QVBoxLayout(reading_panel)
+        reading_layout.setContentsMargins(0, 0, 0, 0)
+        reading_layout.setSpacing(4)
+        reading_layout.addWidget(self.find_bar)
+        reading_layout.addWidget(self.detail_tabs, 1)
+        self.reading_splitter.addWidget(reading_panel)
         self.reading_splitter.setStretchFactor(0, 3)
         self.reading_splitter.setStretchFactor(1, 2)
         self.reading_splitter.handle(1).setToolTip("경계를 끌어 목록과 본문의 읽기 높이를 조절합니다.")
@@ -151,6 +175,9 @@ class RecentRecordsWidget(QWidget):
         self._clear_rows()
         self.status.setText("조회 대기 — 최근 기록을 확인해 주세요." if connected
                             else "대기 — Backend 연결을 확인해 주세요.")
+        self.guidance.setText("새로고침으로 저장된 최근 기록을 조회할 수 있습니다." if connected
+                              else "현재 작업·연결에서 연결 상태를 확인해 주세요.")
+        self.guidance.show()
         self.button.setEnabled(connected)
 
     def load_if_needed(self) -> None:
@@ -166,6 +193,7 @@ class RecentRecordsWidget(QWidget):
         self.preferred_id = self.records[row].id if row >= 0 else None
         self._clear_rows()
         self.status.setText("조회 중 — 최근 작업 기록을 불러오고 있습니다.")
+        self.guidance.hide()
         self.button.setEnabled(False)
         self.client.refresh()
 
@@ -230,11 +258,18 @@ class RecentRecordsWidget(QWidget):
             self._show_selection()
         if not self.loaded:
             return
-        if query:
+        self.guidance.hide()
+        if not self.records:
+            self.status.setText("저장된 작업 기록이 없습니다.")
+            self.guidance.setText("현재 작업·연결과 개인정보 설정에서 기록 상태를 확인해 주세요.")
+            self.guidance.show()
+        elif query:
             self.status.setText(f"불러온 {len(self.records)}건 중 {len(visible)}건 · 현재 목록 안에서만 필터")
+            if not visible:
+                self.guidance.setText("필터 입력을 지우면 불러온 최근 기록을 다시 볼 수 있습니다.")
+                self.guidance.show()
         else:
-            self.status.setText(f"최근 기록 {len(self.records)}건" if self.records
-                                else "저장된 작업 기록이 없습니다.")
+            self.status.setText(f"최근 기록 {len(self.records)}건")
 
     def _rebuild_timeline(self, visible_rows: list[int]) -> None:
         """받은 기록의 현지 날짜만 묶고 세션·하루 전체 이력·활성 구간을 추정하지 않는다."""
@@ -346,13 +381,20 @@ class RecentRecordsWidget(QWidget):
         valid = row >= 0
         self._sync_timeline_selection()
         self.attach_button.setEnabled(self.connected and valid)
+        self.source_feedback.hide()
         if not valid:
+            self.source_actions.clear()
             self.detail.clear()
             self.clipboard.set_record(None)
             self.web_content.set_record(None)
             self.document_content.set_record(None)
             return
         record = self.records[row]
+        # 현재 목록에서 실제 선택한 출처만 사용하며 본문 조회 실패로 다른 작업을 추정하지 않는다.
+        self.source_actions.set_source(
+            url=record.browser.url if record.browser else None,
+            file_path=record.document.file_path if record.document else None,
+        )
         self.clipboard.set_record(record.id)
         self.web_content.set_record(record)
         self.document_content.set_record(record)
@@ -389,7 +431,9 @@ class RecentRecordsWidget(QWidget):
 
     def _detail_tab_changed(self, index: int) -> None:
         """복사 텍스트·웹/문서 본문은 사용자가 해당 상세 탭을 열 때만 별도로 조회한다."""
-        if self.detail_tabs.widget(index) is self.clipboard:
+        current = self.detail_tabs.widget(index)
+        self.find_bar.set_target(self.detail if current is self.detail else current.text)
+        if current is self.clipboard:
             self.clipboard.load_if_needed()
         elif self.detail_tabs.widget(index) is self.web_content:
             self.web_content.load_if_needed()
@@ -401,6 +445,8 @@ class RecentRecordsWidget(QWidget):
         self.records = []
         self.loaded = False
         self.attach_button.setEnabled(False)
+        self.source_actions.clear()
+        self.source_feedback.hide()
         self._syncing_timeline = True
         try:
             self.timeline.clear()
@@ -418,4 +464,13 @@ class RecentRecordsWidget(QWidget):
         self._clear_rows()
         self.preferred_id = None
         self.status.setText(message)
+        # 오류 종류를 문자열에서 추정하거나 저장·재전송을 유도하지 않고 기존 조회로 복구한다.
+        self.guidance.setText("현재 작업·연결에서 연결과 기능 지원 상태를 확인해 주세요. "
+                              "새로고침은 저장된 목록만 다시 조회합니다.")
+        self.guidance.show()
         self.button.setEnabled(self.connected)
+
+    def _show_source_message(self, message: str) -> None:
+        """명시적인 원본 열기 실패를 목록 조회 결과와 분리해 일반 텍스트로 알린다."""
+        self.source_feedback.setText(message)
+        self.source_feedback.show()

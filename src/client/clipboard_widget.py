@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from client.clipboard_client import ClipboardClient
+from client.theme import set_reading_text
 from client.time_values import format_timestamp
 from shared.clipboard import RecordClipboard
 
@@ -41,6 +42,11 @@ class ClipboardWidget(QWidget):
         header.addWidget(self.status, 1)
         header.addWidget(self.button)
         layout.addLayout(header)
+        self.guidance = QLabel("최근 기록에서 작업을 선택해 주세요.")
+        self.guidance.setTextFormat(Qt.TextFormat.PlainText)
+        self.guidance.setWordWrap(True)
+        self.guidance.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        layout.addWidget(self.guidance)
         self.selector = QComboBox()
         self.selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.selector.currentIndexChanged.connect(self._select_entry)
@@ -63,6 +69,8 @@ class ClipboardWidget(QWidget):
         self._clear_entries()
         self.updated_at.setText("마지막 정상 조회: 없음")
         self.status.setText("복사 텍스트 조회 대기" if record_id else "작업 기록을 선택해 주세요.")
+        self.guidance.setText("최근 기록에서 작업을 선택해 주세요.")
+        self.guidance.setVisible(record_id is None)
         self.button.setEnabled(record_id is not None)
 
     def load_if_needed(self) -> None:
@@ -77,6 +85,7 @@ class ClipboardWidget(QWidget):
         self._clear_entries()
         self.loaded = False
         self.status.setText("복사 텍스트 조회 중")
+        self.guidance.hide()
         self.button.setEnabled(False)
         self.client.fetch(self.record_id)
 
@@ -90,8 +99,11 @@ class ClipboardWidget(QWidget):
             self.selector.addItem(f"{index + 1}. {format_timestamp(entry.copied_at)}")
         if not self.entries:
             message = "이 작업에 저장된 복사 텍스트가 없습니다."
+            self.guidance.setText("개인정보 설정에서 클립보드 기록 여부를 확인하거나 다른 작업을 선택해 주세요.")
+            self.guidance.show()
         else:
             message = f"복사 텍스트 {len(self.entries)}건 · 최신순"
+            self.guidance.hide()
         if result.has_more:
             message += " · 이전 항목 더 있음 (최근 20건 표시)"
         self.status.setText(message)
@@ -101,7 +113,7 @@ class ClipboardWidget(QWidget):
 
     def _select_entry(self, index: int) -> None:
         """원문 공백·줄바꿈을 유지하고 HTML이나 링크로 실행하지 않는다."""
-        self.text.setPlainText(self.entries[index].text if 0 <= index < len(self.entries) else "")
+        set_reading_text(self.text, self.entries[index].text if 0 <= index < len(self.entries) else "")
 
     def _clear_entries(self) -> None:
         """항목과 본문을 함께 비워 오류 뒤 이전 내용을 정상 결과로 오인하지 않게 한다."""
@@ -114,4 +126,8 @@ class ClipboardWidget(QWidget):
         self._clear_entries()
         self.loaded = False
         self.status.setText(message)
+        # 기존 오류 원인을 유지하고 허용 설정을 자동 변경하거나 복사를 다시 수집하지 않는다.
+        self.guidance.setText("연결·기능 지원·개인정보 설정을 먼저 확인해 주세요. "
+                              "새로고침은 저장된 복사 텍스트만 다시 조회합니다.")
+        self.guidance.show()
         self.button.setEnabled(self.record_id is not None)

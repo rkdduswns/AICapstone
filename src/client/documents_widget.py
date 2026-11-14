@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
 )
 
 from client.documents_client import DocumentsClient
+from client.source_actions import SourceActionsButton
+from client.text_find import TextFindBar
 from client.theme import set_reading_text, set_role
 from client.time_values import format_timestamp
 from shared.document import MAX_DOCUMENT_CONTENT_LENGTH, ImportedDocument
@@ -63,6 +65,9 @@ class DocumentsWidget(QWidget):
         buttons.addWidget(self.import_button)
         buttons.addWidget(self.refresh_button)
         buttons.addWidget(self.clear_target_button)
+        self.source_actions = SourceActionsButton(self)
+        self.source_actions.message.connect(self._show_source_message)
+        buttons.addWidget(self.source_actions)
         layout.addLayout(buttons)
         set_role(self.import_button, "primary")
         set_role(self.refresh_button, "quiet")
@@ -89,15 +94,33 @@ class DocumentsWidget(QWidget):
         self.notice.setWordWrap(True)
         self.notice.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(self.notice)
+        self.guidance = QLabel("현재 작업·연결에서 연결 상태를 확인해 주세요.")
+        self.guidance.setTextFormat(Qt.TextFormat.PlainText)
+        self.guidance.setWordWrap(True)
+        self.guidance.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        layout.addWidget(self.guidance)
+        self.source_feedback = QLabel()
+        self.source_feedback.setTextFormat(Qt.TextFormat.PlainText)
+        self.source_feedback.setWordWrap(True)
+        self.source_feedback.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.source_feedback.hide()
+        layout.addWidget(self.source_feedback)
         self.records = QListWidget()
         self.records.currentRowChanged.connect(self._select)
         self.content = QPlainTextEdit()
         self.content.setReadOnly(True)
         self.content.setTabChangesFocus(True)
+        self.find_bar = TextFindBar(self.content, self, shortcut_owner=self)
+        reading_panel = QWidget()
+        reading_layout = QVBoxLayout(reading_panel)
+        reading_layout.setContentsMargins(0, 0, 0, 0)
+        reading_layout.setSpacing(4)
+        reading_layout.addWidget(self.find_bar)
+        reading_layout.addWidget(self.content, 1)
         self.reading_splitter = QSplitter(Qt.Orientation.Vertical)
         self.reading_splitter.setChildrenCollapsible(False)
         self.reading_splitter.addWidget(self.records)
-        self.reading_splitter.addWidget(self.content)
+        self.reading_splitter.addWidget(reading_panel)
         self.reading_splitter.setStretchFactor(0, 1)
         self.reading_splitter.setStretchFactor(1, 2)
         self.reading_splitter.handle(1).setToolTip("경계를 끌어 문서 목록과 본문 높이를 조절합니다.")
@@ -110,6 +133,8 @@ class DocumentsWidget(QWidget):
         self.refresh_button.setEnabled(self.connected and not self.busy)
         self.clear_target_button.setEnabled(not self.busy and self.target_record_id is not None)
         self.records.setEnabled(not self.busy)
+        if self.busy:
+            self._clear_source()
 
     def set_target_record(self, record: ContextRecord | None) -> bool:
         """사용자가 선택한 작업을 명시하며 진행 중 업로드의 대상을 바꾸지 않는다."""
@@ -131,10 +156,14 @@ class DocumentsWidget(QWidget):
         self._clear_completion()
         self.set_target_record(None)
         self.rows = []
+        self._clear_source()
         self.records.clear()
         self.content.clear()
         self.notice.setText("문서 목록을 조회할 수 있습니다." if connected
                             else "Backend 연결을 확인해 주세요.")
+        self.guidance.setText("문서를 선택해 가져오거나 목록을 새로고침해 주세요." if connected
+                              else "현재 작업·연결에서 연결 상태를 확인해 주세요.")
+        self.guidance.show()
         self._controls()
 
     def load_if_needed(self) -> None:
@@ -151,6 +180,7 @@ class DocumentsWidget(QWidget):
             self._preferred_document_id = self.rows[index].id if 0 <= index < len(self.rows) else None
         self.busy = True
         self.notice.setText("문서 목록 조회 중")
+        self.guidance.hide()
         self._controls()
         self.client.refresh()
 
@@ -168,6 +198,7 @@ class DocumentsWidget(QWidget):
         self._clear_completion()
         self._clear_transfer()
         self.notice.setText("선택한 문서 확인 중")
+        self.guidance.hide()
         self._controls()
         self.client.upload(path, self.target_record_id, source_path)
 
@@ -186,6 +217,10 @@ class DocumentsWidget(QWidget):
         if rows:
             index = next((i for i, row in enumerate(rows) if row.id == preferred_id), 0)
             self.records.setCurrentRow(index)
+            self.guidance.hide()
+        else:
+            self.guidance.setText("가져온 문서가 없습니다. 문서 선택하여 가져오기로 PDF·DOCX를 추가할 수 있습니다.")
+            self.guidance.show()
         if self._completion_document_id not in {row.id for row in rows}:
             self._clear_completion()
         self._controls()
@@ -207,9 +242,15 @@ class DocumentsWidget(QWidget):
 
     def _select(self, index: int) -> None:
         """일반 텍스트로 보여주고 긴 본문은 표시 범위를 명시한다."""
+        self._clear_source()
         self.content.clear()
+        # 이전 긴 문서의 일부 표시 안내가 다음 짧은 문서에 남지 않도록 선택마다 복원한다.
+        if self.loaded and not self.busy:
+            self.notice.setText(f"가져온 문서 {len(self.rows)}건 · 최근 20건까지 표시")
         if 0 <= index < len(self.rows):
             row = self.rows[index]
+            if not self.busy:
+                self.source_actions.set_source(file_path=row.file_path)
             text = row.extracted_text
             header = f"연결된 파일: {row.file_path}\n\n" if row.file_path else ""
             set_reading_text(self.content, header + text[:MAX_DOCUMENT_CONTENT_LENGTH])
@@ -218,7 +259,10 @@ class DocumentsWidget(QWidget):
 
     def _failed(self, message: str) -> None:
         """요청 실패 시 옛 결과를 현재 결과로 오인하지 않게 지우고 수동 복구를 허용한다."""
+        self._clear_source()
+        was_uploading = self._uploading
         self.busy = self._uploading = False
+        self.loaded = False
         self._preferred_document_id = None
         self._clear_transfer()
         self._clear_completion()
@@ -226,7 +270,24 @@ class DocumentsWidget(QWidget):
         self.records.clear()
         self.content.clear()
         self.notice.setText(message)
+        # 저장 결과가 불명확할 수 있어 다시 업로드하라는 일반 재시도 안내를 제공하지 않는다.
+        self.guidance.setText(
+            "안내된 원인과 연결·개인정보 설정을 확인해 주세요. 다시 가져오기 전에 "
+            "목록을 새로고침해 저장 여부부터 확인해 주세요." if was_uploading else
+            "연결·기능 지원·개인정보 설정을 먼저 확인해 주세요. "
+            "목록 새로고침은 저장된 문서만 다시 조회합니다.")
+        self.guidance.show()
         self._controls()
+
+    def _clear_source(self) -> None:
+        """조회·전송·선택 변경에서 이전 원본을 열 수 없도록 메뉴와 안내를 함께 비운다."""
+        self.source_actions.clear()
+        self.source_feedback.hide()
+
+    def _show_source_message(self, message: str) -> None:
+        """원본 열기 실패를 서버 저장·목록 확인 결과와 섞지 않고 안내한다."""
+        self.source_feedback.setText(message)
+        self.source_feedback.show()
 
     def _upload_started(self, name: str, size: int) -> None:
         """검증된 파일 정보와 명시적 연결 대상을 전송 중에도 화면에 유지한다."""
