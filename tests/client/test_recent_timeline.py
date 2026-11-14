@@ -245,6 +245,25 @@ def test_suppressed_selection_notification_cannot_attach_current_pointer(app, wi
     assert linked == []
 
 
+def test_cleared_list_selection_does_not_revive_on_timeline_switch(app, widget):
+    """표의 현재 행 포인터만 남아도 보기 전환이 해제한 선택·연결 대상을 되살리지 않는다."""
+    widget.view_selector.setCurrentIndex(widget.view_selector.findData("list"))
+    widget.table.selectRow(1)
+    linked = []
+    widget.document_requested.connect(linked.append)
+    widget.table.clearSelection()
+    assert widget.table.selectionModel().selectedRows() == []
+    assert not widget.detail.toPlainText() and not widget.attach_button.isEnabled()
+    assert widget.document_content.record_id is None and widget.web_content.record_id is None
+    widget._attach_document()
+    tree = show_timeline(widget, app)
+    assert tree.selectedItems() == [] and not widget.attach_button.isEnabled()
+    widget._attach_document()
+    widget.view_selector.setCurrentIndex(widget.view_selector.findData("list"))
+    assert widget.table.selectionModel().selectedRows() == []
+    assert linked == [] and not widget.detail.toPlainText()
+
+
 def test_refresh_clears_both_views_and_restores_selection_by_id(app, widget, records, monkeypatch):
     """새 응답에서 행 순서가 바뀌어도 날짜별 선택과 표의 실제 ID가 함께 복원된다."""
     tree = show_timeline(widget, app)

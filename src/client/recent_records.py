@@ -162,12 +162,20 @@ class RecentRecordsWidget(QWidget):
         """현재 선택을 기억하고 요청 중 버튼을 잠가 중복 클릭을 막는다."""
         if not self.connected or self.client.reply is not None:
             return
-        row = self.table.currentRow()
-        self.preferred_id = self.records[row].id if 0 <= row < len(self.records) else None
+        row = self._selected_table_row()
+        self.preferred_id = self.records[row].id if row >= 0 else None
         self._clear_rows()
         self.status.setText("조회 중 — 최근 작업 기록을 불러오고 있습니다.")
         self.button.setEnabled(False)
         self.client.refresh()
+
+    def _selected_table_row(self) -> int:
+        """선택 해제 뒤에도 남는 currentRow 대신 실제 선택한 보이는 행만 사용한다."""
+        selected = self.table.selectionModel().selectedRows()
+        if len(selected) != 1:
+            return -1
+        row = selected[0].row()
+        return row if 0 <= row < len(self.records) and not self.table.isRowHidden(row) else -1
 
     def _show_records(self, records: list[ContextRecord]) -> None:
         """중복 누적 없이 목록을 교체하고 같은 ID가 있으면 선택을 복원한다."""
@@ -211,7 +219,7 @@ class RecentRecordsWidget(QWidget):
             if match:
                 visible.append(row)
         self._rebuild_timeline(visible)
-        selected = self.table.currentRow()
+        selected = self._selected_table_row()
         if visible:
             if selected not in visible:
                 self.table.selectRow(visible[0])
@@ -275,8 +283,8 @@ class RecentRecordsWidget(QWidget):
         """표의 실제 선택 ID만 날짜별 보기에 전달해 두 표시의 연결 대상을 일치시킨다."""
         if self._syncing_timeline:
             return
-        row = self.table.currentRow()
-        valid = 0 <= row < len(self.records) and not self.table.isRowHidden(row)
+        row = self._selected_table_row()
+        valid = row >= 0
         item = self._timeline_items.get(self.records[row].id) if valid else None
         if self.timeline.currentItem() is item and (item is None or item.isSelected()):
             return
@@ -334,8 +342,8 @@ class RecentRecordsWidget(QWidget):
         페이지 제목과 Windows 창 제목은 다른 출처이므로 구분한다. URL을 HTML 링크로
         해석하거나 자동 실행하지 않아 긴 주소와 태그 모양의 제목도 그대로 확인할 수 있다.
         """
-        row = self.table.currentRow()
-        valid = 0 <= row < len(self.records) and not self.table.isRowHidden(row)
+        row = self._selected_table_row()
+        valid = row >= 0
         self._sync_timeline_selection()
         self.attach_button.setEnabled(self.connected and valid)
         if not valid:
@@ -369,9 +377,8 @@ class RecentRecordsWidget(QWidget):
 
     def _attach_document(self) -> None:
         """선택된 실제 저장 기록을 연결 대상으로 전달하고 파일 내용을 직접 추출하지 않는다."""
-        row = self.table.currentRow()
-        if (self.connected and 0 <= row < len(self.records)
-                and not self.table.isRowHidden(row)):
+        row = self._selected_table_row()
+        if self.connected and row >= 0:
             if self.view_selector.currentData() == "timeline":
                 item = self.timeline.currentItem()
                 if (item is None or not item.isSelected()
