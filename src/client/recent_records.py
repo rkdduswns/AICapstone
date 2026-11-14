@@ -4,6 +4,7 @@ from PySide6.QtCore import QDateTime, Qt, Signal
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -11,9 +12,12 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSplitter,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -39,6 +43,8 @@ class RecentRecordsWidget(QWidget):
         self.loaded = False
         self.records: list[ContextRecord] = []
         self.preferred_id: str | None = None
+        self._syncing_timeline = False
+        self._timeline_items: dict[str, QTreeWidgetItem] = {}
         self.client = RecordsClient(port, self)
         self.client.records_received.connect(self._show_records)
         self.client.records_failed.connect(self._show_error)
@@ -67,7 +73,15 @@ class RecentRecordsWidget(QWidget):
             f"불러온 최근 {RECENT_RECORDS_LIMIT}건에서 제목·프로그램·출처 찾기")
         self.filter_edit.setClearButtonEnabled(True)
         self.filter_edit.textChanged.connect(self._filter_records)
-        layout.addWidget(self.filter_edit)
+        self.view_selector = QComboBox()
+        self.view_selector.setAccessibleName("최근 기록 보기 방식")
+        self.view_selector.addItem("목록 보기", "list")
+        self.view_selector.addItem("날짜별 보기", "timeline")
+        self.view_selector.setToolTip("마지막 활성 시각을 기준으로 받은 최근 20건만 날짜별로 표시합니다.")
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(self.filter_edit, 1)
+        filter_row.addWidget(self.view_selector)
+        layout.addLayout(filter_row)
         self.reading_splitter = QSplitter(Qt.Orientation.Vertical)
         self.reading_splitter.setChildrenCollapsible(False)
         self.table = QTableWidget(0, 5)
@@ -84,7 +98,27 @@ class RecentRecordsWidget(QWidget):
             self.table.setColumnWidth(column, width)
         self.table.itemSelectionChanged.connect(self._show_selection)
         self.table.setMinimumHeight(100)
-        self.reading_splitter.addWidget(self.table)
+        self.timeline = QTreeWidget()
+        self.timeline.setAccessibleName("받은 최근 기록의 날짜별 타임라인")
+        self.timeline.setHeaderLabels(["마지막 활성 · 프로그램", "창 제목"])
+        self.timeline.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.timeline.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.timeline.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.timeline.setRootIsDecorated(False)
+        self.timeline.setItemsExpandable(False)
+        self.timeline.setExpandsOnDoubleClick(False)
+        self.timeline.setAlternatingRowColors(True)
+        self.timeline.setWordWrap(False)
+        self.timeline.setMinimumHeight(100)
+        self.timeline.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.timeline.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.timeline.setColumnWidth(0, 190)
+        self.timeline.itemSelectionChanged.connect(self._timeline_selection_changed)
+        self.timeline.currentItemChanged.connect(self._timeline_current_changed)
+        self.record_views = QStackedWidget()
+        self.record_views.addWidget(self.table)
+        self.record_views.addWidget(self.timeline)
+        self.reading_splitter.addWidget(self.record_views)
         self.detail = QPlainTextEdit()
         self.detail.setReadOnly(True)
         self.detail.setTabChangesFocus(True)
@@ -106,6 +140,7 @@ class RecentRecordsWidget(QWidget):
         layout.addWidget(self.reading_splitter, 1)
         self.updated_at = QLabel("마지막 정상 조회: 없음")
         layout.addWidget(self.updated_at)
+        self.view_selector.currentIndexChanged.connect(self._change_view)
 
     def set_connected(self, connected: bool) -> None:
         """연결 재확인 시 요청을 취소하고 그 전 서버에서 받은 기록을 지운다."""
@@ -175,6 +210,7 @@ class RecentRecordsWidget(QWidget):
             self.table.setRowHidden(row, not match)
             if match:
                 visible.append(row)
+        self._rebuild_timeline(visible)
         selected = self.table.currentRow()
         if visible:
             if selected not in visible:
@@ -192,6 +228,100 @@ class RecentRecordsWidget(QWidget):
             self.status.setText(f"최근 기록 {len(self.records)}건" if self.records
                                 else "저장된 작업 기록이 없습니다.")
 
+    def _rebuild_timeline(self, visible_rows: list[int]) -> None:
+        """받은 기록의 현지 날짜만 묶고 세션·하루 전체 이력·활성 구간을 추정하지 않는다."""
+        self._syncing_timeline = True
+        try:
+            self.timeline.clear()
+            self._timeline_items.clear()
+            groups: dict[str, QTreeWidgetItem] = {}
+            counts: dict[str, int] = {}
+            for row in visible_rows:
+                record = self.records[row]
+                local_time = parse_timestamp(record.last_active_at).astimezone()
+                day = local_time.date().isoformat()
+                if day not in groups:
+                    heading = QTreeWidgetItem(self.timeline)
+                    heading.setFlags(Qt.ItemFlag.ItemIsEnabled)
+                    heading.setFirstColumnSpanned(True)
+                    font = heading.font(0)
+                    font.setBold(True)
+                    heading.setFont(0, font)
+                    groups[day], counts[day] = heading, 0
+                heading = groups[day]
+                counts[day] += 1
+                heading.setText(0, f"{day} · 현재 목록 {counts[day]}건")
+                item = QTreeWidgetItem(heading, [
+                    f"{local_time:%H:%M:%S} · {record.application}",
+                    record.window_title or "(제목 없음)",
+                ])
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                item.setData(0, Qt.ItemDataRole.UserRole, record.id)
+                # 원문 제목·주소를 툴팁의 자동 rich text 해석에 넘기지 않는다.
+                item.setToolTip(0, "마지막 활성: " + format_timestamp(record.last_active_at))
+                item.setToolTip(1, "선택하면 작업 정보와 원본 출처를 확인할 수 있습니다.")
+                self._timeline_items[record.id] = item
+            self.timeline.expandAll()
+        finally:
+            self._syncing_timeline = False
+
+    def _change_view(self, _index: int) -> None:
+        """보기만 바꾸며 선택된 본문·필터·조회 결과를 다시 요청하거나 초기화하지 않는다."""
+        self.record_views.setCurrentWidget(
+            self.timeline if self.view_selector.currentData() == "timeline" else self.table)
+        self._sync_timeline_selection()
+
+    def _sync_timeline_selection(self) -> None:
+        """표의 실제 선택 ID만 날짜별 보기에 전달해 두 표시의 연결 대상을 일치시킨다."""
+        if self._syncing_timeline:
+            return
+        row = self.table.currentRow()
+        valid = 0 <= row < len(self.records) and not self.table.isRowHidden(row)
+        item = self._timeline_items.get(self.records[row].id) if valid else None
+        if self.timeline.currentItem() is item and (item is None or item.isSelected()):
+            return
+        self._syncing_timeline = True
+        try:
+            self.timeline.clearSelection()
+            self.timeline.setCurrentItem(item)
+            if item is not None:
+                item.setSelected(True)
+        finally:
+            self._syncing_timeline = False
+
+    def _clear_timeline_selection(self) -> None:
+        """날짜 머리글이나 선택 해제는 이전 기록을 연결 대상으로 남기지 않는다."""
+        self._syncing_timeline = True
+        try:
+            # 머리글의 current 위치는 남겨 키보드가 다음 실제 항목으로 이동할 수 있게 한다.
+            self.timeline.clearSelection()
+            self.table.clearSelection()
+            self.table.setCurrentCell(-1, -1)
+            self._show_selection()
+        finally:
+            self._syncing_timeline = False
+
+    def _timeline_current_changed(self, current: QTreeWidgetItem | None,
+                                  _previous: QTreeWidgetItem | None) -> None:
+        """키보드·강제 current 변경으로 날짜 머리글이 활성화돼도 실제 작업을 고르지 않는다."""
+        if self._syncing_timeline:
+            return
+        if current is None or not isinstance(current.data(0, Qt.ItemDataRole.UserRole), str):
+            self._clear_timeline_selection()
+
+    def _timeline_selection_changed(self) -> None:
+        """날짜별 항목의 실제 ID를 기존 표 행에 대응시키고 같은 상세 경로를 재사용한다."""
+        if self._syncing_timeline:
+            return
+        selected = self.timeline.selectedItems()
+        identifier = selected[0].data(0, Qt.ItemDataRole.UserRole) if len(selected) == 1 else None
+        row = next((index for index, record in enumerate(self.records)
+                    if record.id == identifier and not self.table.isRowHidden(index)), -1)
+        if row < 0 or self._timeline_items.get(identifier) is not selected[0]:
+            self._clear_timeline_selection()
+            return
+        self.table.selectRow(row)
+
     def resizeEvent(self, event: QResizeEvent) -> None:
         """좁은 목록에서는 긴 경로 열을 접고 선택 상세에서 원본을 그대로 확인한다."""
         super().resizeEvent(event)
@@ -206,6 +336,7 @@ class RecentRecordsWidget(QWidget):
         """
         row = self.table.currentRow()
         valid = 0 <= row < len(self.records) and not self.table.isRowHidden(row)
+        self._sync_timeline_selection()
         self.attach_button.setEnabled(self.connected and valid)
         if not valid:
             self.detail.clear()
@@ -241,6 +372,12 @@ class RecentRecordsWidget(QWidget):
         row = self.table.currentRow()
         if (self.connected and 0 <= row < len(self.records)
                 and not self.table.isRowHidden(row)):
+            if self.view_selector.currentData() == "timeline":
+                item = self.timeline.currentItem()
+                if (item is None or not item.isSelected()
+                        or item.data(0, Qt.ItemDataRole.UserRole) != self.records[row].id
+                        or self._timeline_items.get(self.records[row].id) is not item):
+                    return
             self.document_requested.emit(self.records[row])
 
     def _detail_tab_changed(self, index: int) -> None:
@@ -257,6 +394,12 @@ class RecentRecordsWidget(QWidget):
         self.records = []
         self.loaded = False
         self.attach_button.setEnabled(False)
+        self._syncing_timeline = True
+        try:
+            self.timeline.clear()
+            self._timeline_items.clear()
+        finally:
+            self._syncing_timeline = False
         self.table.setRowCount(0)
         self.detail.clear()
         self.clipboard.set_record(None)

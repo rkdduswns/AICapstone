@@ -144,7 +144,7 @@ Phase 3 Client는 작업 시작 시각과 Backend 누적 활성 시간을 표시
 
 Phase 4 Client는 `최근 기록` 탭에서 최근 20건과 상세 시간을 조회하고 새로고침합니다.
 가상 미리보기: `python tools/preview_phase4_client.py`. 새로고침 시 가상 제목이 갱신되며 실제 작업은 저장하지 않습니다.
-최신 Backend에서는 실제 저장 기록과 진행 중인 세션을 조회합니다.
+최신 Backend에서는 실제 저장 기록과 진행 중인 세션을 조회합니다. 최근 기록의 `날짜별 보기`는 현재 받은 최대 20건을 마지막 활성 시각의 PC 현지 날짜별로 표시하며, 기존 필터·선택·본문 상세를 공유합니다. [범위와 검증](docs/reports/client-recent-timeline.md)을 따릅니다.
 
 Phase 5 Client는 어느 탭에서나 일시정지·재개를 요청하고, 개인정보 보호 탭에서 차단 프로그램 목록을 적용합니다.
 가상 미리보기: `python tools/preview_phase5_client.py`. `chrome.exe`를 입력하면 가상 프로그램 차단 상태를 확인할 수 있습니다.
