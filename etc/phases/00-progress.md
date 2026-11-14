@@ -45,7 +45,7 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 | [011](phase011.md) | 조건 검색 | IN_PROGRESS · Client DONE | 9/25 | 2026-10-15 | feat/phase11-client | 2026-10-16 (Client) |
 | [012](phase012.md) | 의미 검색 및 혼합 검색 | IN_PROGRESS · Client 미리보기 완료 | 3/20 | 2026-11-06 | `feat/phase12-client` | — |
 | [013](phase013.md) | 근거 기반 RAG | IN_PROGRESS · Client 표시 미리보기 | 0/25 | 2026-11-13 | `feat/client-evidence-highlights` | — |
-| [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | IN_PROGRESS · Client 최근 기록 날짜별 보기 | 0/28 | 2026-11-14 | `feat/client-recent-timeline` | — |
+| [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | IN_PROGRESS · Client 개인정보 설정 화면 정리 DONE | 1/28 | 2026-11-14 | `feat/client-recent-timeline` / `feat/client-privacy-status` | — |
 
 2026-10-15 선행 기록에서 후속으로 남긴 Phase 2~9 감지·시간 계산·저장·보호 검사·수집은 이후 가상 OS 입력과 실제 Backend HTTP·SQLite·문서 추출 라이브러리로 부분 통합했다.
 작업 ID 기반 출처 연결은 가상 OS 입력과 실제 HTTP·SQLite·Qt로 검증했다. 실제 Windows 작업/복사 및 확장 설치 후 수동 검증은 남아 있다.
@@ -490,7 +490,7 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 | Backend | 검색 응답 시간 점검 | 미완료 | — | — | 미착수 |
 | Client | 작업 타임라인 | 미완료 | 2026-11-14 | `feat/client-recent-timeline` | 현재 받은 최근 20건의 날짜별 읽기 부분 단계. 전체 작업·세션 타임라인 완료와 구분. [범위·검증](../../docs/reports/client-recent-timeline.md) |
 | Client | 작업 세션 상세보기 | 미완료 | — | — | 미착수 |
-| Client | 개인정보 설정 화면 정리 | 미완료 | — | — | 미착수 |
+| Client | 개인정보 설정 화면 정리 | 완료 | 2026-11-14 | `feat/client-privacy-status` | 서버 확인값·초안·미확인/미지원 표시 구분. 기존 API·보호 판정 유지. URL 차단 서버 구현은 별도 잔여. [범위·검증](../../docs/reports/client-privacy-status.md) |
 | Client | 기록 삭제 기능 | 미완료 | — | — | 미착수 |
 | Client | 검색 → 답변 → 출처 이동 흐름 정리 | 미완료 | — | — | 미착수 |
 | Client | 오류 / 빈 결과 상태 정리 | 미완료 | — | — | 미착수 |
