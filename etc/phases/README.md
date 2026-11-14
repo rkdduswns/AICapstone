@@ -140,3 +140,5 @@ docs/phase-8
 - 체크 상태 변경 시 개별 문서와 통합 현황, 작업 확인일·작업 브랜치·근거를 같은 커밋에 기록한다.
 
 2026-11-14 Client는 기존 최근 기록 응답의 날짜별 표시와 개인정보 설정 화면 정리를 진행했다. 날짜별 보기는 [현재 받은 20건의 부분 단계](../../docs/reports/client-recent-timeline.md)로 유지한다. [개인정보 설정 화면 정리](../../docs/reports/client-privacy-status.md)만 완료 처리하여 Phase 14는 1/28이며, 서버 URL 차단과 전체 통합 검증은 남아 있다.
+
+후속 [Client 읽기 흐름 정리](../../docs/reports/client-reading-flow.md)는 현재 연결된 관리 화면의 상태 안내·본문 찾기·원본 출처 메뉴·읽기 스타일 범위다. 실제 검색/RAG의 출처 이동·오류 처리 전체 완료와 구분하여 Phase 14의 1/28은 유지한다.

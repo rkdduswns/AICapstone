@@ -492,8 +492,8 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 | Client | 작업 세션 상세보기 | 미완료 | — | — | 미착수 |
 | Client | 개인정보 설정 화면 정리 | 완료 | 2026-11-14 | `feat/client-privacy-status` | 서버 확인값·초안·미확인/미지원 표시 구분. 기존 API·보호 판정 유지. URL 차단 서버 구현은 별도 잔여. [범위·검증](../../docs/reports/client-privacy-status.md) |
 | Client | 기록 삭제 기능 | 미완료 | — | — | 미착수 |
-| Client | 검색 → 답변 → 출처 이동 흐름 정리 | 미완료 | — | — | 미착수 |
-| Client | 오류 / 빈 결과 상태 정리 | 미완료 | — | — | 미착수 |
+| Client | 검색 → 답변 → 출처 이동 흐름 정리 | 미완료 | 2026-11-14 | `feat/client-reading-flow` | 현재 받은 관리 본문의 찾기·실제 선택 원본 메뉴까지 정리. 실제 검색/RAG 전체 흐름은 잔여. [범위·검증](../../docs/reports/client-reading-flow.md) |
+| Client | 오류 / 빈 결과 상태 정리 | 미완료 | 2026-11-14 | `feat/client-reading-flow` | 현재 연결된 관리 화면의 상태·다음 행동 안내 정리. 실제 검색/RAG 연결 상태는 잔여. [범위·검증](../../docs/reports/client-reading-flow.md) |
 | Integration | 웹 열람 → 기록 → 의미 검색 → URL 확인 | 미완료 | — | — | 미착수 |
 | Integration | PDF 열람 → 내용 검색 → 파일 경로 확인 | 미완료 | — | — | 미착수 |
 | Integration | 기록 → 검색 → RAG → 근거 확인 | 미완료 | — | — | 미착수 |

@@ -62,7 +62,7 @@ QLineEdit, QComboBox {
     color: palette(text);
 }
 QLineEdit:focus, QComboBox:focus { border-color: palette(highlight); }
-QPlainTextEdit, QListWidget, QTableWidget {
+QPlainTextEdit, QListWidget, QTableWidget, QTreeWidget {
     border: 1px solid palette(mid);
     border-radius: 6px;
     background: palette(base);
