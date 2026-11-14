@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from client.privacy_client import PrivacyClient, normalize_processes
+from client.theme import set_role
 from client.url_rules_widget import UrlRulesWidget
 from shared.privacy import PrivacyState
 
@@ -46,14 +47,15 @@ class PrivacyWidget(QWidget):
         self.toggle.setEnabled(False)
         self.toggle.clicked.connect(self._toggle)
         layout = QVBoxLayout(self)
-        layout.addWidget(plain_label(
-            "차단 목록과 기록 상태는 Backend에서 적용·판정합니다.\n"
-            "현재 창 감지 표시는 기록 저장 여부와 별개입니다."))
+        self.server_summary = plain_label("서버 확인 설정 · 미확인")
+        layout.addWidget(self.server_summary)
         self.checked_at = plain_label("마지막 상태 확인: 없음")
-        layout.addWidget(self.checked_at)
         self.refresh_button = QPushButton("보호 상태 다시 확인")
         self.refresh_button.clicked.connect(self.client.refresh)
-        layout.addWidget(self.refresh_button)
+        confirmation_row = QHBoxLayout()
+        confirmation_row.addWidget(self.checked_at, 1)
+        confirmation_row.addWidget(self.refresh_button)
+        layout.addLayout(confirmation_row)
         clipboard_row = QHBoxLayout()
         self.clipboard_status = plain_label("클립보드 기록 · 미확인")
         self.clipboard_toggle = QPushButton("클립보드 기록 켜기")
@@ -71,7 +73,19 @@ class PrivacyWidget(QWidget):
         self.urls.apply_requested.connect(self.client.set_blocked_urls)
         self.rule_tabs.addTab(self.urls, "URL 차단")
         layout.addWidget(self.rule_tabs, 1)
-        program_layout.addWidget(plain_label("차단 프로그램 · 실행 파일 이름을 한 줄에 하나씩 입력"))
+        self.applied_details_button = QPushButton("서버 적용 목록 보기")
+        self.applied_details_button.setCheckable(True)
+        self.applied_details_button.setAccessibleName("확인된 차단 프로그램 목록 표시")
+        program_layout.addWidget(self.applied_details_button)
+        self.applied_programs = QPlainTextEdit()
+        self.applied_programs.setReadOnly(True)
+        self.applied_programs.setTabChangesFocus(True)
+        self.applied_programs.setMaximumHeight(90)
+        self.applied_programs.setAccessibleName("서버가 확인한 차단 프로그램 목록")
+        self.applied_programs.hide()
+        self.applied_details_button.toggled.connect(self.applied_programs.setVisible)
+        program_layout.addWidget(self.applied_programs)
+        program_layout.addWidget(plain_label("편집할 차단 목록 · 실행 파일 이름을 한 줄에 하나씩 입력"))
         self.editor = QPlainTextEdit()
         self.editor.setPlaceholderText("예: chrome.exe\n비밀번호관리자.exe")
         self.editor.setTabChangesFocus(True)
@@ -85,13 +99,17 @@ class PrivacyWidget(QWidget):
         buttons = QHBoxLayout()
         self.apply_button = QPushButton("차단 목록 적용")
         self.apply_button.clicked.connect(self._apply)
-        self.reset_button = QPushButton("입력 되돌리기")
+        self.reset_button = QPushButton("확인된 목록으로 되돌리기")
+        self.reset_button.setToolTip("편집 중인 입력만 확인된 목록으로 되돌립니다. 서버 설정은 바꾸지 않습니다.")
         self.reset_button.clicked.connect(self._reset_draft)
         buttons.addWidget(self.apply_button)
         buttons.addWidget(self.reset_button)
         program_layout.addLayout(buttons)
         self.notice = plain_label("Backend 연결을 확인해 주세요.")
         layout.addWidget(self.notice)
+        set_role(self.apply_button, "primary")
+        for button in (self.refresh_button, self.reset_button, self.applied_details_button):
+            set_role(button, "quiet")
         self._update_controls()
 
     def set_connected(self, connected: bool) -> None:
@@ -196,6 +214,7 @@ class PrivacyWidget(QWidget):
         """설정 쓰기 중 입력을 잠그고 유효한 서버 상태가 있을 때만 변경을 허용한다."""
         writing = self.client.operation != "read"
         confirmed = self.connected and self.state is not None and not writing
+        self._show_confirmed_settings(confirmed, writing)
         self.urls.set_availability(confirmed,
                                    self.state is not None and self.state.settings.blocked_urls is not None)
         self.toggle.setEnabled(confirmed)
@@ -212,7 +231,53 @@ class PrivacyWidget(QWidget):
         self.clipboard_status.setText("클립보드 기록 · " + clipboard_status)
         if self.state is None:
             self.toggle.setText("기록 일시정지")
-        count = len(self.state.settings.blocked_processes) if self.state else None
-        self.draft_status.setText(
-            ("미적용 입력 있음 · " if self.dirty else "")
-            + (f"서버 차단 목록 {count}개" if count is not None else "서버 설정 확인 필요"))
+        self._show_draft_summary(confirmed)
+
+    def _show_confirmed_settings(self, confirmed: bool, writing: bool) -> None:
+        """현재 확인값만 개요·접힌 목록으로 표시하며 감지나 일시정지 해제를 저장 허용으로 해석하지 않는다."""
+        self.applied_details_button.setEnabled(confirmed)
+        self.applied_programs.setEnabled(confirmed)
+        if not confirmed:
+            self.server_summary.setText("서버 확인 설정 · 적용 결과 확인 중" if writing
+                                        else "서버 확인 설정 · 미확인")
+            self.applied_programs.clear()
+            self.applied_programs.setPlaceholderText("서버 설정을 확인한 뒤 목록을 볼 수 있습니다.")
+            self.applied_details_button.setChecked(False)
+            self.applied_programs.hide()
+            return
+        settings = self.state.settings
+        paused = "켜짐" if settings.paused else "꺼짐"
+        clipboard = ("미지원" if settings.clipboard_enabled is None else
+                     "켜짐" if settings.clipboard_enabled else "꺼짐")
+        urls = ("미지원" if settings.blocked_urls is None
+                else f"서버 규칙 {len(settings.blocked_urls)}개")
+        self.server_summary.setText(
+            f"서버 확인 설정 · 일시정지 설정 {paused} · 클립보드 기록 {clipboard}\n"
+            f"차단 프로그램 {len(settings.blocked_processes)}개 · URL 차단 {urls}")
+        if self.applied_programs.toPlainText() != self.applied_text:
+            self.applied_programs.setPlainText(self.applied_text)
+        self.applied_programs.setPlaceholderText("현재 확인된 차단 프로그램이 없습니다.")
+        self.applied_programs.setVisible(self.applied_details_button.isChecked())
+
+    def _show_draft_summary(self, confirmed: bool) -> None:
+        """현재 적용 목록과 편집 입력의 차이를 알리되 초안을 저장된 보호 설정으로 표시하지 않는다."""
+        prefix = "미적용 입력 있음 · " if self.dirty else ""
+        if not confirmed:
+            self.draft_status.setText(prefix + "서버 적용값 미확인")
+            return
+        count = len(self.state.settings.blocked_processes)
+        if not self.dirty:
+            self.draft_status.setText(f"서버 적용 목록 {count}개 · 미적용 변경 없음")
+            return
+        try:
+            draft = normalize_processes([
+                line for line in self.editor.toPlainText().splitlines() if line.strip()
+            ])
+        except ValueError:
+            self.draft_status.setText(prefix + "입력 형식 확인 필요")
+            return
+        applied = set(self.state.settings.blocked_processes)
+        added, removed = len(set(draft) - applied), len(applied - set(draft))
+        difference = (f"추가 {added}개 · 제외 {removed}개" if added or removed
+                      else "목록 내용 같음 · 표기 차이 있음")
+        self.draft_status.setText(prefix + difference + f" · 서버 적용 {count}개")

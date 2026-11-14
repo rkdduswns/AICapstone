@@ -9,12 +9,14 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from client.theme import set_role
 from client.url_values import normalize_rule, normalize_rules
 from shared.browser import UrlBlockRule
 
@@ -33,12 +35,29 @@ class UrlRulesWidget(QWidget):
         self.applied: list[UrlBlockRule] = []
         self.dirty = False
         self.editable = False
+        self._confirmed = self._supported = False
         layout = QVBoxLayout(self)
+        self.status = QLabel("서버 설정 확인 필요")
+        self.status.setTextFormat(Qt.TextFormat.PlainText)
+        self.status.setWordWrap(True)
+        layout.addWidget(self.status)
+        self.availability_message = QLabel()
+        self.availability_message.setTextFormat(Qt.TextFormat.PlainText)
+        self.availability_message.setWordWrap(True)
+        self.availability_message.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred,
+        )
+        layout.addWidget(self.availability_message)
+        # 기존 탭·편집 위젯은 유지하고 지원이 확인됐을 때만 편집 영역을 펼친다.
+        self.editor_panel = QWidget()
+        editor_layout = QVBoxLayout(self.editor_panel)
+        editor_layout.setContentsMargins(0, 0, 0, 0)
         self.kind = QComboBox()
         for key, label in KINDS.items():
             self.kind.addItem(label, key)
         self.value = QLineEdit()
         self.value.setAccessibleName("차단할 도메인 또는 URL")
+        self.value.textChanged.connect(self._show_availability)
         self.add_button = QPushButton("목록에 추가")
         self.add_button.clicked.connect(self._add)
         self.value.returnPressed.connect(self._add)
@@ -46,11 +65,11 @@ class UrlRulesWidget(QWidget):
         entry.addWidget(self.kind)
         entry.addWidget(self.value, 1)
         entry.addWidget(self.add_button)
-        layout.addLayout(entry)
+        editor_layout.addLayout(entry)
         self.hint = QLabel()
         self.hint.setWordWrap(True)
         self.kind.currentIndexChanged.connect(self._kind_changed)
-        layout.addWidget(self.hint)
+        editor_layout.addWidget(self.hint)
         self.table = QTableWidget(0, 2)
         self.table.setHorizontalHeaderLabels(["차단 방식", "주소"])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -60,16 +79,14 @@ class UrlRulesWidget(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.verticalHeader().hide()
         self.table.itemSelectionChanged.connect(self._controls)
-        layout.addWidget(self.table, 1)
-        self.status = QLabel("서버 설정 확인 필요")
-        self.status.setWordWrap(True)
+        editor_layout.addWidget(self.table, 1)
         self.validation = QLabel()
         self.validation.setTextFormat(Qt.TextFormat.PlainText)
         self.validation.setWordWrap(True)
-        layout.addWidget(self.status)
-        layout.addWidget(self.validation)
-        self.remove_button = QPushButton("선택 삭제")
-        self.reset_button = QPushButton("입력 되돌리기")
+        editor_layout.addWidget(self.validation)
+        self.remove_button = QPushButton("초안에서 제거")
+        self.reset_button = QPushButton("확인된 목록으로 되돌리기")
+        self.reset_button.setToolTip("목록과 입력만 확인된 값으로 되돌립니다. 서버에는 요청하지 않습니다.")
         self.apply_button = QPushButton("URL 차단 목록 적용")
         self.remove_button.clicked.connect(self._remove)
         self.reset_button.clicked.connect(self._reset)
@@ -77,25 +94,63 @@ class UrlRulesWidget(QWidget):
         buttons = QHBoxLayout()
         for button in (self.remove_button, self.reset_button, self.apply_button):
             buttons.addWidget(button)
-        layout.addLayout(buttons)
+        editor_layout.addLayout(buttons)
+        layout.addWidget(self.editor_panel, 1)
+        self._unavailable_space = QWidget()
+        self._unavailable_space.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding,
+        )
+        layout.addWidget(self._unavailable_space, 1)
+        set_role(self.apply_button, "primary")
+        for button in (self.add_button, self.remove_button, self.reset_button):
+            set_role(button, "quiet")
         self._kind_changed()
+        self._show_availability()
         self._controls()
 
     def show_rules(self, rules: list[UrlBlockRule] | None, operation: str) -> None:
         """확인된 서버 목록을 수신한다. 다른 설정을 바꿀 때 URL 초안은 덮어쓰지 않는다."""
-        self.applied = list(rules or [])
+        # 미지원 None은 빈 목록 확인이 아니다. 전체 해제 초안과 마지막 비교 기준도 보존한다.
+        if rules is None:
+            return
+        self.applied = list(rules)
         if not self.dirty or operation == "urls":
-            self.draft = list(rules or [])
+            self.draft = list(rules)
             self._render()
         self.dirty = self.draft != self.applied
 
     def set_availability(self, confirmed: bool, supported: bool) -> None:
         """알 수 없는 상태·미지원·쓰기 중에는 적용을 잠그되 사용자의 입력은 지우지 않는다."""
+        self._confirmed, self._supported = confirmed, supported
         self.editable = confirmed and supported
-        state = (f"서버 URL 차단 규칙 {len(self.applied)}개" if self.editable else
-                 "URL 차단 기능 미지원" if confirmed else "서버 설정 확인 필요")
-        self.status.setText(("미적용 목록 있음 · " if self.dirty else "") + state)
+        self._show_availability()
         self._controls()
+
+    def _show_availability(self, _text: str = "") -> None:
+        """확인 전과 확인된 미지원을 구분하고 숨겨진 미적용 입력의 존재만 안내한다."""
+        if self._confirmed and self._supported:
+            message = "목록을 편집한 뒤 적용을 눌러야 서버 설정에 반영됩니다."
+        elif self._confirmed:
+            message = "현재 연결한 서버에서는 URL 차단 기능을 사용할 수 없습니다."
+        else:
+            message = "서버 설정이 미확인 상태입니다. 연결 또는 보호 상태를 확인해 주세요."
+        pending = self.dirty or bool(self.value.text().strip())
+        if pending and not self.editable:
+            message += " 미적용 목록과 입력은 이 화면에 유지됩니다."
+        self.availability_message.setText(message)
+        self.editor_panel.setVisible(self.editable)
+        self._unavailable_space.setVisible(not self.editable)
+        state = (f"서버 URL 차단 규칙 {len(self.applied)}개" if self.editable else
+                 "URL 차단 기능 미지원" if self._confirmed else "서버 설정 확인 필요")
+        if self.dirty and self.editable:
+            added = sum(rule not in self.applied for rule in self.draft)
+            removed = sum(rule not in self.draft for rule in self.applied)
+            prefix = f"미적용 목록 있음 · 추가 {added}개 · 제외 {removed}개 · "
+        else:
+            prefix = "미적용 목록 있음 · " if self.dirty else ""
+        if self.value.text().strip():
+            prefix += "목록에 추가하지 않은 입력 있음 · "
+        self.status.setText(prefix + state)
 
     def _kind_changed(self) -> None:
         """차단 범위를 입력 전에 설명해 전체 도메인과 특정 페이지를 구분하도록 돕는다."""
