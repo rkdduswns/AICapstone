@@ -13,6 +13,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from contextlib import closing
 from pathlib import Path
 
 from docx import Document
@@ -291,7 +292,7 @@ def main() -> None:
             first.wait(timeout=15)
             _wait_closed(port)
             checks["owner_crash_cleanup"] = True
-            with sqlite3.connect(database) as connection:
+            with closing(sqlite3.connect(database)) as connection:
                 assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
             checks["crash_database_integrity"] = True
         finally:
