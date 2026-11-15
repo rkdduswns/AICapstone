@@ -1,4 +1,4 @@
-"""Windows에서 Client·Backend를 각각 단일 EXE로 묶고 배포 ZIP을 만든다."""
+"""Windows에서 Client·Backend를 함께 시작하는 단일 EXE와 배포 ZIP을 만든다."""
 
 import hashlib
 import json
@@ -14,20 +14,15 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "dist" / "강써치-Windows-x64"
 
 
-def build_program(component: str) -> None:
-    """런타임과 필요한 모듈만 포함하고 동적 Uvicorn import·버전 메타데이터를 명시한다."""
-    name = f"강써치-{component.title()}"
+def build_program() -> None:
+    """같은 실행 파일의 GUI·worker 역할과 동적 Uvicorn 모듈을 함께 포함한다."""
+    name = "강써치"
     command = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile",
                "--noupx", "--name", name, "--paths", str(ROOT / "src"),
-               "--distpath", str(OUTPUT), "--workpath", str(ROOT / "build" / component),
-               "--specpath", str(ROOT / "build"), "--copy-metadata", "gangsearch"]
-    if component == "client":
-        command += ["--windowed", "--exclude-module", "backend"]
-    else:
-        command += ["--console", "--collect-submodules", "uvicorn", "--collect-data", "docx",
-                    "--exclude-module", "client", "--exclude-module", "PySide6",
-                    "--exclude-module", "shiboken6"]
-    command.append(str(ROOT / "src" / component / "__main__.py"))
+               "--distpath", str(OUTPUT), "--workpath", str(ROOT / "build" / "desktop"),
+               "--specpath", str(ROOT / "build"), "--copy-metadata", "gangsearch",
+               "--windowed", "--collect-submodules", "uvicorn", "--collect-data", "docx"]
+    command.append(str(ROOT / "src" / "desktop" / "__main__.py"))
     # 다른 개발 도구의 동명 DLL이 PATH에서 섞이지 않게 Python·Windows 경로만 사용한다.
     # Qt의 icuuc.dll은 Windows 제공 API를 사용하며 Poppler 등의 ICU와 호환되지 않는다.
     windows = Path(os.environ["SystemRoot"])
@@ -39,8 +34,21 @@ def build_program(component: str) -> None:
     subprocess.run(command, cwd=ROOT, env=environment, check=True)
 
 
+def remove_legacy_executables() -> None:
+    """기존 두 EXE만 안전하게 제거해 새 ZIP에 구형 실행 파일이 섞이지 않게 한다."""
+    output = OUTPUT.resolve()
+    if not output.is_relative_to((ROOT / "dist").resolve()):
+        raise ValueError("배포 폴더 밖의 실행 파일은 교체할 수 없습니다.")
+    for name in ("강써치-Client.exe", "강써치-Backend.exe"):
+        file = OUTPUT / name
+        if file.resolve().parent != output:
+            raise ValueError("배포 폴더 밖을 가리키는 구형 실행 파일은 제거할 수 없습니다.")
+        file.unlink(missing_ok=True)
+
+
 def assemble_bundle() -> Path:
     """검증 가능한 빌드 식별·해시와 수동 브라우저 확장·실행 안내를 함께 배포한다."""
+    remove_legacy_executables()
     extension = OUTPUT / "browser-extension"
     if extension.exists():
         # 기존 산출물을 지우기 전에 실제 경로가 이번 배포 폴더 안인지 확인한다.
@@ -58,12 +66,10 @@ def assemble_bundle() -> Path:
     (OUTPUT / "BUILD.json").write_text(
         json.dumps({"commit": sha, "python": sys.version, "packages": packages}, indent=2),
         encoding="utf-8")
-    hashes = []
-    for name in ("Client", "Backend"):
-        file = OUTPUT / f"강써치-{name}.exe"
-        with file.open("rb") as source:
-            hashes.append(f"{hashlib.file_digest(source, 'sha256').hexdigest()}  {file.name}")
-    (OUTPUT / "SHA256SUMS.txt").write_text("\n".join(hashes) + "\n", encoding="utf-8")
+    file = OUTPUT / "강써치.exe"
+    with file.open("rb") as source:
+        digest = hashlib.file_digest(source, "sha256").hexdigest()
+    (OUTPUT / "SHA256SUMS.txt").write_text(f"{digest}  {file.name}\n", encoding="utf-8")
     archive = OUTPUT.with_suffix(".zip")
     with ZipFile(archive, "w", ZIP_DEFLATED) as bundle:
         for file in sorted(OUTPUT.rglob("*")):
@@ -79,8 +85,8 @@ def main() -> None:
     if sys.platform != "win32" or sys.maxsize <= 2**32:
         raise SystemExit("Windows x64 Python에서 실행해 주세요.")
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    for component in ("backend", "client"):
-        build_program(component)
+    remove_legacy_executables()
+    build_program()
     print(assemble_bundle())
 
 

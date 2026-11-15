@@ -85,7 +85,7 @@ def archive(bundle, alter=None):
 
 
 def hashes(bundle):
-    """작은 가상 EXE 두 개의 현재 해시를 배포 규격대로 쓴다."""
+    """작은 가상 단일 EXE의 현재 해시를 배포 규격대로 쓴다."""
     (bundle / "SHA256SUMS.txt").write_text("".join(
         f"{hashlib.sha256((bundle / name).read_bytes()).hexdigest()}  {name}\n"
         for name in sorted(EXE_NAMES)), encoding="utf-8")
@@ -117,7 +117,7 @@ def test_current_source_bundle_is_verified_without_writes(repository, bundle):
     assert result == {
         "build_commit": git(repository, "rev-parse", "HEAD"),
         "head_commit": git(repository, "rev-parse", "HEAD"), "code_matches_head": True,
-        "exe_hashes_verified": True, "archive_verified": True, "files_verified": 8,
+        "exe_hashes_verified": True, "archive_verified": True, "files_verified": 7,
     }
     json.dumps(result)
     assert before == {str(file): file.read_bytes()
@@ -176,14 +176,14 @@ def test_invalid_or_ambiguous_build_metadata_is_rejected(repository, bundle, con
 
 def test_changed_executable_is_rejected_before_launch(repository, bundle):
     """PE 모양을 유지해도 해시가 달라진 EXE는 실행 전에 거부한다."""
-    (bundle / "강써치-Client.exe").write_bytes(b"MZchanged executable")
+    (bundle / "강써치.exe").write_bytes(b"MZchanged executable")
     with pytest.raises(ValueError, match="해시가 일치하지"):
         verify_bundle(bundle, repository)
 
 
 def test_non_pe_file_is_rejected_even_with_updated_hash_and_zip(repository, bundle):
     """잘못된 실행 파일의 해시와 ZIP까지 함께 바꿔도 Windows PE로 오인하지 않는다."""
-    (bundle / "강써치-Client.exe").write_bytes(b"not a Windows executable")
+    (bundle / "강써치.exe").write_bytes(b"not a Windows executable")
     hashes(bundle)
     archive(bundle)
     with pytest.raises(ValueError, match="PE 실행 파일 헤더"):
@@ -191,7 +191,7 @@ def test_non_pe_file_is_rejected_even_with_updated_hash_and_zip(repository, bund
 
 
 @pytest.mark.parametrize("kind", ["duplicate", "missing", "extra", "malformed"])
-def test_hash_list_requires_exact_two_unique_executables(repository, bundle, kind):
+def test_hash_list_requires_exact_one_executable(repository, bundle, kind):
     """누락·중복·추가 이름과 형식 오류를 허용하지 않는다."""
     lines = (bundle / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines()
     if kind == "duplicate":
@@ -241,3 +241,72 @@ def test_required_docs_cannot_be_missing_from_both_folder_and_zip(repository, bu
     archive(bundle)
     with pytest.raises(ValueError, match="누락"):
         verify_bundle(bundle, repository)
+
+
+@pytest.mark.parametrize("name", [
+    "강써치-Client.exe", "강써치-Backend.exe", "nested/helper.exe", "unrelated.EXE",
+])
+def test_extra_executable_is_rejected_even_when_zip_matches(repository, bundle, name):
+    """폴더와 ZIP에 구형·중첩 EXE가 같이 남아도 단일 실행 파일 배포로 통과하지 않는다."""
+    file = bundle / name
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_bytes(b"MZextra executable")
+    archive(bundle)
+    with pytest.raises(ValueError, match="실행 파일 하나"):
+        verify_bundle(bundle, repository)
+
+
+def test_build_uses_unified_entry_and_keeps_dll_path_isolation(tmp_path, monkeypatch):
+    """실제 빌드를 하지 않고 단일 GUI 진입점과 기존 DLL 경로 격리가 유지되는지 확인한다."""
+    from tools import build_windows as builder
+
+    monkeypatch.setattr(builder, "ROOT", tmp_path)
+    monkeypatch.setattr(builder, "OUTPUT", tmp_path / "dist/강써치-Windows-x64")
+    monkeypatch.setattr(builder, "sys", SimpleNamespace(
+        executable=str(tmp_path / "python/python.exe"), base_prefix=str(tmp_path / "runtime"),
+    ))
+    monkeypatch.setenv("SystemRoot", str(tmp_path / "Windows"))
+    monkeypatch.setenv("PATH", "unrelated-dll-location")
+    calls = []
+    monkeypatch.setattr(builder.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
+    builder.build_program()
+    assert len(calls) == 1
+    command, options = calls[0][0][0], calls[0][1]
+    assert command[-1] == str(tmp_path / "src/desktop/__main__.py")
+    assert "--onefile" in command and "--windowed" in command and "--console" not in command
+    assert command[command.index("--name") + 1] == "강써치"
+    assert "--exclude-module" not in command
+    assert command[command.index("--collect-submodules") + 1] == "uvicorn"
+    assert command[command.index("--collect-data") + 1] == "docx"
+    assert command[command.index("--copy-metadata") + 1] == "gangsearch"
+    assert "unrelated-dll-location" not in options["env"]["PATH"]
+    assert options["env"]["PYTHONIOENCODING"] == "utf-8" and options["check"] is True
+
+
+def test_cleanup_removes_only_known_legacy_files_in_output(tmp_path, monkeypatch):
+    """새 실행 파일·다른 산출물은 보존하며 정해진 구형 실행 파일 두 개만 교체한다."""
+    from tools import build_windows as builder
+
+    output = tmp_path / "dist/강써치-Windows-x64"
+    output.mkdir(parents=True)
+    monkeypatch.setattr(builder, "ROOT", tmp_path)
+    monkeypatch.setattr(builder, "OUTPUT", output)
+    for name in ("강써치.exe", "강써치-Client.exe", "강써치-Backend.exe", "unrelated.txt"):
+        (output / name).write_text("synthetic", encoding="utf-8")
+    builder.remove_legacy_executables()
+    assert {file.name for file in output.iterdir()} == {"강써치.exe", "unrelated.txt"}
+
+
+def test_cleanup_refuses_output_outside_distribution_root(tmp_path, monkeypatch):
+    """계산된 폴더가 허용된 dist 밖이면 파일을 하나도 제거하지 않는다."""
+    from tools import build_windows as builder
+
+    output = tmp_path / "outside"
+    output.mkdir()
+    legacy = output / "강써치-Client.exe"
+    legacy.write_text("preserve", encoding="utf-8")
+    monkeypatch.setattr(builder, "ROOT", tmp_path)
+    monkeypatch.setattr(builder, "OUTPUT", output)
+    with pytest.raises(ValueError, match="배포 폴더 밖"):
+        builder.remove_legacy_executables()
+    assert legacy.read_text(encoding="utf-8") == "preserve"

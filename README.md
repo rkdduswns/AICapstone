@@ -62,11 +62,11 @@ Phase 12·13의 자연어 검색·답변·근거 화면은 가상 응답 미리�
 
 ## 실제 Client–Backend 실행
 
-Python 설치 없이 실행할 Windows x64 배포판은 Client·Backend 각각의 단일 EXE로 빌드합니다.
-ZIP을 푼 뒤 `강써치-Backend.exe` → `강써치-Client.exe` → `연결 확인` 순서로 사용합니다. 소형 창을 포함한 소스 빌드에서는 상태 버튼으로 관리 화면을 열어 연결을 확인합니다.
+Python 설치 없이 실행할 Windows x64 배포판은 `강써치.exe` 하나로 빌드합니다.
+ZIP을 푼 뒤 `강써치.exe`를 실행하면 작은 검색창과 로컬 서버가 함께 시작됩니다. 창을 닫으면 직접 시작한 서버도 정상 종료합니다. 이미 실행 중인 호환 서버는 재사용하며 앱 종료로 끄지 않습니다. 같은 사용자·포트의 중복 창은 막습니다.
 [실행·재빌드 안내](docs/dev/windows-exe.md)를 참고하세요.
 
-의존성을 설치한 뒤 프로젝트 루트의 PowerShell 두 개에서 각각 실행합니다.
+Windows 소스 통합 실행은 `python -m desktop`입니다. 개발 중 분리 실행이 필요하면 의존성을 설치한 뒤 프로젝트 루트의 PowerShell 두 개에서 각각 실행합니다.
 
 ```powershell
 # 첫 번째 터미널: 진행 중 세션도 같은 작업 ID로 저장·갱신합니다.
@@ -93,6 +93,7 @@ AICapstone/
 │  ├─ client/
 │  ├─ backend/
 │  ├─ browser/
+│  ├─ desktop/
 │  └─ shared/
 ├─ tests/
 │  ├─ client/
@@ -114,6 +115,7 @@ AICapstone/
 ```
 
 - `src/`: 실제 프로그램 소스
+- `src/desktop/`: 단일 EXE의 실행 역할·서버 소유 수명 조합
 - `tests/`: 단위 및 통합 테스트
 - `tools/`: 개발/검증용 보조 도구
 - `docs/`: 구현 관련 기술 문서 및 결과 보고
