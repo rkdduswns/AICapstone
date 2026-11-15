@@ -144,3 +144,5 @@ docs/phase-8
 후속 [Client 읽기 흐름 정리](../../docs/reports/client-reading-flow.md)는 현재 연결된 관리 화면의 상태 안내·본문 찾기·원본 출처 메뉴·읽기 스타일 범위다. 실제 검색/RAG의 출처 이동·오류 처리 전체 완료와 구분하여 Phase 14의 1/28은 유지한다.
 
 2026-11-16 [Client 배포·네이티브 읽기 검증](../../docs/reports/client-native-reading.md)은 커밋·해시·ZIP 대조와 격리 서버의 문서 읽기 진단을 보완한다. 실제 입력기·모니터·기본 앱·브라우저 사용자 조작은 별도 미검증 상태로 남기며 Phase 전체 체크 개수를 바꾸지 않는다.
+
+같은 날 [가져온 문서 빠른 필터](../../docs/reports/client-document-filter.md)는 현재 받은 최근 20건의 메타데이터와 유형을 Client에서 좁혀 보는 단계다. 실제 전체 문서/본문 검색이나 검색·답변 연결 완료와 구분한다.
