@@ -142,3 +142,5 @@ docs/phase-8
 2026-11-14 Client는 기존 최근 기록 응답의 날짜별 표시와 개인정보 설정 화면 정리를 진행했다. 날짜별 보기는 [현재 받은 20건의 부분 단계](../../docs/reports/client-recent-timeline.md)로 유지한다. [개인정보 설정 화면 정리](../../docs/reports/client-privacy-status.md)만 완료 처리하여 Phase 14는 1/28이며, 서버 URL 차단과 전체 통합 검증은 남아 있다.
 
 후속 [Client 읽기 흐름 정리](../../docs/reports/client-reading-flow.md)는 현재 연결된 관리 화면의 상태 안내·본문 찾기·원본 출처 메뉴·읽기 스타일 범위다. 실제 검색/RAG의 출처 이동·오류 처리 전체 완료와 구분하여 Phase 14의 1/28은 유지한다.
+
+2026-11-16 [Client 배포·네이티브 읽기 검증](../../docs/reports/client-native-reading.md)은 커밋·해시·ZIP 대조와 격리 서버의 문서 읽기 진단을 보완한다. 실제 입력기·모니터·기본 앱·브라우저 사용자 조작은 별도 미검증 상태로 남기며 Phase 전체 체크 개수를 바꾸지 않는다.
