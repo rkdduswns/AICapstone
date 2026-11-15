@@ -55,6 +55,7 @@ Backend가 이미 켜져 있다면 하나만 실행한다.
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install ".[dev,build]"
 .\.venv\Scripts\python.exe tools/build_windows.py
+.\.venv\Scripts\python.exe tools/verify_windows_bundle.py
 .\.venv\Scripts\python.exe tools/smoke_windows_exe.py
 ```
 
@@ -68,5 +69,14 @@ PyInstaller onefile과 Windows windowed/console 설정을 사용하며 Backend�
 근거: [패키징 동작](https://pyinstaller.org/en/stable/operating-mode.html),
 [CLI 옵션](https://pyinstaller.org/en/stable/usage.html).
 
+배포본 검사는 실행 전에 `BUILD.json`의 커밋과 현재 실행 코드, EXE의 SHA-256, ZIP과 배포 폴더의 구성·내용을 대조한다.
+소스 커밋과 병합 커밋이 달라도 실행 코드·의존성·빌드 스크립트가 같으면 허용한다. 실행 코드가 바뀌었거나 로컬에서 빌드 커밋을 확인할 수 없으면 다시 빌드/확인해야 한다. 이 도구는 저장소에서 사용하는 검증 도구이며 배포자 서명 검사를 추가하지 않는다.
+
 자동 검증은 소스 import 경로 없이 한글/공백 경로에서 EXE를 실행하고 실제 HTTP·PDF/DOCX 추출·SQLite·
-일시정지 거부·네이티브 Qt 창의 연결 진단을 확인한다. Windows 10/11의 사용자 배율·실제 창 전환 수동 검증은 별도다.
+일시정지 거부·네이티브 Qt 창의 연결을 확인한다. 현재는 격리된 서버의 현재 작업·보호 상태 응답을 기다린 뒤,
+문서 두 건의 본문 찾기·이동·닫기와 검색창 복귀, 미연결 문서에서 원본 경로를 추정하지 않는 동작도 검사한다.
+Client 진단 자체는 서버 쓰기나 외부 앱 열기를 하지 않고 사용자 표시 설정을 사용하지 않는다.
+기존 `--smoke-test-result`만 사용하는 연결 진단은 종전 JSON 형식과 동작을 유지한다.
+새 `--smoke-test-reading`은 결과 옵션과 격리 검증 자료가 필요한 개발용 옵션이다.
+
+Windows 10/11의 실제 입력기·배율·모니터·기본 앱·브라우저 조작은 별도다. [검증 범위와 실제 사용 확인표](../reports/client-native-reading.md)를 따른다.

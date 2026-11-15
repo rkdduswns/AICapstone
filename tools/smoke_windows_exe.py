@@ -15,6 +15,7 @@ import urllib.request
 from pathlib import Path
 
 from docx import Document
+from verify_windows_bundle import verify_bundle
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -61,12 +62,20 @@ def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     if sys.platform != "win32":
         raise SystemExit("Windows EXE 검증은 Windows에서 실행해 주세요.")
+    report = ROOT / "build/package-smoke.json"
+    # 새 실행이 실패했을 때 이전 성공 파일이 이번 검증 결과로 남지 않게 한다.
+    report.unlink(missing_ok=True)
     output = ROOT / "dist/강써치-Windows-x64"
+    # 오래된 정상 EXE나 ZIP/폴더가 서로 다른 산출물을 실행하기 전에 검출한다.
+    bundle = verify_bundle(output, ROOT)
     environment = {key: value for key, value in os.environ.items()
                    if key not in {"PYTHONPATH", "PYTHONHOME", "QT_PLUGIN_PATH",
                                   "QT_QPA_PLATFORM_PLUGIN_PATH", "QT_QPA_PLATFORM",
                                   "CONTEXTTRACE_BROWSER_TOKEN", "GANGSEARCH_BROWSER_TOKEN"}}
-    checks = {"source_imports_disabled": True, "unicode_path": True}
+    checks = {"source_imports_disabled": True, "unicode_path": True,
+              "bundle_code_identity": bundle["code_matches_head"],
+              "bundle_exe_hashes": bundle["exe_hashes_verified"],
+              "bundle_zip_contents": bundle["archive_verified"]}
     with tempfile.TemporaryDirectory(prefix="강써치 한글 ") as directory:
         work = Path(directory)
         for name in ("Client", "Backend"):
@@ -154,7 +163,8 @@ def main() -> None:
                 checks["privacy_restart_persistence"] = True
                 result_path = work / "client-result.json"
                 client = subprocess.Popen([str(work / "강써치-Client.exe"), "--port", str(port),
-                                           "--smoke-test-result", str(result_path)], cwd=work,
+                                           "--smoke-test-result", str(result_path),
+                                           "--smoke-test-reading"], cwd=work,
                                           env=environment,
                                           creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
                 try:
@@ -162,14 +172,22 @@ def main() -> None:
                 finally:
                     stop(client)
                 result = json.loads(result_path.read_text(encoding="utf-8"))
+                reading_checks = result.pop("checks", None)
                 assert result == {"ok": True, "frozen": True, "platform": "windows"}, result
+                expected = {"health_confirmed", "activity_confirmed", "privacy_confirmed",
+                            "document_list", "document_find", "document_source_none",
+                            "management_return"}
+                assert isinstance(reading_checks, dict) and set(reading_checks) == expected
+                assert all(value is True for value in reading_checks.values()), reading_checks
+                checks.update({"native_reading_" + key: value
+                               for key, value in reading_checks.items()})
                 checks["native_qt_frozen_client_connection"] = True
             finally:
                 stop(process)
                 # 실패 로그도 CI 콘솔에 남기되 가상 데이터만 사용한다.
                 print((work / "backend.log").read_text(encoding="utf-8", errors="replace"))
         assert (work / "검증.db").exists()
-    (ROOT / "build/package-smoke.json").write_text(json.dumps(checks, indent=2), encoding="utf-8")
+    report.write_text(json.dumps(checks, indent=2), encoding="utf-8")
     print(json.dumps(checks))
 
 
