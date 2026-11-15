@@ -477,6 +477,8 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 
 원본: [phase014.md](phase014.md)
 
+2026-11-16 `feat/single-exe-launcher`는 배포 파일 하나에서 Client와 소유 Backend의 시작·종료를 관리한다. [검증 경계](../../docs/reports/single-exe-launcher.md)를 따르며 기존 API·DB·보호 정책이나 아래 전체 E2E 체크를 변경하지 않는다.
+
 2026-11-16 `feat/client-document-filter`는 현재 받은 최근 문서 20건의 메타데이터·유형 필터를 보완한다. [범위·검증](../../docs/reports/client-document-filter.md)을 따르며 전체 문서 검색이나 아래 전체 흐름 완료로 처리하지 않는다. 체크 개수는 1/28로 유지한다.
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |

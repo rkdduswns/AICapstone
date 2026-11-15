@@ -20,7 +20,9 @@ def app():
 
 
 @pytest.mark.parametrize("diagnostic", [False, True])
-def test_entry_checks_once_and_diagnostic_does_not_use_preferences(monkeypatch, diagnostic):
+@pytest.mark.parametrize("managed_start", [False, True])
+def test_entry_checks_once_and_diagnostic_does_not_use_preferences(monkeypatch, diagnostic,
+                                                                 managed_start):
     """일반 실행에도 한 번 연결하며 진단 실행은 실제 사용자 설정을 읽지 않는다."""
     import client.__main__ as entry
 
@@ -56,11 +58,14 @@ def test_entry_checks_once_and_diagnostic_does_not_use_preferences(monkeypatch, 
     monkeypatch.setattr(entry, "ApplicationWindow", Window)
     monkeypatch.setattr(entry, "ViewPreferences", view_preferences)
     monkeypatch.setattr(entry, "QTimer", SimpleNamespace(singleShot=lambda ms, slot: timers.append((ms, slot))))
-    assert entry.main() == 0
+    managed = []
+    hook = (lambda window: managed.append(window)) if managed_start else None
+    assert entry.main(startup_hook=hook) == 0
     immediate = [slot for milliseconds, slot in timers if milliseconds == 0]
     assert len(immediate) == 1
     immediate[0]()
-    assert checks == [9123]
+    assert checks == ([] if managed_start else [9123])
+    assert len(managed) == int(managed_start)
     assert windows == [{"preferences": None if diagnostic else marker}]
     assert len(preferences) == (0 if diagnostic else 1)
 

@@ -10,7 +10,7 @@ from pathlib import Path, PurePosixPath
 from zipfile import BadZipFile, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-EXE_NAMES = frozenset({"강써치-Client.exe", "강써치-Backend.exe"})
+EXE_NAMES = frozenset({"강써치.exe"})
 RUNTIME_PATHS = ("src", "pyproject.toml", "tools/build_windows.py")
 REQUIRED_FILES = EXE_NAMES | {
     "BUILD.json", "SHA256SUMS.txt", "README.md", "HISTORY-LINKING.md",
@@ -58,6 +58,10 @@ def _verify_bundle(output: Path, repository: Path) -> dict:
             files[file.relative_to(output).as_posix()] = file
     if not REQUIRED_FILES <= files.keys():
         raise ValueError("배포본의 실행 파일·빌드 식별·문서·확장 파일이 누락됐습니다.")
+    # ZIP과 폴더가 함께 잘못 구성돼도 구형 두 EXE나 하위 폴더의 별도 EXE를 허용하지 않는다.
+    executables = {name for name in files if PurePosixPath(name).suffix.casefold() == ".exe"}
+    if executables != EXE_NAMES:
+        raise ValueError("배포본에는 강써치.exe 실행 파일 하나만 있어야 합니다.")
     build = json.loads(files["BUILD.json"].read_text(encoding="utf-8"),
                        object_pairs_hook=_json_object, parse_constant=_invalid_constant)
     commit = build.get("commit") if isinstance(build, dict) else None
@@ -77,7 +81,7 @@ def _verify_bundle(output: Path, repository: Path) -> dict:
             raise ValueError("SHA256SUMS.txt의 실행 파일 이름·해시·중복 항목을 확인해 주세요.")
         expected_hashes[match[2]] = match[1]
     if expected_hashes.keys() != EXE_NAMES:
-        raise ValueError("SHA256SUMS.txt에는 두 실행 파일의 해시가 각각 있어야 합니다.")
+        raise ValueError("SHA256SUMS.txt에는 강써치.exe 해시 하나가 있어야 합니다.")
     digests = {}
     for name, file in files.items():
         with file.open("rb") as source:

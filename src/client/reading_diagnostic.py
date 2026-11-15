@@ -14,7 +14,8 @@ class ReadingDiagnostic(QObject):
     """성공한 health만으로 종료하지 않고 실제 확인 응답과 읽기 화면까지 기다린다."""
 
     def __init__(self, window: ApplicationWindow,
-                 finished: Callable[[bool, dict[str, bool]], None]) -> None:
+                 finished: Callable[[bool, dict[str, bool]], None], *,
+                 timeout_ms: int = 10_000) -> None:
         """결과에는 불리언만 담고 문서 본문·URL·경로·사용자 표시 설정을 기록하지 않는다."""
         super().__init__(window)
         self.window = window
@@ -40,7 +41,7 @@ class ReadingDiagnostic(QObject):
         management.documents.client.documents_received.connect(self._documents_received)
         management.documents.client.documents_failed.connect(lambda _message: self._finish(False))
         window.installEventFilter(self)
-        self.timer.start(10_000)
+        self.timer.start(timeout_ms)
 
     def _health_received(self, connected: bool) -> None:
         """연결 실패는 종료하고 성공 시에도 두 상태 채널의 확인 전에는 읽기를 시작하지 않는다."""

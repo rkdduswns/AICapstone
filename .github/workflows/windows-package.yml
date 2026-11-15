@@ -20,9 +20,9 @@ jobs:
       - run: python -m pip install ".[dev,build]"
       - run: python -m pip check
       - run: python -m ruff check src tests tools
-      - name: Build two standalone executables
+      - name: Build one desktop executable
         run: python tools/build_windows.py
-      - name: Run packaged programs without source imports
+      - name: Verify unified startup and owned server shutdown
         run: python tools/smoke_windows_exe.py
       - name: Save verified package
         uses: actions/upload-artifact@v4
@@ -37,6 +37,6 @@ jobs:
         with:
           name: windows-package-diagnostics
           path: |
-            build/*/강써치-*/warn-*.txt
+            build/desktop/강써치/warn-*.txt
             build/package-smoke.json
           if-no-files-found: ignore

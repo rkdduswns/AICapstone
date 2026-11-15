@@ -2,7 +2,9 @@
 
 import argparse
 import json
+import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QTimer
@@ -14,7 +16,7 @@ from client.view_preferences import ViewPreferences
 from shared.protocol import DEFAULT_PORT
 
 
-def main() -> int:
+def main(*, startup_hook: Callable[[ApplicationWindow], None] | None = None) -> int:
     """일반 실행은 창을 유지하며 진단 실행만 실제 연결 결과를 쓰고 자동 종료한다."""
     parser = argparse.ArgumentParser(description="강써치 데스크톱 클라이언트")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -22,11 +24,15 @@ def main() -> int:
                         help="실제 창·Backend 연결 진단 결과를 JSON으로 쓰고 종료합니다.")
     parser.add_argument("--smoke-test-reading", action="store_true",
                         help="격리된 검증 서버의 PDF·DOCX 읽기 동작까지 확인합니다.")
+    parser.add_argument("--smoke-test-hold-ms", type=int, default=0, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("port must be an integer from 1 to 65535")
     if args.smoke_test_reading and args.smoke_test_result is None:
         parser.error("--smoke-test-reading requires --smoke-test-result")
+    if not 0 <= args.smoke_test_hold_ms <= 60_000 or (
+            args.smoke_test_hold_ms and args.smoke_test_result is None):
+        parser.error("diagnostic hold requires result and must be from 0 to 60000 ms")
     app = QApplication([sys.argv[0]])
     app.setApplicationName("강써치")
     app.setApplicationDisplayName("강써치")
@@ -48,23 +54,37 @@ def main() -> int:
                       "platform": app.platformName()}
             if checks is not None:
                 result["checks"] = checks
+            if args.smoke_test_hold_ms:
+                # 격리된 수명 검증에서만 자신이 시작한 GUI 프로세스의 강제 종료를 확인한다.
+                result["process_id"] = os.getpid()
             try:
                 args.smoke_test_result.write_text(json.dumps(result), encoding="utf-8")
                 exit_code = 0 if result["ok"] else 1
             except OSError:
                 exit_code = 2
-            window.close()
-            app.exit(exit_code)
+            def close_diagnostic() -> None:
+                """일반 진단은 즉시 닫고 수명 검증만 제한된 시간 뒤 같은 종료 흐름을 사용한다."""
+                window.close()
+                app.exit(exit_code)
+
+            if args.smoke_test_hold_ms and result["ok"]:
+                QTimer.singleShot(args.smoke_test_hold_ms, close_diagnostic)
+            else:
+                close_diagnostic()
 
         if args.smoke_test_reading:
             # 창이 소유하므로 이벤트 루프 동안 유지되고 일반 실행 경로에는 생성하지 않는다.
-            ReadingDiagnostic(window, finish)
+            ReadingDiagnostic(window, finish, timeout_ms=30_000 if startup_hook else 10_000)
         else:
             window.management.backend.connection_changed.connect(finish)
             # 구형 진단 JSON과 연결 확인만 하는 동작은 호환 유지한다.
-            QTimer.singleShot(10000, lambda: finish(False))
+            QTimer.singleShot(30000 if startup_hook else 10000, lambda: finish(False))
     # 일반 실행과 진단 실행 모두 같은 읽기 전용 연결 확인을 한 번 예약한다.
-    QTimer.singleShot(0, window.management.check)
+    if startup_hook is None:
+        QTimer.singleShot(0, window.management.check)
+    else:
+        # 단일 EXE의 실행 조합 계층이 서버 준비를 확인한 뒤 같은 연결 검사를 호출한다.
+        QTimer.singleShot(0, lambda: startup_hook(window))
     return app.exec()
 
 
