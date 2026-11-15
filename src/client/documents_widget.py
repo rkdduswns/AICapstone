@@ -1,11 +1,13 @@
 """실제 Backend의 문서 업로드·목록 API를 사용하는 가져오기 화면."""
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QPlainTextEdit,
     QProgressBar,
@@ -21,7 +23,7 @@ from client.source_actions import SourceActionsButton
 from client.text_find import TextFindBar
 from client.theme import set_reading_text, set_role
 from client.time_values import format_timestamp
-from shared.document import MAX_DOCUMENT_CONTENT_LENGTH, ImportedDocument
+from shared.document import DOCUMENT_LIST_LIMIT, MAX_DOCUMENT_CONTENT_LENGTH, ImportedDocument
 from shared.records import ContextRecord
 
 
@@ -39,6 +41,8 @@ class DocumentsWidget(QWidget):
         self._uploading = False
         self._preferred_document_id: int | None = None
         self._completion_document_id: int | None = None
+        self._completion_text = ""
+        self._rendered_document_id: int | None = None
         self.client = DocumentsClient(port, self)
         self.client.documents_received.connect(self._show_rows)
         self.client.document_uploaded.connect(self._uploaded)
@@ -105,8 +109,22 @@ class DocumentsWidget(QWidget):
         self.source_feedback.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.source_feedback.hide()
         layout.addWidget(self.source_feedback)
+        self.filter_edit = QLineEdit()
+        self.filter_edit.setClearButtonEnabled(True)
+        self.filter_edit.setAccessibleName("불러온 문서 빠른 필터")
+        self.filter_edit.setPlaceholderText(
+            f"불러온 최근 {DOCUMENT_LIST_LIMIT}건에서 파일명·원본 경로·작업 ID 찾기")
+        self.type_filter = QComboBox()
+        self.type_filter.setAccessibleName("불러온 문서 유형 필터")
+        self.type_filter.addItem("전체 유형", "all")
+        self.type_filter.addItem("PDF", "pdf")
+        self.type_filter.addItem("DOCX", "docx")
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(self.filter_edit, 1)
+        filter_row.addWidget(self.type_filter)
+        layout.addLayout(filter_row)
         self.records = QListWidget()
-        self.records.currentRowChanged.connect(self._select)
+        self.records.itemSelectionChanged.connect(self._selection_changed)
         self.content = QPlainTextEdit()
         self.content.setReadOnly(True)
         self.content.setTabChangesFocus(True)
@@ -125,6 +143,8 @@ class DocumentsWidget(QWidget):
         self.reading_splitter.setStretchFactor(1, 2)
         self.reading_splitter.handle(1).setToolTip("경계를 끌어 문서 목록과 본문 높이를 조절합니다.")
         layout.addWidget(self.reading_splitter, 1)
+        self.filter_edit.textChanged.connect(self._filter_documents)
+        self.type_filter.currentIndexChanged.connect(self._filter_documents)
         self._controls()
 
     def _controls(self) -> None:
@@ -133,6 +153,8 @@ class DocumentsWidget(QWidget):
         self.refresh_button.setEnabled(self.connected and not self.busy)
         self.clear_target_button.setEnabled(not self.busy and self.target_record_id is not None)
         self.records.setEnabled(not self.busy)
+        self.filter_edit.setEnabled(self.connected and not self.busy)
+        self.type_filter.setEnabled(self.connected and not self.busy)
         if self.busy:
             self._clear_source()
 
@@ -156,6 +178,7 @@ class DocumentsWidget(QWidget):
         self._clear_completion()
         self.set_target_record(None)
         self.rows = []
+        self._rendered_document_id = None
         self._clear_source()
         self.records.clear()
         self.content.clear()
@@ -176,8 +199,8 @@ class DocumentsWidget(QWidget):
         if not self.connected or self.busy:
             return
         if self._preferred_document_id is None:
-            index = self.records.currentRow()
-            self._preferred_document_id = self.rows[index].id if 0 <= index < len(self.rows) else None
+            index = self._selected_document_row()
+            self._preferred_document_id = self.rows[index].id if index >= 0 else None
         self.busy = True
         self.notice.setText("문서 목록 조회 중")
         self.guidance.hide()
@@ -208,19 +231,16 @@ class DocumentsWidget(QWidget):
             return
         preferred_id, self._preferred_document_id = self._preferred_document_id, None
         self.rows, self.loaded, self.busy = rows, True, False
-        self.records.clear()
+        self._rendered_document_id = None
+        self._clear_source()
         self.content.clear()
-        for row in rows:
-            linked = f" · 작업 #{row.record_id}" if row.record_id is not None else " · 연결 없음"
-            self.records.addItem(f"{row.file_name} · {format_timestamp(row.captured_at)}{linked}")
-        self.notice.setText(f"가져온 문서 {len(rows)}건 · 최근 20건까지 표시")
-        if rows:
-            index = next((i for i, row in enumerate(rows) if row.id == preferred_id), 0)
-            self.records.setCurrentRow(index)
-            self.guidance.hide()
-        else:
-            self.guidance.setText("가져온 문서가 없습니다. 문서 선택하여 가져오기로 PDF·DOCX를 추가할 수 있습니다.")
-            self.guidance.show()
+        # 중간 행 선택 신호로 갱신 전 문서나 아직 필터하지 않은 문서를 표시하지 않는다.
+        with QSignalBlocker(self.records):
+            self.records.clear()
+            for row in rows:
+                linked = f" · 작업 #{row.record_id}" if row.record_id is not None else " · 연결 없음"
+                self.records.addItem(f"{row.file_name} · {format_timestamp(row.captured_at)}{linked}")
+        self._filter_documents(preferred_id=preferred_id)
         if self._completion_document_id not in {row.id for row in rows}:
             self._clear_completion()
         self._controls()
@@ -233,29 +253,109 @@ class DocumentsWidget(QWidget):
         self._clear_transfer()
         self._preferred_document_id = self._completion_document_id = document.id
         linked = f"작업 #{document.record_id}에 연결됨" if document.record_id else "작업 연결 없음"
-        self.completion.setText(f"가져오기 완료 · {document.file_name} · {linked}")
+        self._completion_text = f"가져오기 완료 · {document.file_name} · {linked}"
+        self.completion.setText(self._completion_text)
         self.completion.show()
         if document.record_id is not None:
             self.record_linked.emit(document.record_id)
             self.set_target_record(None)
         self.refresh()
 
+    def _selected_document_row(self) -> int:
+        """currentRow가 남아 있어도 실제 선택된 보이는 문서 한 건만 사용한다."""
+        selected = self.records.selectedItems()
+        if not self.connected or not self.loaded or self.busy or len(selected) != 1:
+            return -1
+        item = selected[0]
+        index = self.records.row(item)
+        return index if 0 <= index < len(self.rows) and not item.isHidden() else -1
+
+    def _filter_documents(self, _text: object = None, *, preferred_id: int | None = None) -> None:
+        """현재 받은 목록의 메타데이터만 필터하며 요청·원본 순서·업로드 대상을 바꾸지 않는다."""
+        if not self.connected or not self.loaded or self.busy:
+            return
+        current = self._selected_document_row()
+        selected_id = preferred_id if preferred_id is not None else (
+            self.rows[current].id if current >= 0 else None)
+        query = self.filter_edit.text().strip().casefold()
+        kind = self.type_filter.currentData()
+        visible = []
+        with QSignalBlocker(self.records):
+            for index, document in enumerate(self.rows):
+                fields = [document.file_name, document.file_path or "",
+                          f"#{document.record_id}" if document.record_id is not None else ""]
+                match = ((kind == "all" or kind == document.file_type)
+                         and (not query or query in "\n".join(fields).casefold()))
+                self.records.item(index).setHidden(not match)
+                if match:
+                    visible.append(index)
+            target = next((index for index in visible if self.rows[index].id == selected_id),
+                          visible[0] if visible else -1)
+            if target < 0:
+                self.records.clearSelection()
+                self.records.setCurrentRow(-1)
+            elif self._selected_document_row() != target:
+                self.records.clearSelection()
+                self.records.setCurrentRow(target)
+                self.records.item(target).setSelected(True)
+        self._select(target)
+        if not self.rows:
+            self.guidance.setText("가져온 문서가 없습니다. 문서 선택하여 가져오기로 PDF·DOCX를 추가할 수 있습니다.")
+            self.guidance.show()
+        elif not visible:
+            self.guidance.setText("필터 입력을 지우거나 유형을 전체로 바꾸면 불러온 문서를 다시 볼 수 있습니다.")
+            self.guidance.show()
+        else:
+            self.guidance.hide()
+        self._update_completion_filter()
+
+    def _selection_changed(self) -> None:
+        """선택 해제와 숨겨진 행의 선택도 즉시 본문·출처에 반영한다."""
+        self._select(self._selected_document_row())
+
     def _select(self, index: int) -> None:
-        """일반 텍스트로 보여주고 긴 본문은 표시 범위를 명시한다."""
-        self._clear_source()
-        self.content.clear()
-        # 이전 긴 문서의 일부 표시 안내가 다음 짧은 문서에 남지 않도록 선택마다 복원한다.
-        if self.loaded and not self.busy:
-            self.notice.setText(f"가져온 문서 {len(self.rows)}건 · 최근 20건까지 표시")
-        if 0 <= index < len(self.rows):
-            row = self.rows[index]
-            if not self.busy:
+        """실제 선택한 문서만 표시하며 같은 문서의 필터 편집은 읽던 위치를 유지한다."""
+        actual = self._selected_document_row()
+        if actual < 0 or index != actual:
+            with QSignalBlocker(self.records):
+                self.records.clearSelection()
+                self.records.setCurrentRow(-1)
+            self._rendered_document_id = None
+            self._clear_source()
+            self.content.clear()
+        else:
+            row = self.rows[actual]
+            if self._rendered_document_id != row.id:
+                self._clear_source()
                 self.source_actions.set_source(file_path=row.file_path)
-            text = row.extracted_text
-            header = f"연결된 파일: {row.file_path}\n\n" if row.file_path else ""
-            set_reading_text(self.content, header + text[:MAX_DOCUMENT_CONTENT_LENGTH])
-            if len(text) > MAX_DOCUMENT_CONTENT_LENGTH:
-                self.notice.setText("본문은 처음 50,000자까지 표시합니다.")
+                header = f"연결된 파일: {row.file_path}\n\n" if row.file_path else ""
+                set_reading_text(self.content, header + row.extracted_text[:MAX_DOCUMENT_CONTENT_LENGTH])
+                self._rendered_document_id = row.id
+        self._update_list_notice()
+
+    def _update_list_notice(self) -> None:
+        """조회 오류·전송 중 안내를 덮지 않고 필터 개수와 현재 문서의 표시 한계를 알린다."""
+        if not self.connected or not self.loaded or self.busy:
+            return
+        visible = sum(not self.records.item(index).isHidden() for index in range(len(self.rows)))
+        filtered = bool(self.filter_edit.text().strip()) or self.type_filter.currentData() != "all"
+        message = (f"불러온 {len(self.rows)}건 중 {visible}건 · 현재 목록 안에서만 필터" if filtered else
+                   f"가져온 문서 {len(self.rows)}건 · 최근 {DOCUMENT_LIST_LIMIT}건까지 표시")
+        selected = self._selected_document_row()
+        if selected >= 0 and len(self.rows[selected].extracted_text) > MAX_DOCUMENT_CONTENT_LENGTH:
+            message += " · 본문은 처음 50,000자까지 표시합니다."
+        self.notice.setText(message)
+
+    def _update_completion_filter(self) -> None:
+        """필터 밖 업로드도 저장 성공을 유지하고 필터 해제 방법만 안내한다."""
+        if self._completion_document_id is None:
+            return
+        index = next((index for index, row in enumerate(self.rows)
+                      if row.id == self._completion_document_id), None)
+        message = self._completion_text
+        if index is not None and self.records.item(index).isHidden():
+            message += " · 현재 필터에 숨겨져 있습니다. 필터를 지우거나 유형을 전체로 바꿔 확인해 주세요."
+        self.completion.setText(message)
 
     def _failed(self, message: str) -> None:
         """요청 실패 시 옛 결과를 현재 결과로 오인하지 않게 지우고 수동 복구를 허용한다."""
@@ -267,6 +367,7 @@ class DocumentsWidget(QWidget):
         self._clear_transfer()
         self._clear_completion()
         self.rows = []
+        self._rendered_document_id = None
         self.records.clear()
         self.content.clear()
         self.notice.setText(message)
@@ -329,6 +430,7 @@ class DocumentsWidget(QWidget):
     def _clear_completion(self) -> None:
         """새 요청이나 오류 뒤에 과거 문서의 완료 표시가 남지 않게 한다."""
         self._completion_document_id = None
+        self._completion_text = ""
         self.completion.clear()
         self.completion.hide()
 
