@@ -8,6 +8,7 @@ import uuid
 from dataclasses import asdict
 from pathlib import Path
 
+from backend.activity_deletion import ActivityDeletionMixin
 from shared.activity import (
     ActiveWindow,
     ActivityRecord,
@@ -23,7 +24,7 @@ from shared.search_data import (
 )
 
 
-class ActivityStore:
+class ActivityStore(ActivityDeletionMixin):
     """Persist activity, clipboard, browser, and document records."""
 
     def __init__(self, db_path: str | Path | None = None) -> None:
@@ -668,6 +669,42 @@ class ActivityStore:
         finally:
             connection.close()
 
+    def get_browser_source_record(
+        self,
+        browser_source_id: int,
+    ) -> BrowserSourceRecord | None:
+        """Return one browser source record by its ID."""
+        if isinstance(browser_source_id, bool) or not isinstance(
+            browser_source_id, int
+        ):
+            raise TypeError("browser_source_id must be an integer")
+        if browser_source_id < 1:
+            raise ValueError("browser_source_id must be positive")
+
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                """
+                SELECT id, browser, url, page_title, captured_at
+                FROM browser_source_records
+                WHERE id = ?
+                """,
+                (browser_source_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        if row is None:
+            return None
+
+        return BrowserSourceRecord(
+            id=row["id"],
+            browser=row["browser"],
+            url=row["url"],
+            page_title=row["page_title"],
+            captured_at=row["captured_at"],
+        )
+
     def get_recent_browser_source_records(
         self,
         limit: int = 50,
@@ -990,7 +1027,7 @@ class ActivityStore:
 
     def save_search_source_from_models(
         self,
-        context_id: int,
+        context_id: int | None,
         source_metadata: SourceMetadata,
         chunks: list[DocumentChunk],
         document_id: int | None = None,
@@ -998,147 +1035,124 @@ class ActivityStore:
         embeddings: list[list[float]] | None = None,
         model_name: str = "intfloat/multilingual-e5-small",
     ) -> int:
-        """Save a search source and its chunks atomically."""
-        if isinstance(context_id, bool) or not isinstance(context_id, int):
-            raise TypeError("context_id must be an integer")
-        if context_id < 1:
-            raise ValueError("context_id must be positive")
+        """Save a search source and its chunks atomically.
+
+        Document sources must reference an activity record. Browser sources may
+        be indexed without an activity record because browser collection is
+        independent of active-window tracking. Re-indexing replaces the
+        previous chunks and their embeddings in the same transaction.
+        """
+        if context_id is not None:
+            if isinstance(context_id, bool) or not isinstance(context_id, int):
+                raise TypeError("context_id must be an integer or None")
+            if context_id < 1:
+                raise ValueError("context_id must be positive")
 
         if not isinstance(source_metadata, SourceMetadata):
             raise TypeError("source_metadata must be SourceMetadata")
-
         if not isinstance(chunks, list):
             raise TypeError("chunks must be a list")
 
         if source_metadata.kind == "document":
+            if context_id is None:
+                raise ValueError("document source requires context_id")
             if document_id is None or browser_source_id is not None:
-                raise ValueError(
-                    "document source requires document_id only"
-                )
+                raise ValueError("document source requires document_id only")
+            if (
+                source_metadata.document is None
+                or source_metadata.browser is not None
+            ):
+                raise ValueError("invalid document source metadata")
             source_id_column = "document_id"
             source_record_id = document_id
-
-            if source_metadata.document is None or source_metadata.browser is not None:
-                raise ValueError("invalid document source metadata")
-
         elif source_metadata.kind == "web":
             if browser_source_id is None or document_id is not None:
-                raise ValueError(
-                    "web source requires browser_source_id only"
-                )
+                raise ValueError("web source requires browser_source_id only")
+            if (
+                source_metadata.browser is None
+                or source_metadata.document is not None
+            ):
+                raise ValueError("invalid web source metadata")
             source_id_column = "browser_source_id"
             source_record_id = browser_source_id
-
-            if source_metadata.browser is None or source_metadata.document is not None:
-                raise ValueError("invalid web source metadata")
-
         else:
             raise ValueError("unsupported search source kind")
 
-        if (
-            isinstance(source_record_id, bool)
-            or not isinstance(source_record_id, int)
+        if isinstance(source_record_id, bool) or not isinstance(
+            source_record_id, int
         ):
             raise TypeError("source record ID must be an integer")
-
         if source_record_id < 1:
             raise ValueError("source record ID must be positive")
 
+        expected_context_id = str(context_id) if context_id is not None else None
         seen_ids: set[str] = set()
         seen_indexes: set[int] = set()
 
         for chunk in chunks:
             if not isinstance(chunk, DocumentChunk):
                 raise TypeError("each chunk must be DocumentChunk")
-
-            if chunk.context_id != str(context_id):
+            if chunk.context_id != expected_context_id:
                 raise ValueError("chunk belongs to another activity")
-
             if chunk.source != source_metadata:
                 raise ValueError("chunk source metadata does not match")
-
             if not isinstance(chunk.id, str) or not chunk.id.strip():
                 raise ValueError("chunk ID must not be empty")
-
             if chunk.id in seen_ids:
                 raise ValueError("duplicate chunk ID")
             seen_ids.add(chunk.id)
-
             if (
                 isinstance(chunk.chunk_index, bool)
                 or not isinstance(chunk.chunk_index, int)
                 or chunk.chunk_index < 0
             ):
                 raise ValueError("invalid chunk index")
-
             if chunk.chunk_index in seen_indexes:
                 raise ValueError("duplicate chunk index")
             seen_indexes.add(chunk.chunk_index)
-
             if (
                 not isinstance(chunk.text, str)
                 or not chunk.text.strip()
                 or len(chunk.text) > MAX_CHUNK_TEXT_LENGTH
             ):
                 raise ValueError("invalid chunk text")
-
             if chunk.semantic_data_id is not None and (
                 not isinstance(chunk.semantic_data_id, str)
                 or not chunk.semantic_data_id.strip()
             ):
                 raise ValueError("invalid semantic_data_id")
 
-            if embeddings is not None:
-                if not isinstance(embeddings, list):
-                    raise TypeError("embeddings must be a list")
+        if embeddings is not None:
+            if not isinstance(embeddings, list):
+                raise TypeError("embeddings must be a list")
+            if len(embeddings) != len(chunks):
+                raise ValueError("embedding count must match chunk count")
+            if not isinstance(model_name, str) or not model_name.strip():
+                raise ValueError("model_name must not be empty")
+            for vector in embeddings:
+                if not isinstance(vector, list):
+                    raise TypeError("each embedding must be a list")
+                if len(vector) != 384:
+                    raise ValueError("embedding dimension must be 384")
+                for value in vector:
+                    if isinstance(value, bool) or not isinstance(
+                        value, (int, float)
+                    ):
+                        raise TypeError("embedding values must be numeric")
+                    if not math.isfinite(value):
+                        raise ValueError("embedding values must be finite")
 
-                if len(embeddings) != len(chunks):
-                    raise ValueError(
-                        "embedding count must match chunk count"
-                    )
-
-                if not isinstance(model_name, str) or not model_name.strip():
-                    raise ValueError("model_name must not be empty")
-
-                for vector in embeddings:
-                    if not isinstance(vector, list):
-                        raise TypeError("each embedding must be a list")
-
-                    if len(vector) != 384:
-                        raise ValueError(
-                            "embedding dimension must be 384"
-                        )
-
-                    for value in vector:
-                        if (
-                            isinstance(value, bool)
-                            or not isinstance(value, (int, float))
-                        ):
-                            raise TypeError(
-                                "embedding values must be numeric"
-                            )
-
-                        if not math.isfinite(value):
-                            raise ValueError(
-                                "embedding values must be finite"
-                            )
-
-        metadata_json = json.dumps(
-            asdict(source_metadata),
-            ensure_ascii=False,
-        )
-
+        metadata_json = json.dumps(asdict(source_metadata), ensure_ascii=False)
         connection = self._connect()
-
         try:
             with connection:
-                activity = connection.execute(
-                    "SELECT id FROM activity_records WHERE id = ?",
-                    (context_id,),
-                ).fetchone()
-
-                if activity is None:
-                    raise ValueError("activity record does not exist")
+                if context_id is not None:
+                    activity = connection.execute(
+                        "SELECT id FROM activity_records WHERE id = ?",
+                        (context_id,),
+                    ).fetchone()
+                    if activity is None:
+                        raise ValueError("activity record does not exist")
 
                 if source_metadata.kind == "document":
                     source_record = connection.execute(
@@ -1149,15 +1163,10 @@ class ActivityStore:
                         """,
                         (source_record_id,),
                     ).fetchone()
-
                     if source_record is None:
                         raise ValueError("document record does not exist")
-
                     if source_record["context_id"] != context_id:
-                        raise ValueError(
-                            "document belongs to another activity"
-                        )
-
+                        raise ValueError("document belongs to another activity")
                 else:
                     source_record = connection.execute(
                         """
@@ -1167,30 +1176,19 @@ class ActivityStore:
                         """,
                         (source_record_id,),
                     ).fetchone()
-
                     if source_record is None:
-                        raise ValueError(
-                            "browser source record does not exist"
-                        )
-
+                        raise ValueError("browser source record does not exist")
                     browser = source_metadata.browser
                     assert browser is not None
-
                     if (
                         source_record["browser"] != browser.browser
                         or source_record["url"] != browser.url
                         or source_record["page_title"] != browser.page_title
                     ):
-                        raise ValueError(
-                            "browser source metadata does not match"
-                        )
+                        raise ValueError("browser source metadata does not match")
 
                 existing = connection.execute(
-                    f"""
-                    SELECT id
-                    FROM search_sources
-                    WHERE {source_id_column} = ?
-                    """,
+                    f"SELECT id FROM search_sources WHERE {source_id_column} = ?",
                     (source_record_id,),
                 ).fetchone()
 
@@ -1198,12 +1196,8 @@ class ActivityStore:
                     cursor = connection.execute(
                         """
                         INSERT INTO search_sources (
-                            source_kind,
-                            document_id,
-                            browser_source_id,
-                            context_id,
-                            captured_at,
-                            content_truncated,
+                            source_kind, document_id, browser_source_id,
+                            context_id, captured_at, content_truncated,
                             metadata_json
                         )
                         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -1219,18 +1213,13 @@ class ActivityStore:
                         ),
                     )
                     search_source_id = int(cursor.lastrowid)
-
                 else:
                     search_source_id = int(existing["id"])
-
                     connection.execute(
                         """
                         UPDATE search_sources
-                        SET
-                            context_id = ?,
-                            captured_at = ?,
-                            content_truncated = ?,
-                            metadata_json = ?
+                        SET context_id = ?, captured_at = ?,
+                            content_truncated = ?, metadata_json = ?
                         WHERE id = ?
                         """,
                         (
@@ -1241,19 +1230,14 @@ class ActivityStore:
                             search_source_id,
                         ),
                     )
-
                     connection.execute(
-                        """
-                        DELETE FROM search_chunks
-                        WHERE search_source_id = ?
-                        """,
+                        "DELETE FROM search_chunks WHERE search_source_id = ?",
                         (search_source_id,),
                     )
 
                 for index, chunk in enumerate(chunks):
                     semantic_data_id = chunk.semantic_data_id
                     vector = None
-
                     if embeddings is not None:
                         semantic_data_id = str(uuid.uuid4())
                         vector = [float(value) for value in embeddings[index]]
@@ -1261,10 +1245,7 @@ class ActivityStore:
                     connection.execute(
                         """
                         INSERT INTO search_chunks (
-                            id,
-                            search_source_id,
-                            chunk_index,
-                            text,
+                            id, search_source_id, chunk_index, text,
                             semantic_data_id
                         )
                         VALUES (?, ?, ?, ?, ?)
@@ -1277,16 +1258,12 @@ class ActivityStore:
                             semantic_data_id,
                         ),
                     )
-
                     if vector is not None:
                         connection.execute(
                             """
                             INSERT INTO semantic_embeddings (
-                                semantic_data_id,
-                                chunk_id,
-                                model_name,
-                                dimension,
-                                vector_json
+                                semantic_data_id, chunk_id, model_name,
+                                dimension, vector_json
                             )
                             VALUES (?, ?, ?, ?, ?)
                             """,
@@ -1300,7 +1277,6 @@ class ActivityStore:
                         )
 
                 return search_source_id
-
         finally:
             connection.close()
 

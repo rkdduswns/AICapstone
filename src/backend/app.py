@@ -1,10 +1,10 @@
-
 """Local HTTP boundary for health, activity, browser, and document APIs."""
 
 import hmac
 import logging
 import os
 import shutil
+import sqlite3
 import tempfile
 import uuid
 from dataclasses import asdict
@@ -15,24 +15,30 @@ from typing import Literal
 
 from fastapi import FastAPI, File, Form, Header, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException
 
 from backend.activity_store import ActivityStore
 from backend.activity_tracker import ActivityTracker
+from backend.browser_auth import load_or_create_browser_token
 from backend.document_extractor import (
     MAX_DOCUMENT_SIZE,
     SUPPORTED_EXTENSIONS,
     extract_document_text,
 )
+from backend.embedding import EmbeddingService
 from backend.privacy import PrivacyPolicy
+from backend.search_indexer import SearchIndexer
 from shared.activity import (
     ACTIVITY_HISTORY_PATH,
     ACTIVITY_PATH,
     BROWSER_CONTENT_PATH,
     BROWSER_SOURCE_PATH,
 )
+from shared.browser import BrowserPage
+from shared.document import LocalDocument
 from shared.protocol import (
     API_VERSION,
     SERVICE_NAME,
@@ -42,6 +48,7 @@ from shared.protocol import (
     HealthStatus,
 )
 from shared.records import RECENT_RECORDS_LIMIT, RECENT_RECORDS_PATH
+from shared.search_data import SourceMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +93,7 @@ def create_app(
     activity_store: ActivityStore | None = None,
     privacy_policy: PrivacyPolicy | None = None,
     document_storage_dir: str | Path | None = None,
+    embedding_service: EmbeddingService | None = None,
 ) -> FastAPI:
     """Create the FastAPI application with injectable dependencies."""
     app = FastAPI(
@@ -94,18 +102,46 @@ def create_app(
         openapi_url=None,
         redirect_slashes=False,
     )
-    app.state.activity_tracker = activity_tracker or ActivityTracker()
-    app.state.browser_token = (
-        browser_token
-        if browser_token is not None
-        else os.environ.get("CONTEXTTRACE_BROWSER_TOKEN", "")
+
+    # Chrome extensions use a chrome-extension:// origin and require CORS
+    # preflight for the Authorization + JSON headers used by the connector.
+    # The bearer token remains mandatory on both browser endpoints.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[],
+        allow_origin_regex=r"chrome-extension://[a-p]{32}",
+        allow_methods=["POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        allow_credentials=False,
     )
+
+    app.state.activity_tracker = (
+        activity_tracker
+        if activity_tracker is not None
+        else ActivityTracker()
+    )
+    if browser_token is not None:
+        app.state.browser_token = browser_token
+    elif "CONTEXTTRACE_BROWSER_TOKEN" in os.environ:
+        app.state.browser_token = os.environ["CONTEXTTRACE_BROWSER_TOKEN"]
+    else:
+        app.state.browser_token = load_or_create_browser_token()
+
     app.state.activity_store = activity_store
-    app.state.browser_privacy_policy = privacy_policy or PrivacyPolicy()
+    app.state.browser_privacy_policy = (
+        privacy_policy
+        if privacy_policy is not None
+        else PrivacyPolicy()
+    )
     app.state.document_storage_dir = (
-    Path(document_storage_dir)
-    if document_storage_dir is not None
-    else Path.home() / ".contexttrace" / "documents"
+        Path(document_storage_dir)
+        if document_storage_dir is not None
+        else Path.home() / ".contexttrace" / "documents"
+    )
+    app.state.embedding_service = (
+        embedding_service
+        if embedding_service is not None
+        else EmbeddingService()
     )
 
     @app.get("/health", response_model=HealthResponse)
@@ -128,7 +164,7 @@ def create_app(
 
     @app.get(RECENT_RECORDS_PATH)
     async def recent_records(
-    limit: int = Query(default=RECENT_RECORDS_LIMIT, ge=1, le=200),
+        limit: int = Query(default=RECENT_RECORDS_LIMIT, ge=1, le=200),
     ):
         records = app.state.activity_tracker.get_recent_records(limit)
 
@@ -159,7 +195,7 @@ def create_app(
         file: UploadFile = File(...),
         context_id: int = Form(..., ge=1),
     ):
-        """Extract and persist an uploaded PDF or DOCX document."""
+        """Extract, persist, and index an uploaded PDF or DOCX document."""
         store = app.state.activity_store
         if store is None:
             store = ActivityStore()
@@ -172,7 +208,7 @@ def create_app(
                 status_code=404,
                 detail="Activity record not found",
             )
-        
+
         original_filename = PureWindowsPath(file.filename or "").name
 
         if not original_filename or original_filename in {".", ".."}:
@@ -222,6 +258,9 @@ def create_app(
             stored_path = storage_dir / f"{uuid.uuid4().hex}{suffix}"
             shutil.copy2(temporary_path, stored_path)
 
+        except HTTPException:
+            raise
+
         except ValueError as exc:
             raise HTTPException(
                 status_code=422,
@@ -263,6 +302,54 @@ def create_app(
         except Exception:
             stored_path.unlink(missing_ok=True)
             raise
+
+        source_metadata = SourceMetadata(
+            kind="document",
+            application=activity_record.application,
+            process_name=activity_record.process_name,
+            window_title=activity_record.window_title,
+            started_at=activity_record.started_at,
+            last_active_at=activity_record.ended_at,
+            captured_at=captured_at,
+            content_truncated=False,
+            document=LocalDocument(
+                file_path=str(stored_path.resolve()),
+                file_type=suffix.lstrip("."),
+            ),
+        )
+
+        try:
+            search_source_id = SearchIndexer(
+                store=store,
+                embedding_service=app.state.embedding_service,
+                privacy_policy=app.state.browser_privacy_policy,
+            ).index_source(
+                context_id=context_id,
+                source_metadata=source_metadata,
+                text=extracted_text,
+                document_id=document_id,
+            )
+
+        except ValueError as exc:
+            store.delete_document_record(document_id)
+            stored_path.unlink(missing_ok=True)
+
+            raise HTTPException(
+                status_code=422,
+                detail="Document contains data that cannot be indexed",
+            ) from exc
+
+        except Exception as exc:
+            logger.exception("Document indexing failed")
+
+            store.delete_document_record(document_id)
+            stored_path.unlink(missing_ok=True)
+
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to index document",
+            ) from exc
+
         return {
             "ok": True,
             "data": {
@@ -271,6 +358,7 @@ def create_app(
                 "file_type": suffix,
                 "extracted_text": extracted_text,
                 "captured_at": captured_at,
+                "search_source_id": search_source_id,
             },
             "error": None,
         }
@@ -322,6 +410,7 @@ def create_app(
 
         url = payload.url.strip()
         page_title = payload.page_title.strip()
+
         if not page_title:
             raise HTTPException(
                 status_code=422,
@@ -329,6 +418,7 @@ def create_app(
             )
 
         policy = app.state.browser_privacy_policy
+
         try:
             sanitized_url = policy.sanitize_browser_url(url)
         except ValueError as exc:
@@ -392,6 +482,7 @@ def create_app(
             )
 
         content_text = payload.content_text.strip()
+
         if not content_text:
             raise HTTPException(
                 status_code=422,
@@ -403,58 +494,175 @@ def create_app(
             store = ActivityStore()
             app.state.activity_store = store
 
+        source_record = store.get_browser_source_record(
+            payload.browser_source_id
+        )
+        if source_record is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Browser source was not found",
+            )
+
+        existing_content = store.get_browser_content_record(
+            payload.browser_source_id
+        )
+        if existing_content is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Browser content has already been captured",
+            )
+
+        # Reject sensitive content before either persistence or embedding.
+        policy = app.state.browser_privacy_policy
+        if policy.contains_sensitive_data(content_text):
+            raise HTTPException(
+                status_code=422,
+                detail="Browser content contains potentially sensitive data",
+            )
+
         captured_at = datetime.now(timezone.utc).isoformat()
+        browser_name = (
+            "Google Chrome" if source_record.browser == "chrome"
+            else "Microsoft Edge"
+        )
+        process_name = (
+            "chrome.exe" if source_record.browser == "chrome"
+            else "msedge.exe"
+        )
+        source_metadata = SourceMetadata(
+            kind="web",
+            application=browser_name,
+            process_name=process_name,
+            window_title=source_record.page_title,
+            started_at=source_record.captured_at,
+            last_active_at=source_record.captured_at,
+            captured_at=captured_at,
+            content_truncated=False,
+            browser=BrowserPage(
+                browser=source_record.browser,
+                page_title=source_record.page_title,
+                url=source_record.url,
+            ),
+        )
+
+        content_id: int | None = None
 
         try:
+            # Save the original content first. If indexing fails, only this
+            # newly created content record is removed.
             content_id = store.save_browser_content_record(
                 browser_source_id=payload.browser_source_id,
                 content_text=content_text,
                 captured_at=captured_at,
             )
+
+            search_source_id = SearchIndexer(
+                store=store,
+                embedding_service=app.state.embedding_service,
+                privacy_policy=policy,
+            ).index_source(
+                context_id=None,
+                source_metadata=source_metadata,
+                text=content_text,
+                browser_source_id=payload.browser_source_id,
+            )
+
+            if search_source_id is None:
+                raise ValueError("Browser content produced no searchable text")
+
         except ValueError as exc:
+            if content_id is not None:
+                try:
+                    store.delete_browser_content_record(content_id)
+                except Exception:
+                    logger.exception(
+                        "Failed to clean up browser content after indexing failure"
+                    )
+
             raise HTTPException(
                 status_code=422,
-                detail="Invalid browser content",
+                detail="Invalid or sensitive browser content",
             ) from exc
-        except Exception as exc:
-            # A missing source ID violates the SQLite foreign-key constraint.
-            import sqlite3
 
-            if isinstance(exc, sqlite3.IntegrityError):
-                raise HTTPException(
-                    status_code=404,
-                    detail="Browser source was not found",
-                ) from exc
-            raise
+        except sqlite3.IntegrityError as exc:
+            if content_id is not None:
+                try:
+                    store.delete_browser_content_record(content_id)
+                except Exception:
+                    logger.exception(
+                        "Failed to clean up browser content after indexing failure"
+                    )
+
+            raise HTTPException(
+                status_code=409,
+                detail="Browser content has already been captured",
+            ) from exc
+
+        except Exception as exc:
+            if content_id is not None:
+                try:
+                    store.delete_browser_content_record(content_id)
+                except Exception:
+                    logger.exception(
+                        "Failed to clean up browser content after indexing failure"
+                    )
+
+            logger.exception("Browser content indexing failed")
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to index browser content",
+            ) from exc
 
         return {
             "ok": True,
             "data": {
                 "id": content_id,
                 "browser_source_id": payload.browser_source_id,
+                "search_source_id": search_source_id,
                 "captured_at": captured_at,
             },
             "error": None,
         }
 
     @app.exception_handler(HTTPException)
-    async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
+    async def http_error(
+        request: Request,
+        exc: HTTPException,
+    ) -> JSONResponse:
         code, message = {
             404: ("NOT_FOUND", "요청한 경로를 찾을 수 없습니다."),
             405: ("METHOD_NOT_ALLOWED", "지원하지 않는 요청 방식입니다."),
-        }.get(exc.status_code, ("HTTP_ERROR", "요청을 처리할 수 없습니다."))
-        return error_response(exc.status_code, code, message, exc.headers)
+        }.get(
+            exc.status_code,
+            ("HTTP_ERROR", "요청을 처리할 수 없습니다."),
+        )
+
+        return error_response(
+            exc.status_code,
+            code,
+            message,
+            exc.headers,
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(
-        request: Request, exc: RequestValidationError
+        request: Request,
+        exc: RequestValidationError,
     ) -> JSONResponse:
-        return error_response(422, "INVALID_REQUEST", "올바르지 않은 요청입니다.")
+        return error_response(
+            422,
+            "INVALID_REQUEST",
+            "올바르지 않은 요청입니다.",
+        )
 
     @app.exception_handler(Exception)
-    async def internal_error(request: Request, exc: Exception) -> JSONResponse:
+    async def internal_error(
+        request: Request,
+        exc: Exception,
+    ) -> JSONResponse:
         # Do not expose internal exception details.
         logger.error("Request failed (%s)", type(exc).__name__)
+
         return error_response(
             500,
             "INTERNAL_ERROR",

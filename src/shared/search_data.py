@@ -43,7 +43,7 @@ class DocumentChunk:
     """
 
     id: str
-    context_id: str
+    context_id: str | None
     chunk_index: int
     text: str
     source: SourceMetadata

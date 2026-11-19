@@ -109,7 +109,7 @@ class DocumentRecord:
     """Represents extracted text and metadata for a local document."""
 
     id: int
-    context_id: int
+    context_id: int | None
     file_path: str
     file_name: str
     file_type: str

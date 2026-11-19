@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "ContextTrace Browser Connector",
+  "version": "1.0.0",
+  "description": "Connects Chrome page context to the local ContextTrace backend.",
+  "permissions": ["nativeMessaging", "tabs"],
+  "host_permissions": ["http://127.0.0.1:8765/*", "https://*/*", "http://*/*"],
+  "background": {"service_worker": "service_worker.js"},
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

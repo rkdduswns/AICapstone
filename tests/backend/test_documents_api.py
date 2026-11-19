@@ -14,6 +14,29 @@ from backend.document_extractor import MAX_DOCUMENT_SIZE
 from shared.activity import ActiveWindow
 
 
+class FakeEmbeddingService:
+    """Deterministic embedding service for API tests."""
+
+    model_name = "test-embedding-model"
+
+    def split_passage(
+        self,
+        text: str,
+        privacy_policy=None,
+    ) -> list[str]:
+        return [text]
+
+    def embed_passages(
+        self,
+        texts: list[str],
+        privacy_policy=None,
+    ) -> list[list[float]]:
+        return [
+            [0.1] * 384
+            for _ in texts
+        ]
+
+
 def create_docx(content: str) -> bytes:
     """Create an in-memory DOCX document for testing."""
     buffer = BytesIO()
@@ -75,6 +98,7 @@ def create_pdf(content: str) -> bytes:
 
     return bytes(pdf)
 
+
 def create_client(tmp_path):
     """Create a test client with an isolated database and activity record."""
     store = ActivityStore(tmp_path / "activity.db")
@@ -85,6 +109,7 @@ def create_client(tmp_path):
         process_id=1234,
         window_title="test.py - ContextTrace",
     )
+
     context_id = store.save_record(
         window=window,
         started_at="2026-10-16T10:00:00+00:00",
@@ -93,11 +118,13 @@ def create_client(tmp_path):
     )
 
     client = TestClient(
-    create_app(
-        activity_store=store,
-        document_storage_dir=tmp_path / "documents",
+        create_app(
+            activity_store=store,
+            document_storage_dir=tmp_path / "documents",
+            embedding_service=FakeEmbeddingService(),
         )
     )
+
     client.context_id = str(context_id)
 
     return client
@@ -140,14 +167,35 @@ def test_upload_docx_success(tmp_path):
     assert Path(saved_document.file_path).is_file()
     assert Path(saved_document.file_path).read_bytes() == content
 
-    assert response.status_code == 201
+    # 업로드 응답에 검색 소스 ID가 포함되어야 한다.
+    search_source_id = body["data"]["search_source_id"]
+    assert search_source_id is not None
 
-    body = response.json()
-    assert body["ok"] is True
-    assert body["error"] is None
-    assert body["data"]["file_name"] == "test_document.docx"
-    assert body["data"]["file_type"] == ".docx"
-    assert "ContextTrace document upload test" in body["data"]["extracted_text"]
+    # 검색 청크가 DB에 저장되었는지 확인한다.
+    search_chunks = (
+        client.app.state.activity_store.get_search_chunks(
+            search_source_id
+        )
+    )
+
+    assert len(search_chunks) >= 1
+    assert any(
+        "ContextTrace document upload test" in chunk["text"]
+        for chunk in search_chunks
+    )
+
+    # 각 검색 청크에 임베딩이 연결되었는지 확인한다.
+    for chunk in search_chunks:
+        embedding = (
+            client.app.state.activity_store.get_semantic_embedding(
+                chunk["id"]
+            )
+        )
+
+        assert embedding is not None
+        assert embedding["model_name"] == "test-embedding-model"
+        assert embedding["dimension"] == 384
+        assert len(embedding["vector"]) == 384
 
 
 def test_upload_unsupported_extension(tmp_path):
@@ -244,11 +292,13 @@ def test_upload_pdf_success(tmp_path):
     )
 
     assert response.status_code == 201
+
     body = response.json()
     assert body["ok"] is True
     assert body["data"]["file_name"] == "test_document.pdf"
     assert body["data"]["file_type"] == ".pdf"
     assert "ContextTrace PDF upload test" in body["data"]["extracted_text"]
+    assert body["data"]["search_source_id"] is not None
 
 
 def test_upload_document_exceeding_size_limit(tmp_path):
@@ -269,18 +319,27 @@ def test_upload_corrupted_docx(tmp_path):
 
     response = client.post(
         "/documents",
-        files={"file": ("corrupted.docx", b"not a valid DOCX", "application/octet-stream")},
+        files={
+            "file": (
+                "corrupted.docx",
+                b"not a valid DOCX",
+                "application/octet-stream",
+            )
+        },
     )
 
     assert response.status_code == 422
 
 
 def test_upload_corrupted_docx_cleans_up_temporary_file(
-    tmp_path, monkeypatch
+    tmp_path,
+    monkeypatch,
 ):
     client = create_client(tmp_path)
     created_paths = []
-    original_named_temporary_file = app_module.tempfile.NamedTemporaryFile
+    original_named_temporary_file = (
+        app_module.tempfile.NamedTemporaryFile
+    )
 
     def tracking_named_temporary_file(*args, **kwargs):
         temporary_file = original_named_temporary_file(*args, **kwargs)
@@ -296,12 +355,19 @@ def test_upload_corrupted_docx_cleans_up_temporary_file(
     response = client.post(
         "/documents",
         data={"context_id": client.context_id},
-        files={"file": ("corrupted.docx", b"invalid DOCX", "application/octet-stream")},
+        files={
+            "file": (
+                "corrupted.docx",
+                b"invalid DOCX",
+                "application/octet-stream",
+            )
+        },
     )
 
     assert response.status_code == 422
     assert len(created_paths) == 1
     assert not created_paths[0].exists()
+
 
 def test_upload_document_requires_context_id(tmp_path):
     """Document upload requires a context ID."""
@@ -364,6 +430,7 @@ def test_upload_document_rejects_missing_activity_record(tmp_path):
 
     assert response.status_code == 404
 
+
 def test_upload_document_accepts_existing_activity_record(tmp_path):
     """Document upload accepts an existing activity record."""
     client = create_client(tmp_path)
@@ -384,3 +451,4 @@ def test_upload_document_accepts_existing_activity_record(tmp_path):
 
     assert response.status_code == 201
     assert response.json()["ok"] is True
+    assert response.json()["data"]["search_source_id"] is not None
