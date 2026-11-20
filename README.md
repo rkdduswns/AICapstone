@@ -81,6 +81,8 @@ Windows 소스 통합 실행은 `python -m desktop`입니다. 개발 중 분리 
 `최근 기록 → 선택한 작업에 문서 연결`에서 PDF·DOCX의 경로와 추출 본문을 연결합니다.
 문서 저장 시각과 원래 작업 시각은 별도로 보존합니다. 대상 없이 문서만 가져올 수도 있습니다.
 Chrome/Edge 확장 설치와 토큰 설정은 [이력 연결 안내](docs/dev/history-source-linking.md)를 따릅니다.
+Native Messaging 호스트의 PC별 경로 생성·등록 준비와 새 인증 코드의 미확인 범위는
+[브라우저 설치 경로 안내](docs/dev/browser-native-installation.md)를 따릅니다.
 현재 소스는 일시정지·차단 프로그램·클립보드 설정을 같은 DB에서 복원합니다. 신규 DB의 클립보드 수집은 기본 꺼짐입니다. PR #16의 과거 ZIP은 설정 영속화가 없는 구버전입니다.
 [통합 범위·검증·남은 기능](docs/reports/client-backend-integration.md)을 확인하세요.
 아래 Phase별 preview 명령은 가상 데이터 확인용입니다.

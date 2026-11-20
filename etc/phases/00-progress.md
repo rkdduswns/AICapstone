@@ -1,5 +1,9 @@
 # Phase 전체 진행 체크리스트
 
+2026-11-20 `feat/browser-native-installation`에서 PC별 Native Messaging 경로·확장 ID의 등록 준비와
+확장 저장 응답 검증을 보완했다. [검증 범위와 미확인 인증 코드](../../docs/dev/browser-native-installation.md)를
+따르며 Phase 체크 개수는 변경하지 않는다. 최신 `feat/phase10-backend c95b440`에는 공유받은 새 인증 호스트가 없다.
+
 Phase 1~11 Client 선행 기록은 **2026-10-15 (KST)**의 main `d9c47d1be5469085728e18dc9d53e2de0625459b`를 기준으로 했다.
 **2026-10-26 (KST)** 통합 기록은 main `7c307987182c629965da63824b60d36e41db4036`과 `feat/client-backend-integration`의 실제 HTTP·SQLite 검증을 기준으로 한다.
 브라우저 수동 캡처·명시적 문서 연결과 저장 본문 조회를 추가했다. Windows 실제 수동 검증·자동 탭/파일 감지·검색은 미완료다. [통합 보고서](../../docs/reports/client-backend-integration.md)를 따른다.

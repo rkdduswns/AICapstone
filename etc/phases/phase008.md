@@ -1,5 +1,12 @@
 # Phase 8 - 웹페이지 본문 수집
 
+## 2026-11-20 본문 저장 응답 검증
+
+`feat/browser-native-installation`에서 본문 응답의 저장 ID와 실제 출처 ID를 검증한다.
+401·403 또는 결과가 불명확한 응답을 전체 저장 성공으로 표시하지 않는다.
+[설치 준비·검증 범위](../../docs/dev/browser-native-installation.md)를 따르며,
+Backend의 잘림 영속화·색인 보호·Native Messaging과 실제 브라우저 수동 검증은 잔여로 유지한다.
+
 ## 2026-10-22 통합 상태
 
 수동 캡처 확장에서 보낸 본문을 원본 작업 FK에 연결하고 기존 Client 상세 조회 API를 구현했다.

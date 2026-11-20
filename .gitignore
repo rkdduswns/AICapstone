@@ -11,6 +11,8 @@ venv/
 .env
 .env.*
 !.env.example
+# 실제 설치 경로·PC별 확장 ID는 설치 시 생성하며 공유 소스에 넣지 않는다.
+com.contexttrace.auth.json
 
 # IDE / OS
 .vscode/

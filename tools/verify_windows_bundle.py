@@ -11,10 +11,12 @@ from zipfile import BadZipFile, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE_NAMES = frozenset({"강써치.exe"})
-RUNTIME_PATHS = ("src", "pyproject.toml", "tools/build_windows.py")
+RUNTIME_PATHS = ("src", "pyproject.toml", "tools/build_windows.py",
+                 "tools/install_browser_native_host.ps1")
 REQUIRED_FILES = EXE_NAMES | {
     "BUILD.json", "SHA256SUMS.txt", "README.md", "HISTORY-LINKING.md",
     "browser-extension/manifest.json",
+    "install_browser_native_host.ps1", "NATIVE-MESSAGING.md",
 }
 
 
@@ -55,6 +57,8 @@ def _verify_bundle(output: Path, repository: Path) -> dict:
         if file.is_file():
             if not file.resolve().is_relative_to(output):
                 raise ValueError("배포 폴더 밖을 가리키는 파일은 검증할 수 없습니다.")
+            if file.name.lower() == "com.contexttrace.auth.json":
+                raise ValueError("PC별 Native Messaging 설정은 배포본에 포함할 수 없습니다.")
             files[file.relative_to(output).as_posix()] = file
     if not REQUIRED_FILES <= files.keys():
         raise ValueError("배포본의 실행 파일·빌드 식별·문서·확장 파일이 누락됐습니다.")

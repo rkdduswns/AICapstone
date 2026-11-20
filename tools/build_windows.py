@@ -48,6 +48,9 @@ def remove_legacy_executables() -> None:
 
 def assemble_bundle() -> Path:
     """검증 가능한 빌드 식별·해시와 수동 브라우저 확장·실행 안내를 함께 배포한다."""
+    # 이전 로컬 등록 파일이 배포 폴더에 섞였으면 개인 경로를 압축하지 않고 중단한다.
+    if any(file.name.lower() == "com.contexttrace.auth.json" for file in OUTPUT.rglob("*")):
+        raise ValueError("PC별 Native Messaging 설정은 배포본에 포함할 수 없습니다.")
     remove_legacy_executables()
     extension = OUTPUT / "browser-extension"
     if extension.exists():
@@ -60,6 +63,10 @@ def assemble_bundle() -> Path:
     shutil.copytree(ROOT / "src/browser/extension", extension)
     shutil.copyfile(ROOT / "docs/dev/windows-exe.md", OUTPUT / "README.md")
     shutil.copyfile(ROOT / "docs/dev/history-source-linking.md", OUTPUT / "HISTORY-LINKING.md")
+    # 호스트 구현은 별도 확인이 필요하며, 배포본에는 경로 등록 도구와 그 한계를 함께 넣는다.
+    shutil.copyfile(ROOT / "tools/install_browser_native_host.ps1",
+                    OUTPUT / "install_browser_native_host.ps1")
+    shutil.copyfile(ROOT / "docs/dev/browser-native-installation.md", OUTPUT / "NATIVE-MESSAGING.md")
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     packages = {name: version(name) for name in ("gangsearch", "pyinstaller", "PySide6",
                                                 "fastapi", "uvicorn", "pypdf", "python-docx")}

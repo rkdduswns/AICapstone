@@ -1,5 +1,12 @@
 # Phase 7 - 브라우저 기본 연동
 
+## 2026-11-20 설치 준비·응답 검증
+
+`feat/browser-native-installation`에서 실제 호스트 경로·브라우저별 확장 ID로 설정을 생성·등록하는
+[설치 준비 도구](../../docs/dev/browser-native-installation.md)와 확장 응답 ID 검증을 보완했다.
+공유받은 새 Native Messaging 인증 코드는 원격에서 아직 확인되지 않아 연결 완료로 표시하지 않는다.
+실제 Chrome/Edge 설치·인증·수집과 아래 미완료 체크는 유지한다.
+
 ## 2026-10-22 통합 상태
 
 Chrome/Edge 수동 캡처 확장과 실제 작업 ID 연결·본문 조회를 추가했다. 같은 제목의 URL 변경도 이전 작업을 보존한다.

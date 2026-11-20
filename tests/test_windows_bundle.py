@@ -62,7 +62,8 @@ def repository(tmp_path):
     git(root, "init", "-q")
     for name, content in (("src/client.py", "print('synthetic')\n"),
                           ("pyproject.toml", "[project]\nname='synthetic'\n"),
-                          ("tools/build_windows.py", "# synthetic packager\n")):
+                          ("tools/build_windows.py", "# synthetic packager\n"),
+                          ("tools/install_browser_native_host.ps1", "# synthetic installer\n")):
         file = root / name
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(content, encoding="utf-8")
@@ -99,7 +100,8 @@ def bundle(repository, tmp_path):
     for name in EXE_NAMES:
         (root / name).write_bytes(b"MZsynthetic-" + name.encode())
     for name in ("README.md", "HISTORY-LINKING.md", "browser-extension/manifest.json",
-                 "browser-extension/capture.js"):
+                 "browser-extension/capture.js", "install_browser_native_host.ps1",
+                 "NATIVE-MESSAGING.md"):
         file = root / name
         file.parent.mkdir(exist_ok=True)
         file.write_text("synthetic fixture", encoding="utf-8")
@@ -117,7 +119,7 @@ def test_current_source_bundle_is_verified_without_writes(repository, bundle):
     assert result == {
         "build_commit": git(repository, "rev-parse", "HEAD"),
         "head_commit": git(repository, "rev-parse", "HEAD"), "code_matches_head": True,
-        "exe_hashes_verified": True, "archive_verified": True, "files_verified": 7,
+        "exe_hashes_verified": True, "archive_verified": True, "files_verified": 9,
     }
     json.dumps(result)
     assert before == {str(file): file.read_bytes()
@@ -134,7 +136,8 @@ def test_different_commit_with_same_execution_code_is_allowed(repository, bundle
     assert result["build_commit"] == built and result["head_commit"] == head != built
 
 
-@pytest.mark.parametrize("name", ["src/backend.py", "pyproject.toml", "tools/build_windows.py"])
+@pytest.mark.parametrize("name", ["src/backend.py", "pyproject.toml", "tools/build_windows.py",
+                                 "tools/install_browser_native_host.ps1"])
 def test_runtime_or_packager_difference_rejects_old_bundle(repository, bundle, name):
     """Backend 포함 실행 코드·의존성·빌드 방식이 달라지면 이전 EXE를 통과시키지 않는다."""
     file = repository / name
@@ -144,7 +147,8 @@ def test_runtime_or_packager_difference_rejects_old_bundle(repository, bundle, n
         verify_bundle(bundle, repository)
 
 
-@pytest.mark.parametrize("name", ["src/client.py", "src/untracked.py"])
+@pytest.mark.parametrize("name", ["src/client.py", "src/untracked.py",
+                                 "tools/install_browser_native_host.ps1"])
 def test_uncommitted_runtime_cannot_be_silently_verified(repository, bundle, name):
     """추적 파일 수정과 새 실행 파일 모두 커밋 기준 검증에서 제외하지 않는다."""
     (repository / name).write_text("uncommitted runtime", encoding="utf-8")
@@ -310,3 +314,57 @@ def test_cleanup_refuses_output_outside_distribution_root(tmp_path, monkeypatch)
     with pytest.raises(ValueError, match="배포 폴더 밖"):
         builder.remove_legacy_executables()
     assert legacy.read_text(encoding="utf-8") == "preserve"
+
+
+def test_bundle_ships_registration_tool_without_pc_specific_configuration(repository, monkeypatch):
+    """새 PC에서 쓸 등록 도구·안내를 포함하되 실제 호스트·개인 설정은 만들지 않는다."""
+    from tools import build_windows as builder
+
+    output = repository / "dist/강써치-Windows-x64"
+    output.mkdir(parents=True)
+    (output / "강써치.exe").write_bytes(b"MZsynthetic-desktop")
+    for name in ("src/browser/extension/manifest.json", "docs/dev/windows-exe.md",
+                 "docs/dev/history-source-linking.md", "docs/dev/browser-native-installation.md"):
+        file = repository / name
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text("synthetic: " + name, encoding="utf-8")
+    monkeypatch.setattr(builder, "ROOT", repository)
+    monkeypatch.setattr(builder, "OUTPUT", output)
+    monkeypatch.setattr(builder, "version", lambda _name: "0.0.0-test")
+    bundle_path = builder.assemble_bundle()
+    with ZipFile(bundle_path) as bundle:
+        names = {Path(item.filename).name for item in bundle.infolist()}
+        assert {"강써치.exe", "install_browser_native_host.ps1", "NATIVE-MESSAGING.md"} <= names
+        assert "com.contexttrace.auth.json" not in names
+        assert {name for name in names if name.endswith(".exe")} == {"강써치.exe"}
+        script = f"{output.name}/install_browser_native_host.ps1"
+        assert bundle.read(script) == (repository / "tools/install_browser_native_host.ps1").read_bytes()
+    assert (output / "NATIVE-MESSAGING.md").read_bytes() == (
+        repository / "docs/dev/browser-native-installation.md").read_bytes()
+
+
+@pytest.mark.parametrize("name", ["com.contexttrace.auth.json", "nested/COM.CONTEXTTRACE.AUTH.JSON"])
+def test_pc_native_configuration_is_rejected_even_when_zip_matches(repository, bundle, name):
+    """한 PC의 경로가 담긴 생성 JSON을 폴더·ZIP에 함께 넣어도 배포본 검사를 통과하지 않는다."""
+    file = bundle / name
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_text('{"path":"synthetic-personal-host"}', encoding="utf-8")
+    archive(bundle)
+    with pytest.raises(ValueError, match="PC별 Native Messaging"):
+        verify_bundle(bundle, repository)
+
+
+def test_assembly_refuses_existing_pc_native_configuration(tmp_path, monkeypatch):
+    """개인 설정이 남은 배포 폴더는 압축 전에 중단하고 그 파일을 지우지 않는다."""
+    from tools import build_windows as builder
+
+    output = tmp_path / "dist/강써치-Windows-x64"
+    output.mkdir(parents=True)
+    personal = output / "com.contexttrace.auth.json"
+    personal.write_text("synthetic-personal-configuration", encoding="utf-8")
+    monkeypatch.setattr(builder, "ROOT", tmp_path)
+    monkeypatch.setattr(builder, "OUTPUT", output)
+    with pytest.raises(ValueError, match="PC별 Native Messaging"):
+        builder.assemble_bundle()
+    assert personal.read_text(encoding="utf-8") == "synthetic-personal-configuration"
+    assert not output.with_suffix(".zip").exists()
