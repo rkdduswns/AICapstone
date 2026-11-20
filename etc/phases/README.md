@@ -4,6 +4,10 @@
 
 강써치 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고, **작은 기능 단위로 완성 → 검증 → 통합**하는 방식으로 진행한다.
 
+2026-11-20 `feat/browser-native-installation`은 PC별 호스트 경로·확장 ID의 설치 등록 준비와
+기존 확장의 저장 응답 검증을 보완한다. [구현 범위·남은 실제 연결](../../docs/dev/browser-native-installation.md)을
+따르며, 원격에서 확인하지 못한 새 Native Messaging 인증·Phase 10 통합을 완료 처리하지 않는다.
+
 2026-11-13부터 완료된 Client 작업의 개발 통합 기준은 `client_dev`다.
 `main`의 `7c30798`과 Client 작업 끝 `7586349`를 병합한 `2927871`에서 기존 코드와 검증 이력을 보존했다.
 원래 작업 브랜치는 아래 이력에 남기고, 후속 Client 작업은 `client_dev`에서 분기한다.

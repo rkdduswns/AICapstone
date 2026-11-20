@@ -8,7 +8,8 @@ function fixture() {
   const calls = [];
   let tab = {id: 7, url: "https://example.test/a", title: "가상 페이지"};
   const state = {process: "chrome.exe", recordId: "12", paused: false, fail: 0, scriptReads: 0,
-    pageText: "가상 본문", denyContent: false, deniedBodyReads: 0};
+    pageText: "가상 본문", denyContent: false, deniedBodyReads: 0, failPath: "",
+    source: {id: 3, activity_record_id: 12}, content: {id: 9, browser_source_id: 3}};
   const api = {
     tabs: {query: async () => [tab]},
     scripting: {executeScript: async ({func}) => {
@@ -23,7 +24,12 @@ function fixture() {
   };
   const fetcher = async (url, options) => {
     calls.push({url, options});
-    if (state.fail) return {ok: false, status: state.fail};
+    if (state.fail && (!state.failPath || url.endsWith(state.failPath))) {
+      return {ok: false, status: state.fail, json: async () => {
+        state.deniedBodyReads++;
+        return {ok: true, data: state.content, error: null};
+      }};
+    }
     if (state.denyContent && url.endsWith("/browser/content")) {
       return {ok: false, status: 403, json: async () => {
         state.deniedBodyReads++;
@@ -33,7 +39,7 @@ function fixture() {
     const data = url.endsWith("/activity/current") ? {
       collection_status: state.paused ? "paused" : "collecting", record_id: state.recordId,
       window: {process_name: state.process},
-    } : url.endsWith("/browser/source") ? {id: 3, activity_record_id: 12} : {id: 9};
+    } : url.endsWith("/browser/source") ? state.source : state.content;
     return {ok: true, json: async () => ({ok: true, data, error: null})};
   };
   return {api, calls, state, fetcher, setTab: value => {tab = value;}};
@@ -116,4 +122,102 @@ test("잘못된 포트는 연결을 만들지 않는다", async () => {
   const f = fixture();
   await assert.rejects(capturePage(f.api, {...settings, port: "8765/other"}, f.fetcher), /포트/);
   assert.equal(f.calls.length, 0);
+});
+
+test("출처 응답의 실제 작업 ID는 정규형 문자열 또는 안전한 양수만 허용한다", async () => {
+  // SQLite 상한은 문자열로 받아 정밀도를 잃지 않고 그대로 표시한다.
+  for (const id of [1, Number.MAX_SAFE_INTEGER, "1", "9007199254740992", "9223372036854775807"]) {
+    const f = fixture(); f.state.source.activity_record_id = id;
+    const result = await capturePage(f.api, settings, f.fetcher);
+    assert.equal(result.recordId, String(id));
+    assert.equal(f.calls.length, 3);
+  }
+});
+
+test("URL 이동으로 서버가 새 작업을 만들면 최종 연결 ID를 받아들인다", async () => {
+  const f = fixture(); f.state.source.activity_record_id = "13";
+  const result = await capturePage(f.api, settings, f.fetcher);
+  assert.equal(JSON.parse(f.calls[1].options.body).record_id, "12");
+  assert.equal(result.recordId, "13");
+  assert.equal(JSON.parse(f.calls[2].options.body).browser_source_id, 3);
+});
+
+test("잘못되거나 빠진 연결 작업 ID는 본문 전송 전에 거부한다", async () => {
+  for (const id of [undefined, null, false, true, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1,
+    "", "0", "-1", "01", " 12", "12 ", "1e2", "not-a-record", "１２", "9223372036854775808",
+    "100000000000000000000", {}, []]) {
+    const f = fixture(); f.state.source.activity_record_id = id;
+    await assert.rejects(capturePage(f.api, settings, f.fetcher), /출처 연결 결과를 확인할 수 없습니다/);
+    assert.equal(f.calls.length, 2, `잘못된 작업 ID: ${String(id)}`);
+    assert.ok(f.calls.every(call => !call.url.endsWith("/browser/content")));
+  }
+});
+
+test("활성 작업 ID가 손상됐으면 페이지 본문을 읽기 전에 중단한다", async () => {
+  for (const id of [undefined, null, true, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1,
+    "01", "1e2", "9223372036854775808", {}, []]) {
+    const f = fixture(); f.state.recordId = id;
+    await assert.rejects(capturePage(f.api, settings, f.fetcher), /활성 브라우저 작업/);
+    assert.equal(f.state.scriptReads, 0);
+    assert.equal(f.calls.length, 1);
+  }
+});
+
+test("잘못되거나 빠진 출처 ID는 본문 전송 전에 거부한다", async () => {
+  for (const id of [undefined, null, false, true, 0, -1, 1.5, "3", Number.MAX_SAFE_INTEGER + 1]) {
+    const f = fixture(); f.state.source.id = id;
+    await assert.rejects(capturePage(f.api, settings, f.fetcher), /출처 연결 결과를 확인할 수 없습니다/);
+    assert.equal(f.calls.length, 2);
+  }
+});
+
+test("본문 저장 응답의 ID가 잘못되면 저장 여부 확인을 안내하고 다시 전송하지 않는다", async () => {
+  for (const id of [undefined, null, false, true, 0, -1, 1.5, "9", Number.MAX_SAFE_INTEGER + 1]) {
+    const f = fixture(); f.state.content.id = id;
+    await assert.rejects(capturePage(f.api, settings, f.fetcher), /출처는 연결됐지만 본문 저장 결과를 확인할 수 없습니다/);
+    assert.equal(f.calls.length, 3);
+  }
+});
+
+test("본문 응답은 요청한 출처 ID에 연결된 경우에만 저장 성공으로 처리한다", async () => {
+  for (const id of [undefined, null, false, true, 0, -1, "3", 4]) {
+    const f = fixture(); f.state.content.browser_source_id = id;
+    await assert.rejects(capturePage(f.api, settings, f.fetcher), /본문 저장 결과를 확인할 수 없습니다/);
+    assert.equal(f.calls.length, 3);
+  }
+});
+
+test("손상되거나 유실된 본문 응답은 미저장으로 단정하지 않고 확인을 안내한다", async () => {
+  // POST 이후 연결 단절이나 JSON 손상은 서버가 이미 저장했을 가능성이 있다.
+  for (const failure of ["network", "json", null, {}, {ok: true, error: null, data: null}]) {
+    const f = fixture();
+    const fetcher = async (url, options) => {
+      if (!url.endsWith("/browser/content")) return f.fetcher(url, options);
+      f.calls.push({url, options});
+      if (failure === "network") throw new TypeError("synthetic disconnect");
+      return {ok: true, json: async () => {
+        if (failure === "json") throw new SyntaxError("synthetic invalid JSON");
+        return failure;
+      }};
+    };
+    await assert.rejects(capturePage(f.api, settings, fetcher), error => {
+      assert.match(error.message, /출처는 연결됐지만 본문 저장 결과를 확인할 수 없습니다/);
+      assert.doesNotMatch(error.message, /저장하지 못했습니다|synthetic/);
+      return true;
+    });
+    assert.equal(f.calls.length, 3);
+  }
+});
+
+test("출처와 본문 API의 실패 상태는 성공 모양 JSON을 읽지 않고 중단한다", async () => {
+  for (const path of ["/browser/source", "/browser/content"]) {
+    for (const [code, message] of [[401, /연결 토큰/], [403, /개인정보 보호 정책/],
+      [409, /활성 작업/], [503, /토큰이 설정되지 않았습니다/]]) {
+      const f = fixture(); f.state.fail = code; f.state.failPath = path;
+      await assert.rejects(capturePage(f.api, settings, f.fetcher), message);
+      assert.equal(f.state.deniedBodyReads, 0);
+      assert.equal(f.calls.length, path === "/browser/source" ? 2 : 3);
+      assert.ok(f.calls.every(call => call.options.headers.Authorization === "Bearer synthetic-token"));
+    }
+  }
 });

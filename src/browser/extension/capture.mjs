@@ -1,3 +1,15 @@
+/** 확인된 HTTP 실패와 저장 여부가 불명확한 응답·전송 오류를 구분한다. */
+class BackendHttpError extends Error {}
+
+/** 반올림된 숫자나 별칭 ID를 성공으로 표시하지 않고 실제 SQLite 작업 ID만 정규형으로 읽는다. */
+function readRecordId(value) {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value > 0 ? String(value) : null;
+  }
+  if (typeof value !== "string" || value.length > 19 || !/^[1-9]\d*$/.test(value)) return null;
+  return BigInt(value) <= 9223372036854775807n ? value : null;
+}
+
 /** 현재 페이지를 명시적인 작업 ID에 연결한다. 토큰·본문을 로그에 남기지 않는다. */
 export async function capturePage(api, settings, fetcher = fetch, browser = "chrome") {
   const port = Number(settings.port);
@@ -15,7 +27,7 @@ export async function capturePage(api, settings, fetcher = fetch, browser = "chr
       ...(payload ? {body: JSON.stringify(payload)} : {}),
     });
     if (!response.ok) {
-      throw new Error(({
+      throw new BackendHttpError(({
         401: "연결 토큰을 확인해 주세요.",
         403: "일시정지 또는 개인정보 보호 정책으로 저장이 거부됐습니다.",
         409: "활성 작업이 바뀌었습니다. 원래 브라우저 창에서 다시 연결해 주세요.",
@@ -23,7 +35,7 @@ export async function capturePage(api, settings, fetcher = fetch, browser = "chr
       })[response.status] || "Backend 요청에 실패했습니다.");
     }
     const body = await response.json();
-    if (body.ok !== true || body.error !== null || !body.data) {
+    if (!body || body.ok !== true || body.error !== null || !body.data) {
       throw new Error("호환되지 않는 Backend 응답입니다.");
     }
     return body.data;
@@ -33,9 +45,10 @@ export async function capturePage(api, settings, fetcher = fetch, browser = "chr
     throw new Error("일반 웹페이지에서 실행해 주세요. 내부 페이지·로컬 파일은 수집하지 않습니다.");
   }
   const activity = await request("/activity/current");
+  const activeRecordId = readRecordId(activity.record_id);
   const process = browser === "edge" ? "msedge.exe" : "chrome.exe";
   if (activity.collection_status !== "collecting" || activity.window?.process_name?.toLowerCase() !== process
-      || !/^[1-9]\d*$/.test(activity.record_id || "")) {
+      || activeRecordId === null) {
     throw new Error("현재 활성 브라우저 작업을 확인할 수 없습니다. 일시정지·차단 상태를 확인해 주세요.");
   }
   const [{result: snapshot} = {}] = await api.scripting.executeScript({
@@ -59,21 +72,32 @@ export async function capturePage(api, settings, fetcher = fetch, browser = "chr
   }
   const source = await request("/browser/source", {
     browser, url: snapshot.url, page_title: (snapshot.title || tab.title || "웹페이지").slice(0, 500),
-    record_id: activity.record_id,
+    record_id: activeRecordId,
   });
-  if (!Number.isSafeInteger(source.id) || source.id < 1 || !source.activity_record_id) {
+  // URL 변경은 정상적으로 새 작업 ID를 만들 수 있으므로 요청 ID와 같다고 강제하지 않는다.
+  const recordId = readRecordId(source.activity_record_id);
+  if (!Number.isSafeInteger(source.id) || source.id < 1 || recordId === null) {
     throw new Error("출처 연결 결과를 확인할 수 없습니다. 최근 기록을 새로고침해 주세요.");
   }
   const hasText = Boolean(snapshot.text?.trim());
   const truncated = hasText && snapshot.truncated === true;
   if (hasText) {
+    let content;
     try {
-      await request("/browser/content", {
+      content = await request("/browser/content", {
         browser_source_id: source.id, content_text: snapshot.text, truncated,
       });
     } catch (error) {
-      throw new Error(`출처는 연결됐지만 본문은 저장하지 못했습니다. ${error.message}`);
+      if (error instanceof BackendHttpError) {
+        throw new Error(`출처는 연결됐지만 본문은 저장하지 못했습니다. ${error.message}`);
+      }
+      // 응답이 유실·손상됐을 때 저장 안 됐다고 단정하여 중복 전송을 유도하지 않는다.
+      throw new Error("출처는 연결됐지만 본문 저장 결과를 확인할 수 없습니다. 다시 연결하기 전에 최근 기록을 새로고침해 주세요.");
+    }
+    // HTTP 성공만으로 다른 출처의 본문 응답을 저장 완료로 표시하지 않는다.
+    if (!Number.isSafeInteger(content.id) || content.id < 1 || content.browser_source_id !== source.id) {
+      throw new Error("출처는 연결됐지만 본문 저장 결과를 확인할 수 없습니다. 다시 연결하기 전에 최근 기록을 새로고침해 주세요.");
     }
   }
-  return {recordId: String(source.activity_record_id), hasText, truncated};
+  return {recordId, hasText, truncated};
 }

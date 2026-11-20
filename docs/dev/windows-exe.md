@@ -39,6 +39,11 @@ $env:GANGSEARCH_BROWSER_TOKEN
 해당 문서의 소스 실행 명령은 EXE 실행으로 바꾸고, 확장 폴더는 `browser-extension`을 사용한다.
 자동 탭/파일 감지·URL 차단·검색·LLM은 아직 미구현이다.
 
+ZIP의 `install_browser_native_host.ps1`과 `NATIVE-MESSAGING.md`는 PC별 Native Messaging
+경로 등록 준비 도구다. 실제 인증 호스트가 제공된 뒤 설치 위치와 확장 ID를 지정한다.
+현재 `강써치.exe`는 인증 호스트로 등록하지 않으며 기존 토큰 연결 방식은 유지한다.
+[설치 경로·등록 범위](browser-native-installation.md)를 확인한다.
+
 ## 포트와 데이터 경로 변경
 
 기본 포트를 다른 프로그램이 사용 중이면 앱에 다른 포트를 지정한다. 브라우저 확장의 포트 설정도 같은 값으로 맞춘다.
@@ -63,7 +68,7 @@ py -3.12 -m venv .venv
 ```
 
 산출물은 `dist/강써치-Windows-x64.zip`이며 내부에 `강써치.exe` 한 개, 확장,
-실행 안내, `BUILD.json`(소스 커밋·도구 버전), `SHA256SUMS.txt`가 있다.
+실행 안내, Native Messaging 등록 도구·안내, `BUILD.json`(소스 커밋·도구 버전), `SHA256SUMS.txt`가 있다.
 GitHub PR의 `Windows EXE package` workflow도 같은 명령으로 빌드·검증한 ZIP을 30일간 보관한다.
 빌드 의존성은 일반 실행 의존성과 분리했다. 생성 EXE·DB·토큰은 Git에 넣지 않는다.
 
