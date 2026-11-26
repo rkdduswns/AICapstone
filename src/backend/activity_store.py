@@ -6,6 +6,7 @@ import math
 import sqlite3
 import uuid
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 from backend.activity_deletion import ActivityDeletionMixin
@@ -17,11 +18,16 @@ from shared.activity import (
     ClipboardRecord,
     DocumentRecord,
 )
+from shared.browser import BrowserPage
+from shared.document import LocalDocument
+from shared.records import ContextRecord
 from shared.search_data import (
     MAX_CHUNK_TEXT_LENGTH,
     DocumentChunk,
     SourceMetadata,
 )
+from shared.semantic_search import MIN_SEMANTIC_SIMILARITY, SEMANTIC_PREVIEW_LENGTH
+from shared.sessions import SESSION_GAP_SECONDS
 
 
 class ActivityStore(ActivityDeletionMixin):
@@ -65,10 +71,52 @@ class ActivityStore(ActivityDeletionMixin):
                 )
                 connection.execute(
                     """
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        started_at TEXT NOT NULL,
+                        ended_at TEXT NOT NULL,
+                        created_at TEXT NOT NULL
+                    )
+                    """
+                )
+
+                # Add the session relationship without rebuilding or losing the
+                # activity table in databases created by earlier project phases.
+                activity_columns = {
+                    row["name"]
+                    for row in connection.execute(
+                        "PRAGMA table_info(activity_records)"
+                    ).fetchall()
+                }
+                if "session_id" not in activity_columns:
+                    connection.execute(
+                        """
+                        ALTER TABLE activity_records
+                        ADD COLUMN session_id INTEGER
+                        REFERENCES sessions(id) ON DELETE SET NULL
+                        """
+                    )
+
+                connection.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_activity_started_at
                     ON activity_records(started_at DESC, id DESC)
                     """
                 )
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_activity_session_id
+                    ON activity_records(session_id, started_at, id)
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_sessions_started_at
+                    ON sessions(started_at DESC, id DESC)
+                    """
+                )
+
+                self._backfill_activity_sessions(connection)
 
                 connection.execute(
                     """
@@ -305,7 +353,13 @@ class ActivityStore(ActivityDeletionMixin):
                         vector_json TEXT NOT NULL
                     )
                     """
-)
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_semantic_embeddings_model
+                    ON semantic_embeddings(model_name, dimension)
+                    """
+                )
         finally:
             connection.close()
 
@@ -435,6 +489,199 @@ class ActivityStore(ActivityDeletionMixin):
         finally:
             connection.close()
 
+    @staticmethod
+    def _session_timestamp(value: str) -> datetime | None:
+        """Parse an ISO timestamp for session grouping.
+
+        Historical records without an explicit timezone are interpreted as UTC,
+        matching the timestamp convention used by ActivityTracker.
+        """
+        if not isinstance(value, str) or not value.strip():
+            return None
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+
+    @staticmethod
+    def _session_created_at() -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def _backfill_activity_sessions(
+        self,
+        connection: sqlite3.Connection,
+    ) -> None:
+        """Group legacy activity rows into sessions without changing the rows."""
+        rows = connection.execute(
+            """
+            SELECT id, started_at, ended_at
+            FROM activity_records
+            WHERE session_id IS NULL
+            """
+        ).fetchall()
+        if not rows:
+            return
+
+        parsed_rows = []
+        invalid_rows = []
+        for row in rows:
+            started = self._session_timestamp(row["started_at"])
+            ended = self._session_timestamp(row["ended_at"])
+            if started is None or ended is None or ended < started:
+                invalid_rows.append(row)
+                continue
+            parsed_rows.append((started, ended, row))
+
+        parsed_rows.sort(key=lambda item: (item[0], item[2]["id"]))
+        groups: list[list[tuple[datetime, datetime, sqlite3.Row]]] = []
+        for item in parsed_rows:
+            if not groups:
+                groups.append([item])
+                continue
+            current_group = groups[-1]
+            current_end = max(entry[1] for entry in current_group)
+            if (item[0] - current_end).total_seconds() <= SESSION_GAP_SECONDS:
+                current_group.append(item)
+            else:
+                groups.append([item])
+
+        created_at = self._session_created_at()
+        for group in groups:
+            first = min(group, key=lambda item: (item[0], item[2]["id"]))
+            last = max(group, key=lambda item: (item[1], item[2]["id"]))
+            cursor = connection.execute(
+                """
+                INSERT INTO sessions (started_at, ended_at, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (first[2]["started_at"], last[2]["ended_at"], created_at),
+            )
+            session_id = int(cursor.lastrowid)
+            connection.executemany(
+                "UPDATE activity_records SET session_id = ? WHERE id = ?",
+                [(session_id, item[2]["id"]) for item in group],
+            )
+
+        # Malformed legacy timestamps are retained and isolated rather than
+        # preventing database initialization or being silently discarded.
+        for row in invalid_rows:
+            cursor = connection.execute(
+                """
+                INSERT INTO sessions (started_at, ended_at, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (row["started_at"], row["ended_at"], created_at),
+            )
+            connection.execute(
+                "UPDATE activity_records SET session_id = ? WHERE id = ?",
+                (int(cursor.lastrowid), row["id"]),
+            )
+
+    def _find_or_create_session(
+        self,
+        connection: sqlite3.Connection,
+        started_at: str,
+        ended_at: str,
+    ) -> int:
+        """Attach a record to any temporally compatible session.
+
+        Activity records can be persisted out of chronological order (for
+        example, when a long-running activity is flushed at shutdown). Compare
+        parsed UTC timestamps rather than relying on insertion order or
+        lexicographic ISO strings.
+        """
+        record_start = self._session_timestamp(started_at)
+        record_end = self._session_timestamp(ended_at)
+        if record_start is None or record_end is None or record_end < record_start:
+            cursor = connection.execute(
+                """
+                INSERT INTO sessions (started_at, ended_at, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (started_at, ended_at, self._session_created_at()),
+            )
+            return int(cursor.lastrowid)
+
+        rows = connection.execute(
+            """
+            SELECT s.id, s.started_at, s.ended_at
+            FROM sessions AS s
+            WHERE EXISTS (
+                SELECT 1 FROM activity_records AS a WHERE a.session_id = s.id
+            )
+            """
+        ).fetchall()
+
+        compatible: list[tuple[int, datetime, datetime]] = []
+        for row in rows:
+            session_start = self._session_timestamp(row["started_at"])
+            session_end = self._session_timestamp(row["ended_at"])
+            if session_start is None or session_end is None or session_end < session_start:
+                continue
+
+            if record_end < session_start:
+                gap = (session_start - record_end).total_seconds()
+            elif record_start > session_end:
+                gap = (record_start - session_end).total_seconds()
+            else:
+                gap = 0.0
+
+            if gap <= SESSION_GAP_SECONDS:
+                compatible.append((int(row["id"]), session_start, session_end))
+
+        if not compatible:
+            cursor = connection.execute(
+                """
+                INSERT INTO sessions (started_at, ended_at, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (started_at, ended_at, self._session_created_at()),
+            )
+            return int(cursor.lastrowid)
+
+        # Keep the smallest existing ID stable and merge every compatible
+        # session. A newly inserted record can bridge two formerly separate
+        # sessions; leaving them split would make session membership depend on
+        # record insertion order.
+        compatible.sort(key=lambda item: item[0])
+        primary_id = compatible[0][0]
+        start_candidates = [(record_start, started_at)]
+        end_candidates = [(record_end, ended_at)]
+        for row in rows:
+            row_id = int(row["id"])
+            if row_id not in {item[0] for item in compatible}:
+                continue
+            parsed_start = self._session_timestamp(row["started_at"])
+            parsed_end = self._session_timestamp(row["ended_at"])
+            if parsed_start is not None:
+                start_candidates.append((parsed_start, str(row["started_at"])))
+            if parsed_end is not None:
+                end_candidates.append((parsed_end, str(row["ended_at"])))
+        updated_start = min(start_candidates, key=lambda item: item[0])[1]
+        updated_end = max(end_candidates, key=lambda item: item[0])[1]
+
+        merged_ids = [item[0] for item in compatible[1:]]
+        if merged_ids:
+            placeholders = ",".join("?" for _ in merged_ids)
+            connection.execute(
+                f"UPDATE activity_records SET session_id = ? "
+                f"WHERE session_id IN ({placeholders})",
+                (primary_id, *merged_ids),
+            )
+            connection.execute(
+                f"DELETE FROM sessions WHERE id IN ({placeholders})",
+                merged_ids,
+            )
+
+        connection.execute(
+            "UPDATE sessions SET started_at = ?, ended_at = ? WHERE id = ?",
+            (updated_start, updated_end, primary_id),
+        )
+        return primary_id
+
     def save_record(
         self,
         window: ActiveWindow,
@@ -449,6 +696,11 @@ class ActivityStore(ActivityDeletionMixin):
         connection = self._connect()
         try:
             with connection:
+                session_id = self._find_or_create_session(
+                    connection,
+                    started_at,
+                    ended_at,
+                )
                 cursor = connection.execute(
                     """
                     INSERT INTO activity_records (
@@ -458,9 +710,10 @@ class ActivityStore(ActivityDeletionMixin):
                         window_title,
                         started_at,
                         ended_at,
-                        active_duration_ms
+                        active_duration_ms,
+                        session_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         window.application,
@@ -470,11 +723,258 @@ class ActivityStore(ActivityDeletionMixin):
                         started_at,
                         ended_at,
                         active_duration_ms,
+                        session_id,
                     ),
                 )
                 return int(cursor.lastrowid)
         finally:
             connection.close()
+
+    def get_recent_sessions(self, limit: int = 50) -> list[dict[str, object]]:
+        """Return recent work sessions with their activity counts."""
+        if isinstance(limit, bool) or not isinstance(limit, int):
+            raise TypeError("limit must be an integer")
+        if not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
+
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                """
+                SELECT
+                    s.id,
+                    s.started_at,
+                    s.ended_at,
+                    COUNT(a.id) AS activity_count
+                FROM sessions AS s
+                LEFT JOIN activity_records AS a ON a.session_id = s.id
+                GROUP BY s.id, s.started_at, s.ended_at
+                HAVING COUNT(a.id) > 0
+                ORDER BY s.started_at DESC, s.id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        return [
+            {
+                "id": int(row["id"]),
+                "started_at": str(row["started_at"]),
+                "ended_at": str(row["ended_at"]),
+                "activity_count": int(row["activity_count"]),
+            }
+            for row in rows
+        ]
+
+    def get_session(self, session_id: int) -> dict[str, object] | None:
+        """Return one session summary, or None when it does not exist."""
+        if isinstance(session_id, bool) or not isinstance(session_id, int):
+            raise TypeError("session_id must be an integer")
+        if session_id < 1:
+            raise ValueError("session_id must be positive")
+
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                """
+                SELECT
+                    s.id,
+                    s.started_at,
+                    s.ended_at,
+                    COUNT(a.id) AS activity_count
+                FROM sessions AS s
+                LEFT JOIN activity_records AS a ON a.session_id = s.id
+                WHERE s.id = ?
+                GROUP BY s.id, s.started_at, s.ended_at
+                """,
+                (session_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        if row is None or int(row["activity_count"]) == 0:
+            return None
+        return {
+            "id": int(row["id"]),
+            "started_at": str(row["started_at"]),
+            "ended_at": str(row["ended_at"]),
+            "activity_count": int(row["activity_count"]),
+        }
+
+    def get_session_records(
+        self,
+        session_id: int,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> list[ActivityRecord]:
+        """Return a page of activity records belonging to one session."""
+        if isinstance(session_id, bool) or not isinstance(session_id, int):
+            raise TypeError("session_id must be an integer")
+        if session_id < 1:
+            raise ValueError("session_id must be positive")
+        if isinstance(limit, bool) or not isinstance(limit, int):
+            raise TypeError("limit must be an integer")
+        if not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
+        if isinstance(offset, bool) or not isinstance(offset, int):
+            raise TypeError("offset must be an integer")
+        if offset < 0:
+            raise ValueError("offset must be non-negative")
+
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                """
+                SELECT
+                    id,
+                    application,
+                    process_name,
+                    process_id,
+                    window_title,
+                    started_at,
+                    ended_at,
+                    active_duration_ms
+                FROM activity_records
+                WHERE session_id = ?
+                ORDER BY started_at ASC, id ASC
+                LIMIT ? OFFSET ?
+                """,
+                (session_id, limit, offset),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        return [
+            ActivityRecord(
+                id=row["id"],
+                application=row["application"],
+                process_name=row["process_name"],
+                process_id=row["process_id"],
+                window_title=row["window_title"],
+                started_at=row["started_at"],
+                ended_at=row["ended_at"],
+                active_duration_ms=row["active_duration_ms"],
+            )
+            for row in rows
+        ]
+
+    def get_session_materials(self, session_id: int) -> dict[str, list[dict[str, object]]]:
+        """Return document and browser source metadata associated with a session.
+
+        Documents are linked through their activity context. Browser records
+        have no activity FK in the existing schema, so they are associated by
+        capture time within the session boundaries and by any search-source
+        context link available in the database.
+        """
+        if isinstance(session_id, bool) or not isinstance(session_id, int):
+            raise TypeError("session_id must be an integer")
+        if session_id < 1:
+            raise ValueError("session_id must be positive")
+
+        connection = self._connect()
+        try:
+            session = connection.execute(
+                "SELECT started_at, ended_at FROM sessions WHERE id = ?",
+                (session_id,),
+            ).fetchone()
+            if session is None:
+                return {"documents": [], "web_pages": []}
+
+            document_rows = connection.execute(
+                """
+                SELECT DISTINCT d.id, d.file_name, d.file_type, d.file_path,
+                    d.captured_at, d.context_id
+                FROM document_records AS d
+                JOIN activity_records AS a ON a.id = d.context_id
+                WHERE a.session_id = ?
+                ORDER BY d.captured_at DESC, d.id DESC
+                """,
+                (session_id,),
+            ).fetchall()
+
+            browser_rows = connection.execute(
+                """
+                SELECT DISTINCT b.id, b.browser, b.url, b.page_title, b.captured_at,
+                    CASE WHEN c.id IS NULL THEN 0 ELSE 1 END AS has_content
+                FROM browser_source_records AS b
+                LEFT JOIN browser_content_records AS c
+                    ON c.browser_source_id = b.id
+                LEFT JOIN search_sources AS ss
+                    ON ss.browser_source_id = b.id
+                LEFT JOIN activity_records AS a
+                    ON a.id = ss.context_id
+                WHERE a.session_id = ?
+                    OR (b.captured_at >= ? AND b.captured_at <= ?)
+                ORDER BY b.captured_at DESC, b.id DESC
+                """,
+                (session_id, session["started_at"], session["ended_at"]),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        return {
+            "documents": [
+                {
+                    "id": int(row["id"]),
+                    "file_name": str(row["file_name"]),
+                    "file_type": str(row["file_type"]),
+                    "file_path": str(row["file_path"]),
+                    "captured_at": str(row["captured_at"]),
+                    "context_id": int(row["context_id"]) if row["context_id"] is not None else None,
+                }
+                for row in document_rows
+            ],
+            "web_pages": [
+                {
+                    "id": int(row["id"]),
+                    "browser": str(row["browser"]),
+                    "url": str(row["url"]),
+                    "page_title": str(row["page_title"]),
+                    "captured_at": str(row["captured_at"]),
+                    "has_content": bool(row["has_content"]),
+                }
+                for row in browser_rows
+            ],
+        }
+
+    def get_document_file_path(self, document_id: int) -> str | None:
+        """Return the stored copy path for a document record."""
+        self._validate_record_id(document_id, "document_id")
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT file_path FROM document_records WHERE id = ?",
+                (document_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        return str(row["file_path"]) if row is not None else None
+
+    def get_activity_document_paths(self, activity_id: int) -> list[str]:
+        """Return document-copy paths linked to an activity record."""
+        self._validate_record_id(activity_id, "activity_id")
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                "SELECT file_path FROM document_records WHERE context_id = ?",
+                (activity_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+        return [str(row["file_path"]) for row in rows]
+
+    def get_all_document_file_paths(self) -> list[str]:
+        """Return paths of application-stored document copies."""
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                "SELECT file_path FROM document_records"
+            ).fetchall()
+        finally:
+            connection.close()
+        return [str(row["file_path"]) for row in rows]
 
     def get_recent_records(self, limit: int = 50) -> list[ActivityRecord]:
         """Return recent activity records, newest first."""
@@ -1280,6 +1780,223 @@ class ActivityStore(ActivityDeletionMixin):
         finally:
             connection.close()
 
+
+    @staticmethod
+    def _search_instant(value: str) -> datetime:
+        """Parse an ISO-8601 timestamp as an aware UTC instant."""
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("invalid ISO-8601 timestamp") from exc
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise ValueError("timestamp must include a timezone")
+        return parsed.astimezone(timezone.utc)
+
+    def search_records(
+        self,
+        *,
+        keyword: str = "",
+        process_name: str = "",
+        source_type: str = "all",
+        active_from: str | None = None,
+        active_before: str | None = None,
+        sort: str = "recent",
+        limit: int = 20,
+        privacy_policy=None,
+    ) -> tuple[list[ContextRecord], bool]:
+        """Search saved activity and browser metadata without returning content."""
+        if source_type not in {"all", "web", "document", "pdf", "docx"}:
+            raise ValueError("unsupported source_type")
+        if sort not in {"recent", "oldest"}:
+            raise ValueError("unsupported sort")
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= 20
+        ):
+            raise ValueError("limit must be between 1 and 20")
+
+        lower = self._search_instant(active_from) if active_from is not None else None
+        upper = (
+            self._search_instant(active_before)
+            if active_before is not None
+            else None
+        )
+        if lower is not None and upper is not None and lower >= upper:
+            raise ValueError("active_from must be earlier than active_before")
+
+        normalized_keyword = keyword.casefold()
+        normalized_process = process_name.casefold()
+        connection = self._connect()
+        results: list[tuple[ContextRecord, datetime]] = []
+        try:
+            # Pick the latest document for each activity so one activity ID never
+            # appears more than once in the ContextRecord response.
+            if source_type in {"all", "document", "pdf", "docx"}:
+                rows = connection.execute(
+                    """
+                    SELECT
+                        a.id, a.application, a.process_name, a.window_title,
+                        a.started_at, a.ended_at, a.active_duration_ms,
+                        d.file_path, d.file_type
+                    FROM activity_records AS a
+                    LEFT JOIN document_records AS d
+                      ON d.id = (
+                        SELECT d2.id
+                        FROM document_records AS d2
+                        WHERE d2.context_id = a.id
+                        ORDER BY d2.captured_at DESC, d2.id DESC
+                        LIMIT 1
+                      )
+                    ORDER BY a.id ASC
+                    """
+                ).fetchall()
+
+                for row in rows:
+                    file_type = (row["file_type"] or "").lower().lstrip(".")
+                    has_document = (
+                        file_type in {"pdf", "docx"} and bool(row["file_path"])
+                    )
+                    if source_type in {"document", "pdf", "docx"} and not has_document:
+                        continue
+                    if source_type in {"pdf", "docx"} and file_type != source_type:
+                        continue
+
+                    application = row["application"]
+                    process = row["process_name"]
+                    if (
+                        privacy_policy is not None
+                        and privacy_policy.is_blocked(application, process)
+                    ):
+                        continue
+                    title = row["window_title"]
+                    if privacy_policy is not None:
+                        title = privacy_policy.sanitize_title(title)
+                    if normalized_process and process.casefold() != normalized_process:
+                        continue
+                    if (
+                        normalized_keyword
+                        and normalized_keyword not in title.casefold()
+                    ):
+                        continue
+
+                    instant = self._search_instant(row["ended_at"])
+                    if lower is not None and instant < lower:
+                        continue
+                    if upper is not None and instant >= upper:
+                        continue
+
+                    document = (
+                        LocalDocument(
+                            file_path=row["file_path"],
+                            file_type=file_type,
+                        )
+                        if has_document
+                        else None
+                    )
+                    record = ContextRecord(
+                        id=str(row["id"]),
+                        application=application,
+                        process_name=process,
+                        window_title=title,
+                        started_at=row["started_at"],
+                        last_active_at=row["ended_at"],
+                        active_duration_ms=row["active_duration_ms"],
+                        foreground_count=1,
+                        browser=None,
+                        document=document,
+                    )
+                    results.append((record, instant))
+
+            # Browser capture is independent from active-window tracking in Phase 10.
+            # Represent each saved browser page as a metadata-only ContextRecord.
+            if source_type in {"all", "web"}:
+                rows = connection.execute(
+                    """
+                    SELECT
+                        b.id, b.browser, b.url, b.page_title, b.captured_at,
+                        s.metadata_json
+                    FROM browser_source_records AS b
+                    LEFT JOIN search_sources AS s
+                      ON s.browser_source_id = b.id
+                    ORDER BY b.id ASC
+                    """
+                ).fetchall()
+
+                for row in rows:
+                    url = row["url"]
+                    if (
+                        not isinstance(url, str)
+                        or not url.lower().startswith(("http://", "https://"))
+                    ):
+                        continue
+                    browser_name = row["browser"]
+                    application = (
+                        "Google Chrome" if browser_name == "chrome"
+                        else "Microsoft Edge"
+                    )
+                    process = "chrome.exe" if browser_name == "chrome" else "msedge.exe"
+                    if (
+                        privacy_policy is not None
+                        and privacy_policy.is_blocked(application, process)
+                    ):
+                        continue
+
+                    metadata = {}
+                    if row["metadata_json"]:
+                        try:
+                            metadata = json.loads(row["metadata_json"])
+                        except (TypeError, ValueError):
+                            metadata = {}
+                    title = metadata.get("window_title") or row["page_title"]
+                    if privacy_policy is not None:
+                        title = privacy_policy.sanitize_title(title)
+                    page_title = row["page_title"]
+                    if privacy_policy is not None:
+                        page_title = privacy_policy.sanitize_title(page_title)
+
+                    if normalized_process and process.casefold() != normalized_process:
+                        continue
+                    if normalized_keyword and normalized_keyword not in (
+                        title.casefold() + "\n" + page_title.casefold()
+                    ):
+                        continue
+
+                    instant = self._search_instant(row["captured_at"])
+                    if lower is not None and instant < lower:
+                        continue
+                    if upper is not None and instant >= upper:
+                        continue
+
+                    record = ContextRecord(
+                        id=f"web-{row['id']}",
+                        application=application,
+                        process_name=process,
+                        window_title=title,
+                        started_at=row["captured_at"],
+                        last_active_at=row["captured_at"],
+                        active_duration_ms=0,
+                        foreground_count=1,
+                        browser=BrowserPage(
+                            browser=browser_name,
+                            page_title=page_title,
+                            url=url,
+                        ),
+                        document=None,
+                    )
+                    results.append((record, instant))
+        finally:
+            connection.close()
+
+        # Stable tie-break: ID ascending even when timestamps are equal.
+        results.sort(key=lambda item: item[0].id)
+        results.sort(
+            key=lambda item: item[1],
+            reverse=(sort == "recent"),
+        )
+        has_more = len(results) > limit
+        return [record for record, _ in results[:limit]], has_more
+
     def get_search_chunks(
         self,
         search_source_id: int,
@@ -1422,6 +2139,249 @@ class ActivityStore(ActivityDeletionMixin):
                 )
 
             return semantic_data_id
+
+        finally:
+            connection.close()
+
+
+    def search_semantic_chunks(
+        self,
+        query_vector: list[float],
+        *,
+        model_name: str = "intfloat/multilingual-e5-small",
+        process_name: str = "",
+        source_type: str = "all",
+        active_from: str | None = None,
+        active_before: str | None = None,
+        sort: str = "relevance",
+        limit: int = 20,
+        privacy_policy=None,
+    ) -> tuple[list[dict], bool]:
+        """Rank indexed passages by cosine similarity and restore source metadata.
+
+        Cosine similarity is computed from stored vectors. Filtering is applied
+        before ranking; tie-breaking is
+        deterministic. Only metadata snapshots and bounded text previews leave
+        this method, never full source documents.
+        """
+        if not isinstance(query_vector, list) or len(query_vector) != 384:
+            raise ValueError("query_vector must contain 384 values")
+        query_values = []
+        for value in query_vector:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError("query vector values must be numeric")
+            if not math.isfinite(value):
+                raise ValueError("query vector values must be finite")
+            query_values.append(float(value))
+        if source_type not in {"all", "web", "document", "pdf", "docx"}:
+            raise ValueError("unsupported source_type")
+        if sort not in {"relevance", "recent"}:
+            raise ValueError("unsupported sort")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
+            raise ValueError("limit must be between 1 and 20")
+        normalized_process = process_name.strip().casefold()
+        lower = self._search_instant(active_from) if active_from is not None else None
+        upper = self._search_instant(active_before) if active_before is not None else None
+        if lower is not None and upper is not None and lower >= upper:
+            raise ValueError("active_from must be earlier than active_before")
+
+        connection = self._connect()
+        ranked: list[tuple[dict, float, datetime]] = []
+        try:
+            rows = connection.execute(
+                """
+                SELECT
+                    c.id AS chunk_id,
+                    c.chunk_index,
+                    c.text AS chunk_text,
+                    ss.source_kind,
+                    ss.context_id,
+                    ss.document_id,
+                    ss.browser_source_id,
+                    ss.captured_at AS source_captured_at,
+                    ss.content_truncated,
+                    ss.metadata_json,
+                    e.model_name,
+                    e.dimension,
+                    e.vector_json,
+                    a.active_duration_ms
+                FROM search_chunks AS c
+                JOIN search_sources AS ss ON ss.id = c.search_source_id
+                JOIN semantic_embeddings AS e ON e.chunk_id = c.id
+                LEFT JOIN activity_records AS a ON a.id = ss.context_id
+                WHERE e.model_name = ? AND e.dimension = 384
+                """,
+                (model_name,),
+            ).fetchall()
+
+            for row in rows:
+                try:
+                    metadata = json.loads(row["metadata_json"] or "{}")
+                    vector = json.loads(row["vector_json"])
+                    if not isinstance(metadata, dict) or not isinstance(vector, list):
+                        continue
+                    if len(vector) != 384:
+                        continue
+                    vector_values = [float(value) for value in vector]
+                    if not all(math.isfinite(value) for value in vector_values):
+                        continue
+                    query_norm = math.sqrt(sum(value * value for value in query_values))
+                    vector_norm = math.sqrt(sum(value * value for value in vector_values))
+                    if query_norm == 0 or vector_norm == 0:
+                        continue
+                    score = sum(
+                        query_values[index] * vector_values[index]
+                        for index in range(384)
+                    ) / (query_norm * vector_norm)
+                    if not math.isfinite(score) or score < MIN_SEMANTIC_SIMILARITY:
+                        continue
+                    kind = row["source_kind"]
+                    if source_type == "web" and kind != "web":
+                        continue
+                    if source_type in {"document", "pdf", "docx"} and kind != "document":
+                        continue
+
+                    document_data = metadata.get("document")
+                    browser_data = metadata.get("browser")
+                    if kind == "document":
+                        if not isinstance(document_data, dict) or browser_data is not None:
+                            continue
+                        file_type = str(document_data.get("file_type", "")).lower().lstrip(".")
+                        if file_type not in {"pdf", "docx"}:
+                            continue
+                        if source_type in {"pdf", "docx"} and file_type != source_type:
+                            continue
+                        document = LocalDocument(
+                            file_path=str(document_data.get("file_path", "")),
+                            file_type=file_type,
+                        )
+                        browser = None
+                    elif kind == "web":
+                        if not isinstance(browser_data, dict) or document_data is not None:
+                            continue
+                        browser_name = browser_data.get("browser")
+                        url = browser_data.get("url")
+                        page_title = browser_data.get("page_title")
+                        if browser_name not in {"chrome", "edge"}:
+                            continue
+                        if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
+                            continue
+                        if not isinstance(page_title, str):
+                            continue
+                        browser = BrowserPage(
+                            browser=browser_name,
+                            page_title=page_title,
+                            url=url,
+                        )
+                        document = None
+                    else:
+                        continue
+
+                    application = str(metadata.get("application", ""))
+                    process = str(metadata.get("process_name", ""))
+                    title = str(metadata.get("window_title", ""))
+                    if not application or not process:
+                        continue
+                    if privacy_policy is not None:
+                        if privacy_policy.is_blocked(application, process):
+                            continue
+                        if privacy_policy.contains_sensitive_data(row["chunk_text"]):
+                            continue
+                        title = privacy_policy.sanitize_title(title)
+                        if browser is not None:
+                            try:
+                                safe_url = privacy_policy.sanitize_browser_url(browser.url)
+                            except ValueError:
+                                continue
+                            browser = BrowserPage(
+                                browser=browser.browser,
+                                page_title=privacy_policy.sanitize_title(browser.page_title),
+                                url=safe_url,
+                            )
+                    if normalized_process and process.casefold() != normalized_process:
+                        continue
+
+                    started_at = str(metadata.get("started_at") or row["source_captured_at"])
+                    last_active_at = str(metadata.get("last_active_at") or row["source_captured_at"])
+                    instant = self._search_instant(last_active_at)
+                    if lower is not None and instant < lower:
+                        continue
+                    if upper is not None and instant >= upper:
+                        continue
+                    context_id = row["context_id"]
+                    record_id = (
+                        f"web-{row['browser_source_id']}"
+                        if kind == "web"
+                        else str(context_id)
+                    )
+                    if kind == "document" and context_id is None:
+                        continue
+                    record = ContextRecord(
+                        id=record_id,
+                        application=application,
+                        process_name=process,
+                        window_title=title,
+                        started_at=started_at,
+                        last_active_at=last_active_at,
+                        active_duration_ms=int(row["active_duration_ms"] or 0),
+                        foreground_count=1,
+                        browser=browser,
+                        document=document,
+                    )
+                    hit = {
+                        "chunk_id": row["chunk_id"],
+                        "chunk_index": int(row["chunk_index"]),
+                        "preview": str(row["chunk_text"])[:SEMANTIC_PREVIEW_LENGTH],
+                        "similarity": max(-1.0, min(1.0, score)),
+                        "record": record,
+                        "content_truncated": bool(row["content_truncated"]),
+                    }
+                    ranked.append((hit, score, instant))
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                    # A malformed legacy snapshot must not break other search hits.
+                    continue
+        finally:
+            connection.close()
+
+        if sort == "recent":
+            ranked.sort(key=lambda item: item[0]["chunk_id"])
+            ranked.sort(key=lambda item: item[2], reverse=True)
+        else:
+            ranked.sort(key=lambda item: item[0]["chunk_id"])
+            ranked.sort(key=lambda item: item[1], reverse=True)
+        has_more = len(ranked) > limit
+        return [item[0] for item in ranked[:limit]], has_more
+
+    def get_search_chunk_text(self, chunk_id: str) -> str | None:
+        """Return the full text of an indexed search chunk.
+
+        This method is intended for internal RAG evidence assembly.
+        Public semantic-search responses continue to expose bounded previews.
+        """
+        if not isinstance(chunk_id, str) or not chunk_id.strip():
+            raise ValueError("chunk_id must not be empty")
+
+        if len(chunk_id) > 128:
+            raise ValueError("chunk_id is too long")
+
+        connection = self._connect()
+
+        try:
+            row = connection.execute(
+                """
+                SELECT c.text
+                FROM search_chunks AS c
+                JOIN search_sources AS s
+                    ON s.id = c.search_source_id
+                WHERE c.id = ?
+                """,
+                (chunk_id,),
+            ).fetchone()
+
+            if row is None:
+                return None
+
+            return str(row["text"])
 
         finally:
             connection.close()

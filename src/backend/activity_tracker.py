@@ -1,5 +1,5 @@
 
-"""Track the active application window and persist completed sessions."""
+"""Track the active application window and persist completed activity records."""
 
 import logging
 import sys
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class ActivityTracker:
-    """Collect active windows, track durations, and persist completed sessions."""
+    """Collect active windows, track durations, and persist activity records."""
 
     def __init__(
         self,
@@ -66,7 +66,7 @@ class ActivityTracker:
         self._start_tick = None
 
     def _finish_current(self) -> None:
-        """Persist the current session before clearing its tracking state."""
+        """Persist the current activity record before clearing tracking state."""
         if (
             self._window is None
             or self._started_at is None
@@ -91,6 +91,13 @@ class ActivityTracker:
             logger.warning("Activity persistence failed (%s)", type(exc).__name__)
         finally:
             self._reset()
+
+    def finish(self) -> None:
+        """Flush the currently tracked activity during orderly shutdown.
+
+        Safe to call repeatedly; after the first call the tracker is reset.
+        """
+        self._finish_current()
 
     def _empty_activity(self, status: CollectionStatus) -> CurrentActivity:
         self._finish_current()
@@ -173,5 +180,5 @@ class ActivityTracker:
             return self._empty_activity("error")
 
     def get_recent_records(self, limit: int = 50) -> list[ActivityRecord]:
-        """Return persisted sessions, newest first."""
+        """Return persisted activity records, newest first."""
         return self._get_store().get_recent_records(limit)

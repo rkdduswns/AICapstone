@@ -6,7 +6,9 @@ import os
 import shutil
 import sqlite3
 import tempfile
+import unicodedata
 import uuid
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
 from importlib.metadata import version
@@ -29,7 +31,9 @@ from backend.document_extractor import (
     extract_document_text,
 )
 from backend.embedding import EmbeddingService
+from backend.ollama_answer_generator import OllamaAnswerGenerator
 from backend.privacy import PrivacyPolicy
+from backend.rag_service import AnswerGenerator, RAGService
 from backend.search_indexer import SearchIndexer
 from shared.activity import (
     ACTIVITY_HISTORY_PATH,
@@ -47,8 +51,41 @@ from shared.protocol import (
     HealthResponse,
     HealthStatus,
 )
+from shared.rag import (
+    MAX_RAG_EVIDENCE_COUNT,
+    MAX_RAG_QUERY_LENGTH,
+    RAGRequest,
+    RAGResponse,
+)
 from shared.records import RECENT_RECORDS_LIMIT, RECENT_RECORDS_PATH
+from shared.search import (
+    MAX_SEARCH_KEYWORD,
+    MAX_SEARCH_PROCESS,
+    SEARCH_LIMIT,
+    SEARCH_PATH,
+    SearchRequest,
+    SearchResponse,
+    SearchResults,
+)
 from shared.search_data import SourceMetadata
+from shared.semantic_search import (
+    MAX_SEMANTIC_QUERY_LENGTH,
+    SEMANTIC_SEARCH_LIMIT,
+    SEMANTIC_SEARCH_PATH,
+    SemanticSearchRequest,
+    SemanticSearchResponse,
+    SemanticSearchResults,
+)
+from shared.sessions import (
+    ACTIVITY_RECORD_DELETE_PATH,
+    ALL_RECORDS_DELETE_PATH,
+    BROWSER_CONTENT_DELETE_PATH,
+    BROWSER_SOURCE_DELETE_PATH,
+    DOCUMENT_RECORD_DELETE_PATH,
+    SESSION_DETAIL_PATH,
+    SESSION_MATERIALS_PATH,
+    SESSIONS_PATH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +104,31 @@ class BrowserContentRequest(BaseModel):
     browser_source_id: int = Field(ge=1)
     content_text: str = Field(min_length=1, max_length=100_000)
 
+
+class SemanticSearchBody(BaseModel):
+    """Natural-language semantic query with optional Phase 11 filters."""
+
+    query: str = Field(min_length=1, max_length=MAX_SEMANTIC_QUERY_LENGTH)
+    process_name: str = Field(default="", max_length=MAX_SEARCH_PROCESS)
+    source_type: Literal["all", "web", "document", "pdf", "docx"] = "all"
+    active_from: str | None = None
+    active_before: str | None = None
+    sort: Literal["relevance", "recent"] = "relevance"
+    limit: int = Field(default=SEMANTIC_SEARCH_LIMIT, ge=1, le=SEMANTIC_SEARCH_LIMIT)
+
+class RAGAnswerBody(BaseModel):
+    """Validated request for evidence-grounded answer generation."""
+
+    query: str = Field(min_length=1, max_length=MAX_RAG_QUERY_LENGTH)
+    process_name: str = Field(default="", max_length=100)
+    source_type: Literal["all", "web", "document", "pdf", "docx"] = "all"
+    active_from: str | None = None
+    active_before: str | None = None
+    limit: int = Field(
+        default=MAX_RAG_EVIDENCE_COUNT,
+        ge=1,
+        le=MAX_RAG_EVIDENCE_COUNT,
+    )
 
 def get_health() -> HealthResponse:
     """Return the backend health status."""
@@ -94,13 +156,23 @@ def create_app(
     privacy_policy: PrivacyPolicy | None = None,
     document_storage_dir: str | Path | None = None,
     embedding_service: EmbeddingService | None = None,
+    answer_generator: AnswerGenerator | None = None,
 ) -> FastAPI:
     """Create the FastAPI application with injectable dependencies."""
+    @asynccontextmanager
+    async def lifespan(application: FastAPI):
+        """Flush an active activity when the server shuts down cleanly."""
+        yield
+        finish = getattr(application.state.activity_tracker, "finish", None)
+        if callable(finish):
+            finish()
+
     app = FastAPI(
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
         redirect_slashes=False,
+        lifespan=lifespan,
     )
 
     # Chrome extensions use a chrome-extension:// origin and require CORS
@@ -115,10 +187,16 @@ def create_app(
         allow_credentials=False,
     )
 
+    resolved_privacy_policy = privacy_policy if privacy_policy is not None else PrivacyPolicy()
+    app.state.activity_store = activity_store
+    app.state.browser_privacy_policy = resolved_privacy_policy
     app.state.activity_tracker = (
         activity_tracker
         if activity_tracker is not None
-        else ActivityTracker()
+        else ActivityTracker(
+            store=activity_store,
+            privacy_policy=resolved_privacy_policy,
+        )
     )
     if browser_token is not None:
         app.state.browser_token = browser_token
@@ -127,12 +205,6 @@ def create_app(
     else:
         app.state.browser_token = load_or_create_browser_token()
 
-    app.state.activity_store = activity_store
-    app.state.browser_privacy_policy = (
-        privacy_policy
-        if privacy_policy is not None
-        else PrivacyPolicy()
-    )
     app.state.document_storage_dir = (
         Path(document_storage_dir)
         if document_storage_dir is not None
@@ -143,6 +215,27 @@ def create_app(
         if embedding_service is not None
         else EmbeddingService()
     )
+    app.state.answer_generator = (
+        answer_generator
+        if answer_generator is not None
+        else OllamaAnswerGenerator()
+    )
+
+    def remove_managed_document_files(paths: list[str]) -> None:
+        """Remove only document copies inside ContextTrace's storage folder."""
+        storage_root = app.state.document_storage_dir.resolve()
+        for raw_path in paths:
+            try:
+                candidate = Path(raw_path).resolve()
+                candidate.relative_to(storage_root)
+            except (OSError, ValueError):
+                # Never delete an original user file outside app-managed storage.
+                continue
+            try:
+                if candidate.is_file():
+                    candidate.unlink()
+            except OSError:
+                logger.warning("Unable to remove stored document copy")
 
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
@@ -190,6 +283,416 @@ def create_app(
             "error": None,
         }
 
+    @app.get(SESSIONS_PATH)
+    async def recent_sessions(limit: int = Query(default=50, ge=1, le=200)):
+        """Return recent time-gap-based work sessions."""
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+        return {
+            "ok": True,
+            "data": {"sessions": store.get_recent_sessions(limit)},
+            "error": None,
+        }
+
+    @app.get(SESSION_DETAIL_PATH)
+    async def session_detail(
+        session_id: int,
+        limit: int = Query(default=200, ge=1, le=200),
+        offset: int = Query(default=0, ge=0),
+    ):
+        """Return one session and a page of its activity timeline."""
+        if session_id < 1:
+            raise HTTPException(status_code=422, detail="session_id must be positive")
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+        session = store.get_session(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {
+            "ok": True,
+            "data": {
+                "session": session,
+                "activities": [
+                    asdict(item)
+                    for item in store.get_session_records(session_id, limit=limit, offset=offset)
+                ],
+                "activities_pagination": {
+                    "limit": limit,
+                    "offset": offset,
+                    "total": int(session["activity_count"]),
+                    "has_more": offset + limit < int(session["activity_count"]),
+                },
+                "materials": store.get_session_materials(session_id),
+            },
+            "error": None,
+        }
+
+    @app.get(SESSION_MATERIALS_PATH)
+    async def session_materials(session_id: int):
+        """Return documents and browser pages related to a work session."""
+        if session_id < 1:
+            raise HTTPException(status_code=422, detail="session_id must be positive")
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+        if store.get_session(session_id) is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {
+            "ok": True,
+            "data": store.get_session_materials(session_id),
+            "error": None,
+        }
+
+    @app.delete(ACTIVITY_RECORD_DELETE_PATH)
+    async def delete_activity_record(record_id: int):
+        """Delete one activity and its dependent collected/indexed records."""
+        if record_id < 1:
+            raise HTTPException(status_code=422, detail="record_id must be positive")
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+        document_paths = store.get_activity_document_paths(record_id)
+        deleted = store.delete_activity_record(record_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Activity record not found")
+        remove_managed_document_files(document_paths)
+        return {"ok": True, "data": {"deleted": True, "record_id": record_id}, "error": None}
+
+    @app.delete(ALL_RECORDS_DELETE_PATH)
+    async def delete_all_records(confirm: bool = Query(default=False)):
+        """Delete all collected records; requires explicit confirmation."""
+        if not confirm:
+            raise HTTPException(status_code=400, detail="Set confirm=true to delete all records")
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+        document_paths = store.get_all_document_file_paths()
+        counts = store.delete_all_records()
+        remove_managed_document_files(document_paths)
+        return {"ok": True, "data": {"deleted_counts": counts}, "error": None}
+
+    @app.get(SEARCH_PATH)
+    async def search_records(
+        keyword: str = Query(default=""),
+        process_name: str = Query(default=""),
+        source_type: Literal[
+            "all", "web", "document", "pdf", "docx"
+        ] = Query(default="all"),
+        active_from: str | None = Query(default=None),
+        active_before: str | None = Query(default=None),
+        sort: Literal["recent", "oldest"] = Query(default="recent"),
+        limit: int = Query(default=SEARCH_LIMIT, ge=1, le=SEARCH_LIMIT),
+    ):
+        """Search saved work metadata using explicit, AND-combined conditions."""
+        if any(unicodedata.category(char) == "Cc" for char in keyword):
+            raise HTTPException(
+                status_code=422,
+                detail="keyword contains control characters",
+            )
+        if any(unicodedata.category(char) == "Cc" for char in process_name):
+            raise HTTPException(
+                status_code=422,
+                detail="process_name contains control characters",
+            )
+
+        normalized_keyword = keyword.strip()
+        normalized_process = process_name.strip().casefold()
+
+        if len(normalized_keyword) > MAX_SEARCH_KEYWORD:
+            raise HTTPException(
+                status_code=422,
+                detail="keyword is too long",
+            )
+        if len(normalized_process) > MAX_SEARCH_PROCESS:
+            raise HTTPException(
+                status_code=422,
+                detail="process_name is too long",
+            )
+        def validate_boundary(value: str | None, field_name: str):
+            if value is None:
+                return None
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{field_name} must be an ISO-8601 timestamp",
+                ) from exc
+            if parsed.tzinfo is None or parsed.utcoffset() is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{field_name} must include a timezone",
+                )
+            return parsed
+
+        lower = validate_boundary(active_from, "active_from")
+        upper = validate_boundary(active_before, "active_before")
+        if lower is not None and upper is not None and lower >= upper:
+            raise HTTPException(
+                status_code=422,
+                detail="active_from must be earlier than active_before",
+            )
+
+        request_data = SearchRequest(
+            keyword=normalized_keyword,
+            process_name=normalized_process,
+            source_type=source_type,
+            active_from=active_from,
+            active_before=active_before,
+            sort=sort,
+            limit=limit,
+        )
+
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+
+        records, has_more = store.search_records(
+            keyword=normalized_keyword,
+            process_name=normalized_process,
+            source_type=source_type,
+            active_from=active_from,
+            active_before=active_before,
+            sort=sort,
+            limit=limit,
+            privacy_policy=app.state.browser_privacy_policy,
+        )
+        response = SearchResponse(
+            data=SearchResults(
+                request=request_data,
+                records=records,
+                has_more=has_more,
+            )
+        )
+        return asdict(response)
+
+
+    @app.post(SEMANTIC_SEARCH_PATH)
+    async def semantic_search(body: SemanticSearchBody):
+        """Find semantically similar indexed passages with optional metadata filters."""
+        query = body.query.strip()
+        process_name = body.process_name.strip().casefold()
+        if not query:
+            raise HTTPException(status_code=422, detail="query must not be empty")
+        if any(unicodedata.category(char) == "Cc" for char in query):
+            raise HTTPException(status_code=422, detail="query contains control characters")
+        if any(unicodedata.category(char) == "Cc" for char in process_name):
+            raise HTTPException(status_code=422, detail="process_name contains control characters")
+        if len(process_name) > 100:
+            raise HTTPException(status_code=422, detail="process_name is too long")
+
+        def validate_semantic_boundary(value: str | None, field_name: str):
+            if value is None:
+                return None
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{field_name} must be an ISO-8601 timestamp",
+                ) from exc
+            if parsed.tzinfo is None or parsed.utcoffset() is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{field_name} must include a timezone",
+                )
+            return parsed
+
+        lower = validate_semantic_boundary(body.active_from, "active_from")
+        upper = validate_semantic_boundary(body.active_before, "active_before")
+        if lower is not None and upper is not None and lower >= upper:
+            raise HTTPException(
+                status_code=422,
+                detail="active_from must be earlier than active_before",
+            )
+
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+
+        try:
+            query_vector = app.state.embedding_service.embed_query(
+                query,
+                privacy_policy=app.state.browser_privacy_policy,
+            )
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail="query cannot be used for search") from exc
+        except Exception as exc:
+            logger.warning("Semantic search model unavailable (%s)", type(exc).__name__)
+            raise HTTPException(
+                status_code=503,
+                detail="semantic search is temporarily unavailable",
+            ) from exc
+
+        try:
+            hits, has_more = store.search_semantic_chunks(
+                query_vector,
+                model_name=app.state.embedding_service.model_name,
+                process_name=process_name,
+                source_type=body.source_type,
+                active_from=body.active_from,
+                active_before=body.active_before,
+                sort=body.sort,
+                limit=body.limit,
+                privacy_policy=app.state.browser_privacy_policy,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="invalid semantic search filters") from exc
+
+        request_data = SemanticSearchRequest(
+            query=query,
+            process_name=process_name,
+            source_type=body.source_type,
+            active_from=body.active_from,
+            active_before=body.active_before,
+            sort=body.sort,
+            limit=body.limit,
+        )
+        response = SemanticSearchResponse(
+            data=SemanticSearchResults(
+                request=request_data,
+                hits=hits,
+                has_more=has_more,
+            )
+        )
+        return asdict(response)
+
+    @app.post("/records/answer")
+    async def generate_rag_answer(body: RAGAnswerBody):
+        """Generate an answer grounded in retrieved work records."""
+        query = body.query.strip()
+        process_name = body.process_name.strip().casefold()
+
+        if not query:
+            raise HTTPException(
+                status_code=422,
+                detail="query must not be empty",
+            )
+
+        if any(
+            unicodedata.category(char) == "Cc"
+            for char in query
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="query contains control characters",
+            )
+
+        if any(
+            unicodedata.category(char) == "Cc"
+            for char in process_name
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="process_name contains control characters",
+            )
+
+        if len(process_name) > 100:
+            raise HTTPException(
+                status_code=422,
+                detail="process_name is too long",
+            )
+
+        policy = app.state.browser_privacy_policy
+
+        if policy.contains_sensitive_data(query):
+            raise HTTPException(
+                status_code=422,
+                detail="query contains potentially sensitive data",
+            )
+
+        def validate_rag_boundary(
+            value: str | None,
+            field_name: str,
+        ):
+            if value is None:
+                return None
+
+            try:
+                parsed = datetime.fromisoformat(
+                    value.replace("Z", "+00:00")
+                )
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{field_name} must be an ISO-8601 timestamp",
+                ) from exc
+
+            if parsed.tzinfo is None or parsed.utcoffset() is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{field_name} must include a timezone",
+                )
+
+            return parsed
+
+        lower = validate_rag_boundary(
+            body.active_from,
+            "active_from",
+        )
+        upper = validate_rag_boundary(
+            body.active_before,
+            "active_before",
+        )
+
+        if lower is not None and upper is not None and lower >= upper:
+            raise HTTPException(
+                status_code=422,
+                detail="active_from must be earlier than active_before",
+            )
+
+        store = app.state.activity_store
+
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+
+        rag_service = RAGService(
+            store=store,
+            embedding_service=app.state.embedding_service,
+            answer_generator=app.state.answer_generator,
+            privacy_policy=policy,
+        )
+
+        rag_request = RAGRequest(
+            query=query,
+            process_name=process_name,
+            source_type=body.source_type,
+            active_from=body.active_from,
+            active_before=body.active_before,
+            limit=body.limit,
+        )
+
+        try:
+            result = rag_service.answer(rag_request)
+
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="Unable to process the RAG request",
+            ) from exc
+
+        except Exception as exc:
+            logger.exception(
+                "RAG answer generation failed (%s)",
+                type(exc).__name__,
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="Answer generation is temporarily unavailable",
+            ) from exc
+
+        response = RAGResponse(data=result)
+        return asdict(response)
     @app.post("/documents", status_code=201)
     async def upload_document(
         file: UploadFile = File(...),
@@ -381,6 +884,23 @@ def create_app(
             "error": None,
         }
 
+    @app.delete(DOCUMENT_RECORD_DELETE_PATH)
+    async def delete_document(document_id: int):
+        """Delete a document record, its index, and only its stored copy."""
+        if document_id < 1:
+            raise HTTPException(status_code=422, detail="document_id must be positive")
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+        path = store.get_document_file_path(document_id)
+        deleted = store.delete_document_record(document_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Document not found")
+        if path:
+            remove_managed_document_files([path])
+        return {"ok": True, "data": {"deleted": True, "document_id": document_id}, "error": None}
+
     @app.post(BROWSER_SOURCE_PATH)
     async def save_browser_source(
         payload: BrowserSourceRequest,
@@ -451,6 +971,23 @@ def create_app(
                 "page_title": sanitized_title,
                 "captured_at": captured_at,
             },
+            "error": None,
+        }
+
+    @app.delete(BROWSER_SOURCE_DELETE_PATH)
+    async def delete_browser_source(browser_source_id: int):
+        """Delete a browser source and all indexed content derived from it."""
+        if browser_source_id < 1:
+            raise HTTPException(status_code=422, detail="browser_source_id must be positive")
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+        if not store.delete_browser_source_record(browser_source_id):
+            raise HTTPException(status_code=404, detail="Browser source not found")
+        return {
+            "ok": True,
+            "data": {"deleted": True, "browser_source_id": browser_source_id},
             "error": None,
         }
 
@@ -623,6 +1160,19 @@ def create_app(
             },
             "error": None,
         }
+
+    @app.delete(BROWSER_CONTENT_DELETE_PATH)
+    async def delete_browser_content(content_id: int):
+        """Delete one browser page body but keep its source URL metadata."""
+        if content_id < 1:
+            raise HTTPException(status_code=422, detail="content_id must be positive")
+        store = app.state.activity_store
+        if store is None:
+            store = ActivityStore()
+            app.state.activity_store = store
+        if not store.delete_browser_content_record(content_id):
+            raise HTTPException(status_code=404, detail="Browser content not found")
+        return {"ok": True, "data": {"deleted": True, "content_id": content_id}, "error": None}
 
     @app.exception_handler(HTTPException)
     async def http_error(

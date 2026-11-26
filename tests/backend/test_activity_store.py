@@ -938,3 +938,404 @@ def test_deleting_document_cascades_to_semantic_embedding(
 
     assert count == 0
     assert store.get_semantic_embedding(chunk_id) is None
+
+def _save_timed_activity(store, started_at, ended_at, title="test.py"):
+    """Save a small activity record with explicit UTC timestamps."""
+    window = ActiveWindow(
+        application="Visual Studio Code",
+        process_name="Code.exe",
+        process_id=1234,
+        window_title=title,
+    )
+    return store.save_record(
+        window=window,
+        started_at=started_at,
+        ended_at=ended_at,
+        active_duration_ms=60_000,
+    )
+
+
+def _get_activity_session_id(store, record_id):
+    connection = store._connect()
+    try:
+        row = connection.execute(
+            "SELECT session_id FROM activity_records WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+        return row["session_id"]
+    finally:
+        connection.close()
+
+
+def test_activity_records_within_inactivity_gap_share_session(store):
+    """Window changes within the inactivity threshold stay in one session."""
+    first_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:00:00+00:00",
+        "2026-11-19T09:05:00+00:00",
+        "first.py",
+    )
+    second_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:20:00+00:00",
+        "2026-11-19T09:25:00+00:00",
+        "second.py",
+    )
+
+    first_session_id = _get_activity_session_id(store, first_id)
+    second_session_id = _get_activity_session_id(store, second_id)
+
+    assert first_session_id == second_session_id
+    assert store.get_session(first_session_id) == {
+        "id": first_session_id,
+        "started_at": "2026-11-19T09:00:00+00:00",
+        "ended_at": "2026-11-19T09:25:00+00:00",
+        "activity_count": 2,
+    }
+
+
+def test_activity_after_inactivity_gap_starts_new_session(store):
+    """An inactivity gap greater than 30 minutes starts a new session."""
+    first_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:00:00+00:00",
+        "2026-11-19T09:05:00+00:00",
+    )
+    second_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:36:00+00:00",
+        "2026-11-19T09:40:00+00:00",
+    )
+
+    assert _get_activity_session_id(store, first_id) != _get_activity_session_id(
+        store, second_id
+    )
+    assert len(store.get_recent_sessions()) == 2
+
+
+def test_activity_at_exact_inactivity_threshold_stays_in_session(store):
+    """A gap equal to the configured threshold remains in the same session."""
+    first_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:00:00+00:00",
+        "2026-11-19T09:05:00+00:00",
+    )
+    second_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:35:00+00:00",
+        "2026-11-19T09:40:00+00:00",
+    )
+
+    assert _get_activity_session_id(store, first_id) == _get_activity_session_id(
+        store, second_id
+    )
+
+
+def test_recent_sessions_and_session_records(store):
+    """Session summaries and their activity records can be queried."""
+    first_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:00:00+00:00",
+        "2026-11-19T09:05:00+00:00",
+        "first.py",
+    )
+    second_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:10:00+00:00",
+        "2026-11-19T09:15:00+00:00",
+        "second.py",
+    )
+    session_id = _get_activity_session_id(store, first_id)
+
+    sessions = store.get_recent_sessions()
+    records = store.get_session_records(session_id)
+
+    assert len(sessions) == 1
+    assert sessions[0]["id"] == session_id
+    assert sessions[0]["activity_count"] == 2
+    assert [record.id for record in records] == [first_id, second_id]
+    assert store.get_session(999) is None
+
+
+def test_session_query_validates_ids_and_limits(store):
+    with pytest.raises(TypeError):
+        store.get_session(True)
+    with pytest.raises(ValueError):
+        store.get_session(0)
+    with pytest.raises(TypeError):
+        store.get_session_records(1, limit=True)
+    with pytest.raises(ValueError):
+        store.get_recent_sessions(limit=201)
+    with pytest.raises(ValueError):
+        store.get_session_records(1, offset=-1)
+
+
+def test_initialize_migrates_legacy_activity_records_into_sessions(tmp_path):
+    """Existing activity rows are retained and grouped during migration."""
+    db_path = tmp_path / "legacy_activity.db"
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            """
+            CREATE TABLE activity_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                application TEXT NOT NULL,
+                process_name TEXT NOT NULL,
+                process_id INTEGER NOT NULL,
+                window_title TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                ended_at TEXT NOT NULL,
+                active_duration_ms INTEGER NOT NULL
+            )
+            """
+        )
+        connection.executemany(
+            """
+            INSERT INTO activity_records (
+                application, process_name, process_id, window_title,
+                started_at, ended_at, active_duration_ms
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    "Visual Studio Code", "Code.exe", 1234, "one.py",
+                    "2026-11-19T09:00:00+00:00",
+                    "2026-11-19T09:05:00+00:00", 300_000,
+                ),
+                (
+                    "Visual Studio Code", "Code.exe", 1234, "two.py",
+                    "2026-11-19T09:10:00+00:00",
+                    "2026-11-19T09:15:00+00:00", 300_000,
+                ),
+                (
+                    "Visual Studio Code", "Code.exe", 1234, "three.py",
+                    "2026-11-19T10:00:00+00:00",
+                    "2026-11-19T10:05:00+00:00", 300_000,
+                ),
+            ],
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    store = ActivityStore(db_path)
+    connection = store._connect()
+    try:
+        rows = connection.execute(
+            "SELECT id, session_id FROM activity_records ORDER BY id"
+        ).fetchall()
+        activity_count = connection.execute(
+            "SELECT COUNT(*) FROM activity_records"
+        ).fetchone()[0]
+    finally:
+        connection.close()
+
+    assert activity_count == 3
+    assert rows[0]["session_id"] == rows[1]["session_id"]
+    assert rows[2]["session_id"] != rows[0]["session_id"]
+    assert len(store.get_recent_sessions()) == 2
+
+
+def test_invalid_legacy_timestamps_are_preserved_in_isolated_sessions(store):
+    """Malformed timestamps do not block activity persistence or migration."""
+    first_id = _save_timed_activity(store, "not-a-time", "also-not-a-time")
+    second_id = _save_timed_activity(store, "not-a-time-2", "also-not-a-time-2")
+
+    assert _get_activity_session_id(store, first_id) != _get_activity_session_id(
+        store, second_id
+    )
+    assert len(store.get_recent_sessions()) == 2
+
+
+def test_out_of_order_record_bridges_and_merges_sessions(store):
+    """A later flush can bridge nearby sessions without insertion-order bugs."""
+    first_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:00:00+00:00",
+        "2026-11-19T09:05:00+00:00",
+        "first.py",
+    )
+    last_id = _save_timed_activity(
+        store,
+        "2026-11-19T10:00:00+00:00",
+        "2026-11-19T10:05:00+00:00",
+        "last.py",
+    )
+    middle_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:30:00+00:00",
+        "2026-11-19T09:35:00+00:00",
+        "middle.py",
+    )
+
+    session_ids = {
+        _get_activity_session_id(store, item_id)
+        for item_id in (first_id, last_id, middle_id)
+    }
+    assert len(session_ids) == 1
+    session = store.get_session(session_ids.pop())
+    assert session["started_at"] == "2026-11-19T09:00:00+00:00"
+    assert session["ended_at"] == "2026-11-19T10:05:00+00:00"
+    assert session["activity_count"] == 3
+
+
+def test_session_materials_include_context_documents_and_time_window_web(store, tmp_path):
+    activity_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:00:00+00:00",
+        "2026-11-19T09:30:00+00:00",
+    )
+    session_id = _get_activity_session_id(store, activity_id)
+    document_id = store.save_document_record(
+        tmp_path / "notes.pdf",
+        "sample document text",
+        "2026-11-19T09:10:00+00:00",
+        context_id=activity_id,
+    )
+    browser_id = store.save_browser_source_record(
+        "chrome",
+        "https://example.com/page",
+        "Example page",
+        "2026-11-19T09:20:00+00:00",
+    )
+    store.save_browser_content_record(
+        browser_id,
+        "example page body",
+        "2026-11-19T09:21:00+00:00",
+    )
+    store.save_browser_source_record(
+        "edge",
+        "https://outside.example/",
+        "Outside session",
+        "2026-11-19T11:00:00+00:00",
+    )
+
+    materials = store.get_session_materials(session_id)
+    assert [item["id"] for item in materials["documents"]] == [document_id]
+    assert [item["id"] for item in materials["web_pages"]] == [browser_id]
+    assert materials["web_pages"][0]["has_content"] is True
+
+
+def test_delete_activity_cascades_dependent_data_and_recalculates_session(store, tmp_path):
+    first_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:00:00+00:00",
+        "2026-11-19T09:05:00+00:00",
+        "first.py",
+    )
+    second_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:10:00+00:00",
+        "2026-11-19T09:15:00+00:00",
+        "second.py",
+    )
+    session_id = _get_activity_session_id(store, first_id)
+    first_record = store.get_record(first_id)
+    store.save_clipboard_record(
+        first_record.application,
+        first_record.started_at,
+        "2026-11-19T09:02:00+00:00",
+        "clipboard data",
+    )
+    document_id = store.save_document_record(
+        tmp_path / "linked.docx",
+        "linked document text",
+        "2026-11-19T09:03:00+00:00",
+        context_id=first_id,
+    )
+    store.save_search_source_and_chunks(
+        source_kind="document",
+        captured_at="2026-11-19T09:03:00+00:00",
+        chunks=["indexed document text"],
+        document_id=document_id,
+        context_id=first_id,
+    )
+    linked_browser_id = store.save_browser_source_record(
+        "chrome",
+        "https://example.com/linked",
+        "Linked page",
+        "2026-11-19T09:04:00+00:00",
+    )
+    store.save_browser_content_record(
+        linked_browser_id,
+        "linked page body",
+        "2026-11-19T09:04:30+00:00",
+    )
+    store.save_search_source_and_chunks(
+        source_kind="web",
+        captured_at="2026-11-19T09:04:30+00:00",
+        chunks=["indexed linked page body"],
+        browser_source_id=linked_browser_id,
+        context_id=first_id,
+    )
+
+    assert store.delete_activity_record(first_id) is True
+    assert store.get_browser_source_record(linked_browser_id) is None
+    assert store.delete_activity_record(first_id) is False
+    assert store.get_session(session_id)["activity_count"] == 1
+    assert store.get_session(session_id)["started_at"] == "2026-11-19T09:10:00+00:00"
+    assert store.get_session_records(session_id)[0].id == second_id
+    assert store.get_recent_document_records() == []
+    assert store.get_recent_clipboard_records() == []
+
+    connection = store._connect()
+    try:
+        assert connection.execute("SELECT COUNT(*) FROM search_sources").fetchone()[0] == 0
+        assert connection.execute("SELECT COUNT(*) FROM search_chunks").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_delete_all_records_clears_every_data_table_and_keeps_schema(store):
+    activity_id = _save_timed_activity(
+        store,
+        "2026-11-19T09:00:00+00:00",
+        "2026-11-19T09:05:00+00:00",
+    )
+    store.save_clipboard_record(
+        "Visual Studio Code",
+        "2026-11-19T09:00:00+00:00",
+        "2026-11-19T09:02:00+00:00",
+        "clipboard",
+    )
+    browser_id = store.save_browser_source_record(
+        "chrome", "https://example.com", "Example", "2026-11-19T09:03:00+00:00"
+    )
+    store.save_browser_content_record(
+        browser_id, "page content", "2026-11-19T09:04:00+00:00"
+    )
+    document_id = store.save_document_record(
+        "test.pdf", "document content", "2026-11-19T09:04:00+00:00", context_id=activity_id
+    )
+    store.save_search_source_and_chunks(
+        source_kind="document",
+        captured_at="2026-11-19T09:04:00+00:00",
+        chunks=["document chunk"],
+        document_id=document_id,
+        context_id=activity_id,
+    )
+
+    counts = store.delete_all_records()
+    assert counts["activity_records"] == 1
+    assert counts["browser_source_records"] == 1
+    assert counts["document_records"] == 1
+
+    connection = store._connect()
+    try:
+        for table in (
+            "activity_records", "sessions", "clipboard_records",
+            "browser_source_records", "browser_content_records",
+            "document_records", "document_chunks", "search_sources",
+            "search_chunks", "semantic_embeddings",
+        ):
+            assert connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+    # Delete-all is data-only: tables remain usable for future collection.
+    new_id = _save_timed_activity(
+        store,
+        "2026-11-19T11:00:00+00:00",
+        "2026-11-19T11:05:00+00:00",
+    )
+    assert store.get_record(new_id) is not None
