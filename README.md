@@ -95,8 +95,11 @@ AICapstone/
 │  ├─ client/
 │  ├─ backend/
 │  ├─ browser/
+│  │  ├─ extension/      # Windows ZIP에 넣는 수동 페이지 연결 확장
+│  │  └─ contexttrace/   # 별도 자동 수집 확장과 Native Messaging 호스트
 │  └─ shared/
 ├─ tests/
+│  ├─ browser/
 │  ├─ client/
 │  ├─ backend/
 │  └─ integration/
@@ -117,10 +120,13 @@ AICapstone/
 
 - `src/`: 실제 프로그램 소스
 - `tests/`: 단위 및 통합 테스트
-- `tools/`: 개발/검증용 보조 도구
+- `tools/`: 빌드·검증·미리보기와 소스 설치 보조 스크립트
 - `docs/`: 구현 관련 기술 문서 및 결과 보고
 - `etc/`: 프로젝트 기획, 개발 규칙, Phase 관리 문서
 - `.github/`: GitHub 자동화
+
+Windows ZIP의 확장은 [수동 페이지 연결 안내](docs/dev/history-source-linking.md)를 따른다.
+기존 루트 `browser/`에서 설치했다면 [ContextTrace 경로 변경 및 재등록](docs/dev/contexttrace-browser.md)을 확인한다.
 
 `client`와 `backend` 내부 구조는 실제 구현이 진행되면서 필요한 기능 단위로 추가합니다.
 

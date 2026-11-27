@@ -19,6 +19,8 @@
 
 ## Chrome·Edge 페이지 연결
 
+아래는 Windows ZIP의 `browser-extension`(소스: `src/browser/extension`) 안내다. [ContextTrace Native Messaging 확장](contexttrace-browser.md)은 별도 구현이다.
+
 확장은 버튼으로 실행하는 수동 연결 방식이다. 모든 탭을 상시 수집하거나 탭 전환을 자동 기록하지 않는다.
 Windows에서 실제 활성 Chrome/Edge 작업을 감지할 수 있어야 한다.
 

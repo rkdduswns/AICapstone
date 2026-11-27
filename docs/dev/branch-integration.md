@@ -4,9 +4,9 @@
 
 `main`은 배포 기준, `client_dev`는 단일 EXE 런처·Native Messaging 설치 등 Client 작업 기준, `feat/phase11-backend`는 Backend 협업 기준이며, `feat/phase11-14-api-integration`은 PR #31의 통합 검증 브랜치다. 네 브랜치는 유지한다. #9~#13은 head와 base가 모두 main의 조상이어서 추가 병합 없이 닫았다.
 
-아래는 검토 당시 **삭제 가능한 참조**다. 삭제 완료 목록이 아니다. 보존 브랜치에서 같은 커밋에 도달하는지 확인했으며, 새 커밋이 생기거나 새 PR이 열리면 제외한다. 단일 EXE와 Native Messaging 설치 이력이 client_dev에 있다는 것이 PR #31에 반영됐다는 뜻은 아니다.
+아래 원격 브랜치 27개를 삭제했다. 삭제 직전 끝 커밋이 표와 같은지 확인했고, 삭제 후 원격 목록을 다시 받아 27개가 사라졌으며 각 커밋이 보존 브랜치의 이력에 남아 있음을 검증했다. `main`에 17개, `client_dev`에 9개, `feat/phase11-backend`에 1개의 이력이 보존된다. 원격 브랜치는 39개에서 12개로 줄었다. PR #31과 폴더 정리 PR #32의 작업 브랜치는 유지했으며 `main`에는 병합하지 않았다. 단일 EXE와 Native Messaging 설치 이력은 `client_dev`에 있다.
 
-| 정리 대상 | 확인한 끝 커밋 | 커밋을 보존하는 브랜치 |
+| 삭제한 원격 브랜치 | 확인한 끝 커밋 | 커밋을 보존하는 브랜치 |
 |---|---|---|
 | `docs/phase-progress` | `bf07a662268f` | `main` |
 | `docs/project-doc-cleanup` | `67bf52f1bc6c` | `main` |
