@@ -6,36 +6,45 @@
 
 ## 실행과 모델 준비
 
-기본 수집·기록·조건 검색·세션 화면은 기존 개발 설치로 실행한다. 의미 검색과 답변에는
-추가 모델 환경이 필요하다. Windows PowerShell에서 저장소 루트 기준으로 실행한다.
+Windows 통합 ZIP(`183c974` 빌드)은 폴더 전체를 압축 해제하고 `models`를 두 EXE 옆에 둔 뒤
+`강써치-Backend.exe` → `강써치-Client.exe` → `연결 확인` 순서로 실행한다.
+
+| 사용할 기능 | 사용자가 준비할 것 |
+|---|---|
+| 기본 작업 기록·조건 검색·세션·문서 첨부 | 통합 ZIP만 필요하다. Chrome 확장과 Ollama는 필요 없다. |
+| 의미 검색 | ZIP에 있는 E5 모델과 CPU 런타임을 사용한다. 별도로 설치하지 않는다. |
+| Chrome 페이지 URL·본문 수집 | ZIP의 `browser-extension`을 Chrome에서 수동으로 로드하고 [토큰 설정 및 캡처 순서](history-source-linking.md)를 따른다. |
+| 근거 기반 답변 생성 | E5 외에 로컬 Ollama 서버와 생성 모델이 필요하다. 이미 준비돼 있으면 그대로 사용한다. |
+
+### Ollama 준비 (답변 생성에만 필요)
+
+원본 Backend(`4ba10cf`)와 통합 EXE 모두 Ollama를 설치하거나 시작하지 않고, 생성 모델도 자동으로
+내려받지 않는다. [답변 생성 코드](../../src/backend/ollama_answer_generator.py)는 근거가 있는 질문에
+대해 이미 실행 중인 서버의 `POST /api/chat`을 호출한다. [Windows 빌드 코드](../../tools/build_windows.py)가
+내려받아 ZIP에 넣는 모델은 의미 검색용 E5다.
+
+1. Ollama가 없는 PC는 [Windows용 Ollama](https://ollama.com/download/windows)를 설치하고 실행한다.
+2. PowerShell에서 `ollama list`로 로컬 서버가 응답하는지, `qwen2.5:3b`가 있는지 확인한다.
+   연결되지 않으면 Ollama 앱을 실행하거나 별도 터미널에서 `ollama serve`를 실행한다.
+3. 목록에 기본 생성 모델이 없을 때만 `ollama pull qwen2.5:3b`로 내려받는다. 이후 같은 모델을 다시 받을 필요는 없다.
+
+기본 주소는 `http://127.0.0.1:11434`다. 다른 로컬 주소나 설치된 모델을 쓰려면 Backend를 시작하기 전에
+`CONTEXTTRACE_OLLAMA_URL`, `CONTEXTTRACE_OLLAMA_MODEL`을 설정한다. Client의 ‘연결 확인’ 성공은
+강써치 Backend에 연결됐다는 뜻이다. Ollama 서버나 모델을 사용할 수 없으면 생성 요청에서 오류가 난다.
+
+### Python 소스로 실행할 때
+
+EXE 사용자는 이 단계를 건너뛴다. 소스에서 의미 검색·답변을 실행할 때는 저장소 루트에서
+ML 의존성을 설치한다. 아래 E5 준비 명령은 첫 사용 전 모델을 내려받고 벡터 차원(384)을 확인한다.
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev,ml]"
-# 첫 실행 전 E5 모델을 내려받아 준비한다. 다운로드에는 인터넷이 필요하다.
 .\.venv\Scripts\python.exe -c "from backend.embedding import EmbeddingService; print(len(EmbeddingService().embed_query('검색 준비')))"
 ```
 
-임베딩은 `intfloat/multilingual-e5-small`, CPU, 384차원이다. 실제 모델 tokenizer로 분할하고
-질의/본문 접두어를 사용한다. [모델 설명](https://huggingface.co/intfloat/multilingual-e5-small)을 참고한다.
-Ollama를 설치한 뒤 다음 명령으로 Backend 기본 생성 모델을 준비한다.
-
-```powershell
-ollama pull qwen2.5:3b
-ollama serve
-```
-
-Ollama가 이미 실행 중이면 추가 서버를 띄울 필요가 없다.
-[Ollama 실행 안내](https://docs.ollama.com/quickstart)를 따른다.
-기본 주소는 `http://127.0.0.1:11434`, 모델은 `qwen2.5:3b`다.
-기존 Backend 변수 `CONTEXTTRACE_OLLAMA_URL`, `CONTEXTTRACE_OLLAMA_MODEL`로 변경할 수 있다.
-생성 요청은 loopback HTTP만 사용하며 프록시·리다이렉트를 따르지 않는다.
-
-```powershell
-# 별도 터미널 두 개에서 실행한다.
-.\.venv\Scripts\python.exe -m backend
-.\.venv\Scripts\python.exe -m client
-```
+별도 터미널 두 개에서 각각 `.\.venv\Scripts\python.exe -m backend`, `.\.venv\Scripts\python.exe -m client`를 실행한다.
+소스 실행에서도 답변 생성에는 위 Ollama 준비 절차를 동일하게 적용한다.
 
 Client 메뉴의 현재 작업/연결에서 연결을 확인한다. 최근 기록에서 실제 작업을 선택하고
 PDF/DOCX를 연결하거나 [수동 브라우저 확장](history-source-linking.md)으로 페이지를 연결한다.
