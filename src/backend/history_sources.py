@@ -85,7 +85,8 @@ def install_source_routes(app: FastAPI) -> None:
         body = store.get_browser_content_record(page.id) if page else None
         content = WebContent(
             BrowserPage(page.browser, page.page_title, page.url), body.captured_at,
-            body.content_text[:MAX_WEB_CONTENT_LENGTH], len(body.content_text) > MAX_WEB_CONTENT_LENGTH,
+            body.content_text[:MAX_WEB_CONTENT_LENGTH],
+            store.browser_content_truncated(page.id) or len(body.content_text) > MAX_WEB_CONTENT_LENGTH,
         ) if body else None
         return asdict(RecordWebContentResponse(RecordWebContent(str(record_id), content)))
 

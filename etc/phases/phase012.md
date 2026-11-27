@@ -1,5 +1,10 @@
 # Phase 12 - 의미 검색 및 혼합 검색
 
+## 2026-11-27 실제 API 통합
+
+`feat/phase11-14-api-integration`에서 `main 7e0991e`와 `feat/phase11-backend 4ba10cf`를 통합했다. 일반 실행의 가상 공급자를 실제 의미 검색 POST로 교체했다. 실제 DB·유사도·조건 결합·출처를 자동 검증했고, 모델 추론 출력은 대역을 사용했다. 실제 E5 의미 품질·무관 질의 판별은 미검증이다. 아래 미리보기 기록은 과거/명시적 preview 범위다.
+[API 통합 검증](../../docs/reports/phase11-14-api-integration.md)와 [실행 안내](../../docs/dev/phase11-14-api-integration.md)를 따른다. main에는 미병합이며 전체 Phase는 IN_PROGRESS다.
+
 ## 목표
 사용자가 정확한 제목을 기억하지 못해도 내용의 의미로 자료를 찾고, 조건 검색과 의미 검색을 함께 사용할 수 있도록 한다.
 
@@ -30,10 +35,10 @@ python tools/preview_phase12_client.py --state empty --snapshot phase12-empty.pn
 ## Backend
 - [ ] 질의 의미 검색
 - [ ] 의미 유사도 기반 후보 추출
-- [ ] 시간 조건 + 의미 검색
-- [ ] 프로그램 조건 + 의미 검색
-- [ ] 출처 유형 + 의미 검색
-- [ ] 결과 재정렬
+- [x] 시간 조건 + 의미 검색
+- [x] 프로그램 조건 + 의미 검색
+- [x] 출처 유형 + 의미 검색
+- [x] 결과 재정렬
 - [ ] 활성 시간 / 재방문 신호 반영 가능 구조
 
 ## Tests
@@ -43,7 +48,7 @@ python tools/preview_phase12_client.py --state empty --snapshot phase12-empty.pn
 - [ ] 프로그램 + 의미 질의
 - [ ] 웹과 PDF 혼합 결과
 - [ ] 관련 없는 질의
-- [ ] 실제 출처 연결 검증
+- [x] 실제 출처 연결 검증
 
 ## 완료 조건
 - [ ] 내용의 의미만으로 과거 자료를 찾을 수 있다.

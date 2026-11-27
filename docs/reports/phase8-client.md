@@ -1,5 +1,7 @@
 # Phase 8 Client 구현 및 검증
 
+> 이 보고서의 미리보기 명령은 [정리 전 코드](https://github.com/rkdduswns/AICapstone/tree/a217b4b09778a0764216f54238ea288fde615afe/tools) 기준이다. 현재 실행 방법은 [개발 환경 안내](../dev/development-setup.md)를 따른다.
+
 작업 확인일: 2026-10-10. 브랜치: `feat/phase8-client`.
 상태: **Client DONE / 전체 IN_PROGRESS**. Browser/Backend 본문 수집·정제·중복 제거·실제 저장 검증은 남아 있다.
 

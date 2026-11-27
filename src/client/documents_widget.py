@@ -149,7 +149,7 @@ class DocumentsWidget(QWidget):
         if 0 <= index < len(self.rows):
             row = self.rows[index]
             text = row.extracted_text
-            header = f"연결된 파일: {row.file_path}\n\n" if row.file_path else ""
+            header = f"연결된 파일: {row.file_path}\n\n" if row.file_path else "원본 파일 경로 미제공\n\n"
             self.content.setPlainText(header + text[:MAX_DOCUMENT_CONTENT_LENGTH])
             if len(text) > MAX_DOCUMENT_CONTENT_LENGTH:
                 self.notice.setText("본문은 처음 50,000자까지 표시합니다.")

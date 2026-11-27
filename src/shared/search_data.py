@@ -30,6 +30,7 @@ class SourceMetadata:
     content_truncated: bool
     browser: BrowserPage | None = None
     document: LocalDocument | None = None
+    original_file_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,7 @@ class DocumentChunk:
     """
 
     id: str
-    context_id: str
+    context_id: str | None
     chunk_index: int
     text: str
     source: SourceMetadata

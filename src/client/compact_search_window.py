@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from client.basic_search_source import BasicSource
 from client.citation_highlights import citation_spans
 from client.icons import apply_menu_icon
 from client.search_presentation import RESULT_ORDERS, chunk_metadata, chunk_source, ordered_chunks
@@ -345,6 +346,15 @@ class CompactSearchWindow(QWidget):
         self._fill_result(result)
         self._render()
 
+    def reset_request(self) -> None:
+        """연결 재확인 시 이전 서버의 대기 요청과 표시를 함께 비운다."""
+        self._edit_query(self.query.text())
+
+    def show_request_error(self, message: str) -> None:
+        """검증된 Client 안내만 일반 텍스트로 표시한다."""
+        self._notice = message
+        self._render()
+
     def _fill_result(self, result: CompactAnswer) -> None:
         """요약과 전체 답변을 분리하고 현재 표시 순서로 근거를 채운다."""
         self.detail_text.setPlainText(result.full_answer if result.status == "answer" else "")
@@ -435,10 +445,13 @@ class CompactSearchWindow(QWidget):
             return
         chunk = result.evidence[index]
         title, kind, _ = chunk_source(chunk)
+        time_label = (f"열람 {format_timestamp(chunk.source.last_active_at)}"
+                      if chunk.source.last_active_at and (chunk.context_id or isinstance(chunk.source, BasicSource))
+                      else "열람 시각 미확인")
         partial = " · 일부 확보" if chunk.source.content_truncated else ""
         self.source_summary.set_source(
             f"[{index + 1}] {title}",
-            f"{kind} · 열람 {format_timestamp(chunk.source.last_active_at)}{partial}",
+            f"{kind} · {time_label}{partial}",
         )
         self.source_details.setPlainText(f"근거 {index + 1}\n\n{chunk_metadata(chunk)}")
         self.evidence_text.setPlainText(chunk.text)

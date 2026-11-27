@@ -22,8 +22,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from client.ai_clients import SemanticSearchClient
 from client.search_client import local_date_range, read_search_request
 from client.search_presentation import RESULT_ORDERS, chunk_detail, chunk_source, ordered_chunks
+from shared.protocol import DEFAULT_PORT
 from shared.search import MAX_SEARCH_PROCESS, SearchRequest
 from shared.search_data import DocumentChunk
 
@@ -44,12 +46,17 @@ class SemanticSearchWidget(QWidget):
 
     def __init__(
         self,
-        provider: Callable[[SemanticSearchInput], list[DocumentChunk]],
+        provider: Callable[[SemanticSearchInput], list[DocumentChunk]] | None = None,
         parent: QWidget | None = None,
+        *, port: int = DEFAULT_PORT,
     ) -> None:
-        """동기 가상 응답을 주입해 검색 화면을 확인할 수 있게 구성한다."""
+        """일반 실행은 실제 API를 사용하고 명시적 preview에서만 동기 공급자를 주입한다."""
         super().__init__(parent)
         self._provider = provider
+        self.client = SemanticSearchClient(port, self) if provider is None else None
+        if self.client is not None:
+            self.client.results_received.connect(self._show_results)
+            self.client.results_failed.connect(self._show_error)
         self._chunks: list[DocumentChunk] = []
         layout = QVBoxLayout(self)
         form = QFormLayout()
@@ -132,6 +139,8 @@ class SemanticSearchWidget(QWidget):
 
     def _inputs_changed(self, *_args: object) -> None:
         """수정한 조건 아래에서 이전 질의의 결과가 보이지 않도록 지운다."""
+        if self.client is not None:
+            self.client.close()
         self._clear()
         self.button.setEnabled(bool(self.query.text().strip()))
         self.status.setText("검색 문장과 필요한 조건을 입력해 주세요.")
@@ -169,17 +178,38 @@ class SemanticSearchWidget(QWidget):
         except ValueError as error:
             self.status.setText(str(error))
             return
+        if self.client is not None:
+            self.status.setText("의미 검색 중 · 모델을 불러오는 동안 기다려 주세요.")
+            self.client.search(request)
+            return
         try:
             self._chunks = self._provider(request)
         except ValueError:
             self.status.setText("검색 결과를 표시할 수 없습니다. 다시 검색해 주세요.")
             return
 
+        self._show_results(self._chunks)
+
+    def _show_results(self, chunks: list[DocumentChunk]) -> None:
+        """실제 응답과 명시적 preview 결과를 같은 표시 경로로 처리한다."""
+        self._chunks = chunks
         if self._chunks:
             self.result_order.setEnabled(len(self._chunks) > 1)
             self._order_results()
         else:
             self.status.setText("조건에 맞는 검색 결과가 없습니다.")
+
+    def _show_error(self, message: str) -> None:
+        """실패한 응답을 빈 성공 결과로 바꾸지 않는다."""
+        self._clear()
+        self.status.setText(message)
+
+    def set_connected(self, connected: bool) -> None:
+        """재연결/종료 때 대기 중인 모델 요청을 취소한다."""
+        if self.client is not None:
+            self.client.close()
+        self._clear()
+        self.button.setEnabled(connected)
 
     def _order_results(self) -> None:
         """다시 요청하지 않고 표시 순서를 바꾸며 원래 관련도 순위와 선택을 보존한다."""

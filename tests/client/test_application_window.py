@@ -121,6 +121,9 @@ def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
     search, management = shell.search, shell.management
     actions = shell.management_actions
     expected = {
+        management.tabs.indexOf(management.search): "조건 검색",
+        management.tabs.indexOf(management.semantic): "의미 검색",
+        management.tabs.indexOf(management.sessions): "작업 세션",
         management.tabs.indexOf(management.recent): "최근 기록",
         management.tabs.indexOf(management.documents): "문서 가져오기",
         management.tabs.indexOf(management.privacy): "개인정보 설정",
@@ -129,9 +132,9 @@ def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
     assert {index: action.text() for index, action in actions.items()} == expected
     assert all(action.menu() is None for action in search.main_menu.actions())
     assert all(action in search.main_menu.actions() for action in actions.values())
-    # 준비 중인 조건 검색은 기존 관리 탭에 남기되 기본 메뉴의 선택지로 권하지 않는다.
+    # 실제 API가 연결된 조건 검색을 기본 메뉴에서도 사용할 수 있다.
     assert management.tabs.indexOf(management.search) >= 0
-    assert management.tabs.indexOf(management.search) not in actions
+    assert management.tabs.indexOf(management.search) in actions
     assert shell.findChildren(MainWindow) == [management]
 
     chunk = DocumentChunk(
@@ -146,7 +149,7 @@ def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
     response = CompactAnswer("answer", "가상 요약", "가상 전체 답변", (
         chunk, replace(chunk, id="fixture-second-chunk", chunk_index=1, text="두 번째 가상 본문" * 10),
     ))
-    # 일반 실행의 미지원 응답 대신 화면 상태 보존을 검사할 고정 응답을 주입한다.
+    # 화면 상태 보존만 검증하기 위한 명시적 테스트 응답을 주입한다.
     search.search_requested.disconnect()
     search.search_requested.connect(lambda identifier, _query: search.receive_result(identifier, response))
     search.query.setText(QUERY)
@@ -181,22 +184,18 @@ def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
         assert shell.size() == previous_size
 
 
-def test_normal_query_reports_answer_service_preparation_without_example_answer(shell):
-    """준비 중인 검색은 실제 가능한 관리 경로를 안내하고 가상 답변을 표시하지 않는다."""
+def test_normal_query_calls_actual_answer_client_without_example_answer(shell, monkeypatch):
+    """일반 제출은 준비 중 고정 응답 대신 실제 답변 Client를 호출한다."""
+    received = []
+    monkeypatch.setattr(shell.rag, "post", lambda path, payload: received.append((path, payload)))
     search = shell.search
     search.query.setText(QUERY)
     QTest.keyClick(search.query, Qt.Key.Key_Return)
-    assert "준비" in search.status.text()
-    assert "조건 검색" not in search.status.text()
-    assert "최근 기록" in search.status.text()
-    assert "문서" in search.status.text()
-    assert "메뉴" in search.status.text()
-    assert not search.summary.isVisible()
-    assert search.summary.text() == ""
+    assert received[0][0] == "/records/answer"
+    assert search._pending_id is not None
     assert search.detail_text.toPlainText() == ""
     assert search.evidence_picker.count() == 0
-    assert search.search_button.isEnabled()
-    assert search.search_button.text() == "검색"
+    assert "준비 중" not in search.status.text()
 
 
 def test_connection_state_requires_both_channels_and_preserves_failures(shell, status_clients):

@@ -1,5 +1,7 @@
 # 강써치 Windows 실행 파일
 
+2026-11-27 통합 브랜치의 실제 검색·RAG·세션/삭제 및 모델 설치는 [Phase 11–14 실행 안내](phase11-14-api-integration.md)를 따른다. 이 버전의 ZIP은 CPU 추론 런타임과 E5 모델을 포함한다. 폴더 전체를 추출하고 models 폴더를 두 EXE 옆에 둔다. 생성 답변을 사용하려면 별도로 Ollama를 설치·실행하고 `ollama pull qwen2.5:3b`로 생성 모델을 준비한다.
+
 대상: Windows 10/11 x64. Client와 Backend는 서로 독립된 단일 EXE다.
 표시명은 강써치이며 Python 배포 식별자는 `gangsearch`다. Python·pip 설치 없이 실행한다. 실행 안내와 현재 소스의 기능 범위는 빌드 커밋으로 구분한다.
 
@@ -33,7 +35,7 @@ $env:GANGSEARCH_BROWSER_TOKEN
 
 최근 기록에서 작업을 선택한 뒤 문서를 연결할 수 있다. 상세 순서는 함께 제공한 `HISTORY-LINKING.md`를 따른다.
 해당 문서의 소스 실행 명령은 EXE 실행으로 바꾸고, 확장 폴더는 `browser-extension`을 사용한다.
-자동 탭/파일 감지·URL 차단·검색·LLM은 아직 미구현이다.
+자동 탭/파일 감지·URL 차단은 남아 있다. 검색/RAG API 연결 소스는 위 최신 안내를 따르며, 과거 ZIP에 추가 기능이 반영됐다고 간주하지 않는다.
 
 ## 포트와 데이터 경로 변경
 

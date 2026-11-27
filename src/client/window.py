@@ -21,6 +21,8 @@ from client.documents_widget import DocumentsWidget
 from client.privacy_widget import PrivacyWidget
 from client.recent_records import RecentRecordsWidget
 from client.search_widget import SearchWidget
+from client.semantic_search_widget import SemanticSearchWidget
+from client.sessions_widget import SessionsWidget
 from client.time_values import format_duration, format_timestamp
 from shared.activity import CurrentActivity
 from shared.protocol import DEFAULT_PORT
@@ -92,6 +94,11 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.search, "조건 검색")
         self.documents = DocumentsWidget(port, self)
         self.tabs.addTab(self.documents, "문서 가져오기")
+        self.semantic = SemanticSearchWidget(parent=self, port=port)
+        self.tabs.addTab(self.semantic, "의미 검색")
+        self.sessions = SessionsWidget(port, self)
+        self.tabs.addTab(self.sessions, "작업 세션")
+        self.sessions.records_changed.connect(self._records_changed)
         self.recent.document_requested.connect(self._select_document_target)
         self.documents.record_linked.connect(lambda record_id: self.recent.refresh())
         self.tabs.currentChanged.connect(self._tab_changed)
@@ -115,6 +122,8 @@ class MainWindow(QWidget):
         self.privacy.set_connected(False)
         self.search.set_connected(False)
         self.documents.set_connected(False)
+        self.semantic.set_connected(False)
+        self.sessions.set_connected(False)
         self._clear_activity("대기 — Backend 연결 확인 중")
         self.status.setText("연결 중")
         self.button.setEnabled(False)
@@ -132,6 +141,8 @@ class MainWindow(QWidget):
         self.privacy.set_connected(connected)
         self.search.set_connected(connected)
         self.documents.set_connected(connected)
+        self.semantic.set_connected(connected)
+        self.sessions.set_connected(connected)
         if connected:
             self._clear_activity("확인 중 — 현재 창 정보를 기다리고 있습니다.")
             self.activity.start()
@@ -145,6 +156,16 @@ class MainWindow(QWidget):
             self.recent.load_if_needed()
         elif self.tabs.widget(index) is self.documents:
             self.documents.load_if_needed()
+        elif self.tabs.widget(index) is self.sessions:
+            self.sessions.load_if_needed()
+
+    def _records_changed(self) -> None:
+        """삭제 후 목록과 이전 검색 결과를 무효화한다."""
+        self.recent.refresh()
+        self.documents.refresh()
+        self.search.client.close()
+        self.semantic.set_connected(self.recent.connected)
+        self.check_started.emit()
 
     def _select_document_target(self, record) -> None:
         """최근 기록에서 선택한 작업을 문서 탭의 명시적인 연결 대상으로 옮긴다."""
@@ -206,4 +227,6 @@ class MainWindow(QWidget):
         self.privacy.set_connected(False)
         self.search.set_connected(False)
         self.documents.set_connected(False)
+        self.semantic.set_connected(False)
+        self.sessions.set_connected(False)
         super().closeEvent(event)

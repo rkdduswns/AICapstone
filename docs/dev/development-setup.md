@@ -1,5 +1,7 @@
 # 개발 환경
 
+2026-11-27 통합 브랜치의 실제 검색·RAG·세션/삭제 및 모델 설치는 [Phase 11–14 실행 안내](phase11-14-api-integration.md)를 따른다. 이 버전의 ZIP은 CPU 추론 런타임과 E5 모델을 포함한다. 폴더 전체를 추출하고 models 폴더를 두 EXE 옆에 둔다. 생성 답변을 사용하려면 별도로 Ollama를 설치·실행하고 `ollama pull qwen2.5:3b`로 생성 모델을 준비한다.
+
 Python 설치 없이 실행하려면 [Windows EXE 안내](windows-exe.md)를 따른다.
 
 의존성과 패키지를 설치한 뒤 Backend를 독립 실행할 수 있다. Client도 독립 실행할 수 있다.
@@ -123,120 +125,13 @@ Linux 자동 검증은 Qt offscreen을 사용하며 Windows에서는 기본 Wind
 
 GitHub Windows runner의 자동 테스트는 Windows Server 환경일 수 있으며 Windows 10/11 수동 검증을 대체하지 않는다.
 
-## Phase 2 Client 우선 개발
+## 검색 화면 미리보기
 
-실행 의존성은 Phase 1과 같다. 새 패키지 설치는 필요하지 않다.
-일반 실행은 `python -m client`이며 연결 확인 성공 후 현재 창 정보를 자동 조회한다.
-Phase 1 Backend에는 현재 창 API가 없어 `기능 준비 중`으로 표시된다.
-
-실제 Windows 수집 대신 가상 데이터로 화면을 확인하려면 저장소 루트에서 실행한다.
+실제 기능은 위의 Backend·Client를 실행해 확인한다. 서버 없이 답변 상세와 의미 검색 화면의 빈 결과·오류·레이아웃을 재현하려면 저장소 루트에서 실행한다.
 
 ```powershell
-.\.venv\Scripts\python.exe tools/preview_phase2_client.py
+python tools/preview_compact_search.py
+python tools/preview_phase12_client.py
 ```
 
-별도 Backend 실행 없이 Chrome → VS Code → Word → Explorer → 활성 창 없음 → 미지원 → 감지 오류를
-4초마다 반복한다. 상단에 가상 데이터임을 표시하며 실제 Windows 작업을 수집하거나 저장하지 않는다.
-미리보기 창을 닫으면 임시 HTTP 서버도 종료된다.
-이미지 저장만 하려면 `--snapshot <PNG 경로>`를 추가한다.
-
-Client/Shared와 기존 Backend의 회귀 검증:
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m ruff check src tests tools
-.\.venv\Scripts\python.exe -m pip check
-```
-
-화면 점검: 가상 데이터 안내, 프로그램·제목·수집 상태 전환, 한글, 긴 제목 줄바꿈/스크롤,
-상태 변화 시 이전 창 정보 제거, 연결 재확인 및 창 종료를 확인한다.
-실제 OS 감지 검증은 [Phase 2 체크리스트](../../etc/phases/phase002.md)에 별도로 남긴다.
-
-## Phase 3–4 Client 확인
-
-Phase 2–4 Client는 2026-10-02 main에 병합했다. 최신 main에서 아래 미리보기를 실행한다.
-추가 의존성은 없다. 구현 상태와 Backend 잔여 작업은 [현재 Phase 현황](../../etc/phases/00-progress.md)을 따른다.
-
-```powershell
-.\.venv\Scripts\python.exe tools/preview_phase3_client.py
-.\.venv\Scripts\python.exe tools/preview_phase4_client.py
-```
-
-각 명령은 독립적인 가상 HTTP 서버와 Client 창을 띄운다. 하나씩 실행하고 창을 닫아 종료한다.
-Phase 3은 시작 시각/누적 활성 시간을, Phase 4는 최근 기록 탭을 처음부터 보여준다.
-Phase 4 새로고침은 같은 ID의 가상 제목을 갱신하므로 행이 중복 추가되지 않는지 확인할 수 있다.
-`--snapshot <PNG 경로>`를 사용하면 첫 유효 응답의 화면을 저장하고 종료한다.
-
-일반 `python -m client`에서는 연결 확인 후 `최근 기록` 탭을 연다.
-최근 20건, 마지막 활성 시각순, 선택 상세의 전체 제목·프로세스·시각·누적 활성 시간·재방문 횟수를 확인한다.
-새로고침 도중 버튼 잠금, 같은 ID 선택 복원, 긴 한글 제목의 상세 스크롤도 확인한다.
-빈 목록과 오류 표시, timeout/연결 재확인/창 종료, 기존 현재 창 표시는 자동 테스트로 검증한다.
-최신 통합 Backend는 실제 SQLite 기록을 제공한다. 예전 Phase 1 Backend의 404 응답은 `기능 준비 중`으로 처리한다.
-
-전체 검증 명령은 위의 pytest/Ruff/pip check와 동일하다.
-[최근 기록 API 계약](recent-records-api.md)과 [Phase 4 검증 보고서](../reports/phase4-client.md)를 참고한다.
-가상 미리보기 성공은 실제 저장소나 재시작 후 기록 유지 검증을 의미하지 않는다.
-
-## Phase 5 Client 확인
-
-추가 의존성 없이 현재 통합본에 포함된 Phase 5 제어 화면과 가상 HTTP 응답을 확인한다.
-
-```powershell
-.\.venv\Scripts\python.exe tools/preview_phase5_client.py
-```
-
-- 어느 탭에서나 상단 `기록 일시정지`/`기록 재개` 버튼을 사용할 수 있다.
-- 개인정보 보호 탭에서 `chrome.exe`를 한 줄에 입력하고 `차단 목록 적용`을 누르면 가상 차단 상태가 표시된다.
-- 빈 목록을 적용하면 차단 목록을 비운다. `입력 되돌리기`는 서버에 쓰지 않고 초안만 복원한다.
-- `--reason sensitive_content`로 가상 민감 문자열 차단 표시를, `--snapshot <PNG 경로>`로 화면 저장을 확인한다.
-- 미리보기 입력은 프로세스 메모리에만 존재하고 창을 닫으면 사라진다. 실제 작업은 수집/필터/저장하지 않는다.
-
-자동 검증은 기존 pytest/Ruff/pip check 명령을 사용한다. 위 미리보기는 Client 계약·UI·가상 HTTP 요청 범위다.
-현재 통합본의 실제 HTTP·SQLite 검증은 [통합 보고서](../reports/client-backend-integration.md)를 따르며,
-실제 Windows에서 일시정지·차단·재개 중 수집과 기존 기록 불변을 확인하는 수동 검증은 남아 있다.
-최신 통합 Backend는 실제 일시정지·프로그램 차단을 지원한다. 예전 Backend의 미지원 응답에서는 변경 버튼을 비활성화한다.
-[개인정보 API 계약](privacy-api.md)과 [검증 보고서](../reports/phase5-client.md)를 따른다.
-
-## Phase 6 Client 확인
-
-Phase 5·6 Client는 현재 통합본에 함께 포함돼 있다. 아래 가상 미리보기만을 위한 추가 의존성은 없다.
-
-```powershell
-.\.venv\Scripts\python.exe tools/preview_phase6_client.py
-.\.venv\Scripts\python.exe tools/preview_phase6_client.py --settings
-```
-
-각 명령을 하나씩 실행한다. 기본 화면은 최근 작업의 `복사 텍스트` 상세이며 `--settings`는 개인정보 설정 탭을 연다.
-`--snapshot <PNG 경로>`로 첫 유효 응답을 화면 이미지로 저장하고 종료할 수 있다.
-
-- 개인정보 보호 탭에서 초기 `꺼짐`을 확인하고 켜기/끄기를 요청한다. 전체 일시정지 상태와 입력 중 차단 목록이 유지되는지 확인한다.
-- 최근 기록에서 작업을 선택하고 복사 텍스트 탭을 열어 복사 시각별 원문과 줄바꿈을 확인한다.
-- 가상 저장 항목은 기록 설정을 꺼도 그대로 조회된다. 꺼짐은 이후 수집 설정이며 기존 기록 삭제 기능이 아니다.
-- 미리보기는 고정된 가상 데이터만 제공한다. OS 클립보드 읽기·쓰기·감시나 파일 저장은 수행하지 않는다.
-- 기존 Phase 5 응답에 클립보드 설정이 없으면 `기능 미지원`으로 표시하고 클립보드 변경 버튼만 잠근다.
-
-가상 HTTP 검증 및 기존 기능 회귀에는 기존 pytest/Ruff/pip check 명령을 사용한다.
-현재 Backend의 수집기·작업 연결·중복 방지·필터·저장 경계는 자동 테스트에서 검증한다.
-실제 Windows 복사·빠른 창 전환·일시정지/차단 중 복사와 저장소 재조회는 남아 있는 수동 검증이다.
-[클립보드 API 계약](clipboard-api.md)과 [Phase 6 보고서](../reports/phase6-client.md)를 따른다.
-
-## Phase 8 Client 확인
-
-Phase 7·8 Client는 현재 통합본에 함께 포함돼 있다. 아래 가상 미리보기만을 위한 추가 의존성은 없다.
-
-```powershell
-.\.venv\Scripts\python.exe tools/preview_phase8_client.py
-.\.venv\Scripts\python.exe tools/preview_phase8_client.py --web-state truncated
-```
-
-각 명령은 하나씩 실행한다. 기본 화면은 최근 기록의 `웹 본문` 상세다.
-
-- 페이지 제목·URL·수집 시각과 저장 본문을 확인한다. `<b>` 같은 태그도 글자로 표시되어야 한다.
-- `--web-state empty`는 본문 없음, `truncated`는 길이 제한 안내와 50,000자 스크롤을 확인한다.
-- `--web-state unsupported`는 API 미지원, `denied`는 조회 거부를 확인한다.
-- `--snapshot <PNG 경로>`는 해당 결과를 화면 이미지로 저장하고 종료한다.
-- 최신 통합 Backend는 연결된 작업의 저장 본문 endpoint를 제공한다. 미리보기는 계속 가상 데이터만 사용한다.
-- 실제 브라우저·외부 URL·저장소를 읽지 않는다. 화면 성공은 실제 수집/저장/차단 검증과 별개다.
-
-검증 명령은 기존 pytest/Ruff/pip check와 동일하다.
-[웹 본문 API 계약](web-content-api.md)과 [Phase 8 보고서](../reports/phase8-client.md)를 따른다.
+Phase 2~9와 11의 초기 가상 서버·실행 도구는 실제 API에 연결되어 현행 도구에서 제외했다. 당시 검증을 재현하려면 [정리 전 소스](https://github.com/rkdduswns/AICapstone/tree/a217b4b09778a0764216f54238ea288fde615afe/tools)를 같은 커밋의 Client와 사용한다. 현재 회귀 검증은 `python -m pytest -q tests/client tests/integration`으로 실행한다.

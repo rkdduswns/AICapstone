@@ -1,5 +1,41 @@
 # Client 개발 브랜치 통합 기준
 
+## 2026-11-27 브랜치 정리 기준
+
+`main`은 배포 기준, `client_dev`는 단일 EXE 런처·Native Messaging 설치 등 Client 작업 기준, `feat/phase11-backend`는 Backend 협업 기준이며, `feat/phase11-14-api-integration`은 PR #31의 통합 검증 브랜치다. 네 브랜치는 유지한다. #9~#13은 head와 base가 모두 main의 조상이어서 추가 병합 없이 닫았다.
+
+아래는 검토 당시 **삭제 가능한 참조**다. 삭제 완료 목록이 아니다. 보존 브랜치에서 같은 커밋에 도달하는지 확인했으며, 새 커밋이 생기거나 새 PR이 열리면 제외한다. 단일 EXE와 Native Messaging 설치 이력이 client_dev에 있다는 것이 PR #31에 반영됐다는 뜻은 아니다.
+
+| 정리 대상 | 확인한 끝 커밋 | 커밋을 보존하는 브랜치 |
+|---|---|---|
+| `docs/phase-progress` | `bf07a662268f` | `main` |
+| `docs/project-doc-cleanup` | `67bf52f1bc6c` | `main` |
+| `feat/backend-phase2-9` | `7c307987182c` | `main` |
+| `feat/browser-native-installation` | `ca9f54af96c9` | `client_dev` |
+| `feat/client-backend-integration` | `b12a82a69b84` | `main` |
+| `feat/client-document-filter` | `ef499043f0b8` | `client_dev` |
+| `feat/client-management-usability` | `085372b1f6ed` | `client_dev` |
+| `feat/client-privacy-status` | `4b96b7d8e6ed` | `client_dev` |
+| `feat/client-reading-flow` | `66ae2ad68506` | `client_dev` |
+| `feat/client-recent-timeline` | `505877090249` | `client_dev` |
+| `feat/gangsearch-brand-integration` | `b4827f0b4c46` | `main` |
+| `feat/phase10-backend` | `c95b44009c38` | `feat/phase11-backend` |
+| `feat/phase10-search-chunks` | `ce10c6a291ca` | `main` |
+| `feat/phase10-search-text-preparation` | `fa78f7f47e19` | `main` |
+| `feat/phase10-shared` | `b3f637b30b93` | `main` |
+| `feat/phase11-client` | `1e12a0beb64d` | `main` |
+| `feat/phase5-client` | `90cc3c720fed` | `main` |
+| `feat/phase6-client` | `9d8ad350c2de` | `main` |
+| `feat/phase7-client` | `262efb62c1d7` | `main` |
+| `feat/phase8-client` | `ec99f7377807` | `main` |
+| `feat/phase9-client` | `39e32973574b` | `main` |
+| `feat/privacy-settings-persistence` | `fa999469f25a` | `main` |
+| `feat/single-exe-launcher` | `9d34e0eacb0c` | `client_dev` |
+| `fix/client-source-compatibility` | `962f45f075f8` | `client_dev` |
+| `fix/recent-record-order` | `79078ec83740` | `main` |
+| `merge/activity-contracts` | `9f653e77e4f6` | `main` |
+| `test/client-native-reading` | `afdb6f4c971f` | `client_dev` |
+
 ## 2026-11-13 후속 통합
 
 `feat/gangsearch-brand-integration`은 기존 `client_dev 69473fe`를 유지하면서 문서 정합·강써치 이름 변경과 다음 서버 작업을 합류한다.

@@ -10,6 +10,8 @@
 - [개발 지침](etc/개발-지침.md)
 - [개발 Phase](etc/phases/README.md)
 - [Client 개발 브랜치 통합 기준](docs/dev/branch-integration.md)
+- [Phase 11–14 API 통합·모델 실행](docs/dev/phase11-14-api-integration.md)
+- [Phase 11–14 검증 결과](docs/reports/phase11-14-api-integration.md)
 - [Backend 통합 설계](docs/dev/backend-integration-plan.md)
 - [이름 변경·통합 검증](docs/reports/gangsearch-integration.md)
 - [현재 코드·문서 정합 검토](docs/reports/documentation-reconciliation.md)
@@ -47,14 +49,14 @@ Phase 2–9는 Client 현재 창·시간·최근 기록·개인정보/클립보�
 main에 Backend의 Windows 감지·세션 저장·브라우저 수신·문서 추출 구현이 반영됐습니다.
 통합 작업 브랜치에서는 현재 창·기록·개인정보/클립보드 설정·문서 가져오기와 웹·문서의 작업 ID 연결을 실제 API에 연결했습니다.
 Chrome/Edge는 확장 버튼으로 수동 연결하며 문서는 최근 기록에서 대상을 선택해 연결합니다.
-Windows 수동 검증, 재방문 집계, 자동 탭/파일 감지와 실제 검색은 남아 있습니다.
+2026-11-27 통합 브랜치 `feat/phase11-14-api-integration`에서는 최신 `feat/phase11-backend 4ba10cf`와 main `7e0991e`를 합류해 실제 조건/의미 검색·RAG·세션/삭제 API까지 연결했습니다. Windows 수동 검증·재방문 집계·자동 탭/파일 감지와 실제 모델 품질 검증은 남아 있습니다. main에는 아직 병합하지 않았습니다.
 최신 진행 상태와 검증 근거는 [개발 Phase](etc/phases/README.md)에 기록합니다.
 
 2026-11-13부터 완료된 Client 작업의 개발 통합 기준은 `client_dev`입니다.
 소형 UI와 기존 실제 연결 기반을 함께 보존하며, `main` 반영과 별도 Backend 작업은
 [브랜치 통합 기준](docs/dev/branch-integration.md)에 따라 구분합니다.
 문서 대조 시작점은 `client_dev 69473fe`와 `main 7c30798`입니다. 후속 통합본은 최근 기록 정렬(PR #17), 보호 설정 영속화(PR #18), 읽기 전용 검색 전처리·청크(PR #19·#20)를 포함합니다. 최종 반영·검증은 [통합 검증](docs/reports/gangsearch-integration.md)을 따릅니다.
-Phase 12·13의 자연어 검색·답변·근거 화면은 가상 응답 미리보기까지 구현됐고, 일반 실행의 실제 검색·LLM API는 연결 전입니다.
+Phase 12·13의 일반 실행은 실제 HTTP를 사용합니다. 의미 검색은 E5 모델, 답변은 E5와 로컬 Ollama 설치가 필요합니다. 준비 방법과 검증 한계는 [API 통합 안내](docs/dev/phase11-14-api-integration.md)를 따릅니다.
 
 설치 후 `python -m backend`로 Backend를 실행하고 `http://127.0.0.1:8765/health`에서 확인합니다.
 검증 명령: `python -m pytest -q`, `python -m ruff check src tests`.
@@ -63,7 +65,7 @@ Phase 12·13의 자연어 검색·답변·근거 화면은 가상 응답 미리�
 ## 실제 Client–Backend 실행
 
 Python 설치 없이 실행할 Windows x64 배포판은 Client·Backend 각각의 단일 EXE로 빌드합니다.
-ZIP을 푼 뒤 `강써치-Backend.exe` → `강써치-Client.exe` → `연결 확인` 순서로 사용합니다. 소형 창을 포함한 소스 빌드에서는 상태 버튼으로 관리 화면을 열어 연결을 확인합니다.
+통합 ZIP에는 E5 의미 검색 모델이 포함됩니다. 답변 생성은 Ollama와 `qwen2.5:3b`가 추가로 필요합니다. ZIP을 폴더 전체로 푼 뒤 `강써치-Backend.exe` → `강써치-Client.exe` → `연결 확인` 순서로 사용합니다. 소형 창을 포함한 소스 빌드에서는 상태 버튼으로 관리 화면을 열어 연결을 확인합니다.
 [실행·재빌드 안내](docs/dev/windows-exe.md)를 참고하세요.
 
 의존성을 설치한 뒤 프로젝트 루트의 PowerShell 두 개에서 각각 실행합니다.
@@ -83,7 +85,7 @@ ZIP을 푼 뒤 `강써치-Backend.exe` → `강써치-Client.exe` → `연결 �
 Chrome/Edge 확장 설치와 토큰 설정은 [이력 연결 안내](docs/dev/history-source-linking.md)를 따릅니다.
 현재 소스는 일시정지·차단 프로그램·클립보드 설정을 같은 DB에서 복원합니다. 신규 DB의 클립보드 수집은 기본 꺼짐입니다. PR #16의 과거 ZIP은 설정 영속화가 없는 구버전입니다.
 [통합 범위·검증·남은 기능](docs/reports/client-backend-integration.md)을 확인하세요.
-아래 Phase별 preview 명령은 가상 데이터 확인용입니다.
+가상 검색 화면 검증과 이전 Phase 도구의 위치는 [개발 환경 안내](docs/dev/development-setup.md#검색-화면-미리보기)를 따릅니다.
 
 ## 디렉토리 구조
 
@@ -124,54 +126,42 @@ AICapstone/
 
 Client는 `python -m client`로 실행하면 440×112 논리 픽셀의 작은 검색창으로 시작합니다.
 `--port 8765`처럼 Backend 포트를 지정할 수 있습니다.
-세 줄 모양의 메뉴 아이콘에서 최근 기록·문서 가져오기·개인정보 설정·현재 작업과 연결 화면을 같은 창으로 엽니다. 관리 화면의 `연결 확인`으로 Backend 연결을 확인합니다. 조건 검색은 API 연결 전까지 첫 메뉴에서 숨깁니다.
+세 줄 모양의 메뉴 아이콘에서 최근 기록·문서 가져오기·개인정보 설정·현재 작업과 연결 화면을 같은 창으로 엽니다. 관리 화면의 `연결 확인`으로 Backend 연결을 확인합니다. 조건 검색·의미 검색·작업 세션도 메뉴에서 엽니다.
 작은 창의 연결·기록 상태 버튼을 눌러도 현재 작업과 연결 설정을 엽니다. 현재 작업과 보호 상태가 모두 확인되면 `기록 가능`을 표시합니다.
 `검색으로 돌아가기` 또는 Esc를 누르면 검색 입력과 결과·정렬 상태를 유지한 검색창으로 돌아갑니다.
-자연어 질문을 제출하면 현재는 `답변 기능 준비 중` 상태와 최근 기록·문서 가져오기 안내를 표시합니다. 조건 검색도 Backend API 연결 전입니다. 가상 답변·근거 화면은 `python tools/preview_compact_search.py`로 확인할 수 있습니다.
+자연어 질문은 `/records/answer`에 요청해 실제 저장 근거와 답변을 표시합니다. 모델 미설치/중지·근거 부족·오류를 구분합니다. 조건 검색은 `/records/search`, 의미 검색은 `/records/semantic-search`로 연결합니다. 가상 답변·근거 화면은 `python tools/preview_compact_search.py`로 확인할 수 있습니다.
 요약의 `자세히 보기`로 전체 답변을 엽니다. 상세에서는 근거 수·선택 목록·세 점 메뉴 아이콘을 한 줄로 표시합니다. 근거를 바꾸면 답변의 해당 번호를 인용한 문장을 강조하며 원문과 읽던 위치는 유지합니다. 답변의 세 점 메뉴에서 복사·처음으로·선택 근거의 답변으로 이동을 실행하고, 근거의 세 점 메뉴에서 내용 표시·출처 정보·복사·정렬을 선택합니다. 근거 내용은 기본 숨김 상태이며 근거 부족 응답에서는 내용을 먼저 표시합니다. 첫 검색 전의 결과 열기와 결과 숨기기는 메뉴 아이콘에 두고, 상세의 `요약으로` 또는 Esc로 한 단계 돌아갑니다.
 검색·보조·도구 동작의 강조 수준과 글자·여백을 통일하며 운영체제 팔레트와 화면 배율을 따릅니다.
 [검색 중심 소형 창의 동작과 남은 연결](etc/compact-search-window.md)을 따릅니다.
 [소형 창과 기존 Backend의 통합 범위·최신 Backend 계약 차이](docs/dev/compact-backend-integration.md)를 확인하세요.
 [Client 및 Windows 검증 결과](docs/reports/phase1-client-windows.md).
 
-Phase 2 화면의 가상 데이터 미리보기: `python tools/preview_phase2_client.py`.
-실제 Backend 없이 프로그램/제목/수집 상태가 4초마다 바뀝니다. 실제 사용자 작업은 수집하지 않습니다.
-최신 Backend는 실제 Windows 현재 창 API를 제공합니다. 아래 preview는 각 Phase의 가상 응답 확인용입니다.
+Phase 2는 현재 Windows 창의 프로그램과 제목을 조회합니다.
 
 Phase 3 Client는 작업 시작 시각과 Backend 누적 활성 시간을 표시합니다. 시간 정보가 없는 기존 응답도 지원합니다.
-가상 미리보기: `python tools/preview_phase3_client.py`.
 
 Phase 4 Client는 `최근 기록` 탭에서 최근 20건과 상세 시간을 조회하고 새로고침합니다.
-가상 미리보기: `python tools/preview_phase4_client.py`. 새로고침 시 가상 제목이 갱신되며 실제 작업은 저장하지 않습니다.
 최신 Backend에서는 실제 저장 기록과 진행 중인 세션을 조회합니다.
 
 Phase 5 Client는 어느 탭에서나 일시정지·재개를 요청하고, 개인정보 보호 탭에서 차단 프로그램 목록을 적용합니다.
-가상 미리보기: `python tools/preview_phase5_client.py`. `chrome.exe`를 입력하면 가상 프로그램 차단 상태를 확인할 수 있습니다.
 최신 Backend의 일시정지·프로그램 차단은 실제 수집기에 적용됩니다. URL 차단 설정은 아직 미지원입니다.
 
 Phase 6 Client는 개인정보 보호 탭에서 클립보드 기록 사용 여부를 설정하고, 최근 작업 상세의 복사 텍스트를 조회합니다.
-가상 미리보기: `python tools/preview_phase6_client.py`. 설정 화면으로 시작하려면 `--settings`를 추가합니다.
-미리보기는 실제 클립보드를 읽지 않습니다. 일반 실행에서는 실제 수집·작업별 조회가 연결돼 있고 Windows 수동 복사 검증은 남아 있습니다.
+일반 실행에서는 실제 수집·작업별 조회가 연결돼 있고 Windows 수동 복사 검증은 남아 있습니다.
 
 Phase 7 Client는 최근 작업에 연결된 브라우저 페이지 제목·URL과 URL 차단 규칙 입력을 제공합니다.
-가상 미리보기: `python tools/preview_phase7_client.py`. URL 설정 화면은 `--settings`를 추가합니다.
 도메인·전체 URL·URL 시작 부분 규칙을 편집하고 명시적으로 적용합니다.
 통합 브랜치는 확장 버튼을 통한 URL·본문 저장과 실제 작업 ID 연결을 지원합니다. 자동 탭 전환 수집과 URL 차단은 남아 있습니다.
 
 Phase 8 Client는 최근 기록의 `웹 본문` 탭에서 저장된 텍스트·출처·수집 시각을 확인합니다.
-가상 미리보기: `python tools/preview_phase8_client.py`.
-`--web-state empty|truncated|unsupported|denied` 중 하나로 빈 본문·일부 저장·미지원·조회 거부를 확인할 수 있습니다.
 통합 브랜치의 실제 웹 본문 조회 API가 연결됐습니다. 수동 캡처의 동일 페이지 재전송은 갱신하며 본문 정제·URL 차단은 남아 있습니다.
 
 Phase 9 Client는 파일 경로·유형과 저장 문서 본문·추출 시각을 확인합니다.
-가상 미리보기: python tools/preview_phase9_client.py.
---file-type pdf|docx, --document-state empty|truncated|unsupported|denied|gone을 지원합니다.
 통합 브랜치는 실제 PDF/DOCX 추출·저장과 명시적 작업/파일 경로 연결을 지원합니다. 자동 파일 감지는 남아 있습니다.
 
 Phase 10은 검색 문서 조각과 확보 당시 출처의 Shared 계약 및 Client 수신 검증을 제공합니다.
 원본 작업 ID·URL/파일 경로·열람/본문 확보 시각을 유지합니다.
-실제 정규화·문서 분할·임베딩·저장/삭제는 Backend 작업이며, 검색 화면은 Phase 11에서 구현합니다.
+현재 통합 브랜치에는 Backend 전처리·색인·저장/삭제와 검색 API가 포함됩니다. 기본 수집은 모델 없이 저장하며 의미 검색 시 실제 모델로 벡터를 생성합니다.
 
 Phase 11 Client는 조건 검색 탭에서 제목·프로세스명·출처·날짜 조건을 제출하고 결과 목록/상세를 확인합니다.
-가상 미리보기: python tools/preview_phase11_client.py. --source 및 --state 옵션으로 결과와 오류를 확인합니다.
-실제 저장소 검색은 Backend 연결 후 구현·검증합니다.
+현재 통합 브랜치는 실제 저장소 필터·정렬·보호 정책과 Client 연동을 자동 검증했습니다.
