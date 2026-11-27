@@ -43,4 +43,4 @@ Client는 로컬 타이머나 현재 시각에서 시작 시각을 빼는 방식
 가상 감지기와 제어한 시계로 실제 HTTP·저장 경계를 검증한 결과와 실제 Windows 수동 검증은 구분한다.
 실제 창의 1분 유지·A→B→A 재방문 합산·빠른 전환 정책은 후속 검증이며, 현재 세션별 저장을 재방문 집계 완료로 해석하지 않는다.
 
-미리보기: `python tools/preview_phase3_client.py` (가상 데이터만 사용).
+현재 검증: `python -m pytest -q tests/client/test_activity.py`.

@@ -1,5 +1,7 @@
 # Phase 2A — Client 우선 구현 및 현재 상태
 
+> 이 보고서의 미리보기 명령은 [정리 전 코드](https://github.com/rkdduswns/AICapstone/tree/a217b4b09778a0764216f54238ea288fde615afe/tools) 기준이다. 현재 실행 방법은 [개발 환경 안내](../dev/development-setup.md)를 따른다.
+
 기준일: 2026-09-24. Phase 2A 구현 및 가상 HTTP 검증 완료. Phase 2 전체는 IN_PROGRESS.
 
 ## 작업 기준

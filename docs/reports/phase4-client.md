@@ -1,5 +1,7 @@
 # Phase 4 Client 구현 및 검증
 
+> 이 보고서의 미리보기 명령은 [정리 전 코드](https://github.com/rkdduswns/AICapstone/tree/a217b4b09778a0764216f54238ea288fde615afe/tools) 기준이다. 현재 실행 방법은 [개발 환경 안내](../dev/development-setup.md)를 따른다.
+
 2026-10-02. 상태: **Client DONE / Phase 4 전체 IN_PROGRESS**.
 
 ## 시작 기준과 범위
