@@ -23,7 +23,10 @@ Linux Python 3.12.14, Qt offscreen에서 **전체 Python 846개 통과**(227.66�
 브라우저 Node 테스트 **11개 통과**. Ruff(`src tests tools`)·의존성 검사·diff 공백 검사 통과.
 14개 Phase 원본 체크와 진행 표의 상태·개수 일치 및 갱신 문서 상대 링크를 검사했다.
 FastAPI TestClient의 upstream httpx 사용 중단 예정 경고 1개가 있으며 테스트 실패는 없다.
-Windows 자동 검증 및 최소 EXE 빌드 결과는 이 브랜치 PR의 GitHub Actions에서 별도로 확인한다.
+Windows 최소 EXE 빌드와 소스 없이 패키지만 실행하는 검증이 통과했다.
+첫 Windows 전체 검증에서 Phase 14 테스트 두 건이 `detector=None`으로 실제 runner 창을 수집해
+가상 DB의 세션에 섞이는 문제가 발견됐다. 해당 테스트에 창 없음 감지기와 자동 폴링 해제를
+명시했다. 실제 프로그램의 기본 감지는 유지한다. 최종 Windows 재검증 결과는 PR Actions를 따른다.
 
 | 경계 | 확인 내용 |
 |---|---|

@@ -1,4 +1,4 @@
-"""Phase 14 session, deletion, and shutdown API coverage."""
+"""세션·삭제·종료 API를 실제 OS 창 감지와 분리해 검증한다."""
 
 from datetime import datetime, timezone
 
@@ -8,6 +8,14 @@ from backend.activity_store import ActivityStore
 from backend.activity_tracker import ActivityTracker
 from backend.app import create_app
 from shared.activity import ActiveWindow
+
+
+class _NoWindowDetector:
+    """detector=None의 Windows 기본 감지 대신 실제 창이 없는 상태를 명시한다."""
+
+    def get_active_window_handle(self):
+        """테스트 DB에 runner의 데스크톱 작업을 섞지 않는다."""
+        return None
 
 
 class _Detector:
@@ -45,7 +53,9 @@ def test_session_routes_return_timeline_and_materials(tmp_path):
     )
     app = create_app(
         activity_store=store,
-        activity_tracker=ActivityTracker(store=store, detector=None),
+        activity_tracker=ActivityTracker(store=store, detector=_NoWindowDetector()),
+        # API·종료 검증의 입력 시점은 요청으로 제어하고 자동 폴링은 분리한다.
+        collection_interval=None,
         browser_token="test-token",
         document_storage_dir=tmp_path / "documents",
     )
@@ -85,7 +95,9 @@ def test_delete_activity_and_delete_all_api_require_correct_target_and_confirmat
     )
     app = create_app(
         activity_store=store,
-        activity_tracker=ActivityTracker(store=store, detector=None),
+        activity_tracker=ActivityTracker(store=store, detector=_NoWindowDetector()),
+        # API·종료 검증의 입력 시점은 요청으로 제어하고 자동 폴링은 분리한다.
+        collection_interval=None,
         browser_token="test-token",
         document_storage_dir=document_dir,
     )
@@ -137,6 +149,8 @@ def test_app_shutdown_flushes_current_activity_once(tmp_path):
     app = create_app(
         activity_store=store,
         activity_tracker=tracker,
+        # API·종료 검증의 입력 시점은 요청으로 제어하고 자동 폴링은 분리한다.
+        collection_interval=None,
         browser_token="test-token",
         document_storage_dir=tmp_path / "documents",
     )
@@ -182,7 +196,9 @@ def test_individual_document_and_browser_deletion_routes(tmp_path):
     )
     app = create_app(
         activity_store=store,
-        activity_tracker=ActivityTracker(store=store, detector=None),
+        activity_tracker=ActivityTracker(store=store, detector=_NoWindowDetector()),
+        # API·종료 검증의 입력 시점은 요청으로 제어하고 자동 폴링은 분리한다.
+        collection_interval=None,
         browser_token="test-token",
         document_storage_dir=tmp_path / "managed-documents",
     )
@@ -222,7 +238,9 @@ def test_search_endpoint_response_time_with_hundreds_of_records(tmp_path):
 
     app = create_app(
         activity_store=store,
-        activity_tracker=ActivityTracker(store=store, detector=None),
+        activity_tracker=ActivityTracker(store=store, detector=_NoWindowDetector()),
+        # API·종료 검증의 입력 시점은 요청으로 제어하고 자동 폴링은 분리한다.
+        collection_interval=None,
         browser_token="test-token",
         document_storage_dir=tmp_path / "documents",
     )
@@ -243,7 +261,9 @@ def test_search_endpoint_response_time_with_hundreds_of_records(tmp_path):
 
     restarted_app = create_app(
         activity_store=reopened,
-        activity_tracker=ActivityTracker(store=reopened, detector=None),
+        activity_tracker=ActivityTracker(store=reopened, detector=_NoWindowDetector()),
+        # API·종료 검증의 입력 시점은 요청으로 제어하고 자동 폴링은 분리한다.
+        collection_interval=None,
         browser_token="test-token",
         document_storage_dir=tmp_path / "documents",
     )
@@ -264,6 +284,8 @@ def test_app_default_tracker_uses_injected_store_and_privacy_policy(tmp_path):
     app = create_app(
         activity_store=store,
         privacy_policy=policy,
+        # API·종료 검증의 입력 시점은 요청으로 제어하고 자동 폴링은 분리한다.
+        collection_interval=None,
         browser_token="test-token",
         document_storage_dir=tmp_path / "documents",
     )
