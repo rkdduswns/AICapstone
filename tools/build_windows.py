@@ -22,9 +22,11 @@ def build_program(component: str) -> None:
                "--distpath", str(OUTPUT), "--workpath", str(ROOT / "build" / component),
                "--specpath", str(ROOT / "build"), "--copy-metadata", "gangsearch"]
     if component == "client":
-        command += ["--windowed", "--exclude-module", "backend"]
+        command += ["--windowed", "--exclude-module", "backend", "--exclude-module", "onnxruntime",
+                    "--exclude-module", "tokenizers"]
     else:
-        command += ["--console", "--collect-submodules", "uvicorn", "--collect-data", "docx",
+        command += ["--console", "--collect-submodules", "uvicorn", "--collect-data", "docx", "--collect-binaries", "onnxruntime",
+                    "--exclude-module", "sentence_transformers", "--exclude-module", "torch",
                     "--exclude-module", "client", "--exclude-module", "PySide6",
                     "--exclude-module", "shiboken6"]
     command.append(str(ROOT / "src" / component / "__main__.py"))
@@ -37,6 +39,32 @@ def build_program(component: str) -> None:
     ]))
     environment["PYTHONIOENCODING"] = "utf-8"
     subprocess.run(command, cwd=ROOT, env=environment, check=True)
+
+
+def bundle_e5() -> None:
+    """고정 리비전의 공식 파일을 받고 Git LFS 포인터의 SHA-256과 대조한다."""
+    import re
+    import urllib.request
+
+    base = "https://huggingface.co/intfloat/multilingual-e5-small"
+    revision = "ccc66d3bcd826f577e26b9a4072cc5fe3a7ad6a3"
+    target = OUTPUT / "models" / "multilingual-e5-small"
+    target.mkdir(parents=True, exist_ok=True)
+    for name in ("model.onnx", "tokenizer.json"):
+        relative = f"{revision}/onnx/{name}"
+        with urllib.request.urlopen(f"{base}/raw/{relative}", timeout=60) as response:
+            pointer = response.read(1024).decode("ascii")
+        expected = re.search(r"^oid sha256:([0-9a-f]{64})$", pointer, re.MULTILINE)
+        if not expected:
+            raise ValueError(f"Missing E5 LFS digest: {name}")
+        path = target / name
+        subprocess.run(["curl.exe", "--fail", "--location", "--retry", "3", "--output", str(path),
+                        f"{base}/resolve/{relative}?download=true"], check=True)
+        with path.open("rb") as stream:
+            if hashlib.file_digest(stream, "sha256").hexdigest() != expected.group(1):
+                raise ValueError(f"E5 checksum mismatch: {name}")
+    # 배포 파일의 출처와 모델 라이선스를 함께 제공한다.
+    shutil.copyfile(ROOT / "docs/dev/e5-notice.txt", target / "NOTICE.txt")
 
 
 def assemble_bundle() -> Path:
@@ -81,6 +109,7 @@ def main() -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     for component in ("backend", "client"):
         build_program(component)
+    bundle_e5()
     print(assemble_bundle())
 
 

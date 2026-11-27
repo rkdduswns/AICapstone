@@ -65,7 +65,7 @@ Phase 12·13의 일반 실행은 실제 HTTP를 사용합니다. 의미 검색�
 ## 실제 Client–Backend 실행
 
 Python 설치 없이 실행할 Windows x64 배포판은 Client·Backend 각각의 단일 EXE로 빌드합니다.
-ZIP을 푼 뒤 `강써치-Backend.exe` → `강써치-Client.exe` → `연결 확인` 순서로 사용합니다. 소형 창을 포함한 소스 빌드에서는 상태 버튼으로 관리 화면을 열어 연결을 확인합니다.
+통합 ZIP에는 E5 의미 검색 모델이 포함됩니다. 답변 생성은 Ollama와 `qwen2.5:3b`가 추가로 필요합니다. ZIP을 폴더 전체로 푼 뒤 `강써치-Backend.exe` → `강써치-Client.exe` → `연결 확인` 순서로 사용합니다. 소형 창을 포함한 소스 빌드에서는 상태 버튼으로 관리 화면을 열어 연결을 확인합니다.
 [실행·재빌드 안내](docs/dev/windows-exe.md)를 참고하세요.
 
 의존성을 설치한 뒤 프로젝트 루트의 PowerShell 두 개에서 각각 실행합니다.

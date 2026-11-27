@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+from client.basic_search_source import BasicSource
 from client.time_values import format_timestamp, parse_timestamp
 from shared.search_data import DocumentChunk
 
@@ -20,8 +21,9 @@ def ordered_chunks(
     """정렬 키가 같으면 공급자 순서를 유지하고 원래 인덱스를 함께 반환한다."""
     indexed = list(enumerate(chunks))
     if order in ("recent", "oldest"):
-        return sorted(indexed, key=lambda hit: parse_timestamp(hit[1].source.last_active_at),
-                      reverse=order == "recent")
+        known = [hit for hit in indexed if hit[1].source.last_active_at]
+        return sorted(known, key=lambda hit: parse_timestamp(hit[1].source.last_active_at),
+                      reverse=order == "recent") + [hit for hit in indexed if not hit[1].source.last_active_at]
     if order in ("longest", "shortest"):
         return sorted(indexed, key=lambda hit: len(hit[1].text), reverse=order == "longest")
     return indexed
@@ -30,6 +32,8 @@ def ordered_chunks(
 def chunk_source(chunk: DocumentChunk) -> tuple[str, str, str]:
     """확보 시점의 제목, 유형과 URL 또는 파일 경로를 반환한다."""
     source = chunk.source
+    if isinstance(source, BasicSource):
+        return source.title, source.kind_label, source.address
     title = source.window_title or "(제목 없음)"
     if source.browser is not None:
         return source.browser.page_title or title, "웹", source.browser.url or ""
@@ -47,6 +51,16 @@ def chunk_metadata(chunk: DocumentChunk) -> str:
     """본문과 분리해 펼칠 수 있는 확보 당시 출처와 시각을 구성한다."""
     title, kind, address = chunk_source(chunk)
     source = chunk.source
+    if isinstance(source, BasicSource):
+        label = "URL" if kind == "웹" else "Backend 파일 경로 (원본 경로 미확인)"
+        lines = [title, f"{label} · {address}", "본문 확보 시각 미제공"]
+        if source.last_active_at:
+            lines.append(f"마지막 활성 · {format_timestamp(source.last_active_at)}")
+        if source.reported_time:
+            lines.append(f"Backend 응답 시각 · {format_timestamp(source.reported_time)}")
+        return "\n".join(lines)
+    if source.document and not source.original_file_path:
+        address += " (원본 경로 미확인)"
     if chunk.context_id is None:
         return (f"{title}\n출처 ({kind}) · {address}\n"
                 f"작업 연결 없음 · 페이지 수집 시각 {format_timestamp(source.captured_at)}\n"

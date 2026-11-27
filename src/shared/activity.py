@@ -117,3 +117,4 @@ class DocumentRecord:
     file_type: str
     extracted_text: str
     captured_at: str
+    original_file_path: str | None = None

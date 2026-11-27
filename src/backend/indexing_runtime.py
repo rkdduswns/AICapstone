@@ -38,7 +38,8 @@ def prepare_search_index(store, embedding, policy):
             if source is None or record is None:
                 continue
             text = source.extracted_text
-            location = {"document": LocalDocument(source.file_path, source.file_type[1:])}
+            location = {"document": LocalDocument(source.original_file_path or source.file_path, source.file_type[1:]),
+                        "original_file_path": source.original_file_path}
             captured = source.captured_at
         else:
             source = store.get_browser_source_record(source_id)

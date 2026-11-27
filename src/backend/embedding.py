@@ -2,6 +2,8 @@
 """ContextTrace 검색용 의미 임베딩 생성 기능."""
 
 import math
+import sys
+from pathlib import Path
 from threading import RLock
 
 from backend.privacy import PrivacyPolicy
@@ -32,6 +34,11 @@ class EmbeddingService:
         # 의미 검색과 RAG가 동시에 들어와도 큰 모델을 두 번 로드하지 않는다.
         with self._model_lock:
             if self._model is None:
+                if getattr(sys, "frozen", False):
+                    from backend.packaged_e5 import PackagedE5
+
+                    self._model = PackagedE5(Path(sys.executable).parent / "models" / "multilingual-e5-small")
+                    return self._model
                 from sentence_transformers import SentenceTransformer
 
                 self._model = SentenceTransformer(self.model_name, device="cpu")

@@ -840,15 +840,22 @@ def create_app(
         file: UploadFile = File(...),
         record_id: int | None = Form(default=None, ge=1, le=2**63 - 1),
         file_path: str | None = Form(default=None, max_length=8192),
+        original_file_path: str | None = Form(default=None, max_length=8192),
         context_id: int | None = Form(default=None, ge=1, le=2**63 - 1),
     ):
         """선택한 문서를 추출하고 명시된 작업에만 경로와 함께 연결한다. 경로로 파일을 읽지 않는다."""
         check_collection()
         if request.headers.get("origin") is not None:
             raise HTTPException(403)
+        if original_file_path is not None:
+            if file_path is not None and file_path != original_file_path:
+                raise HTTPException(422, detail="Conflicting original paths")
+            file_path = original_file_path
         if context_id is not None and record_id is not None and context_id != record_id:
             raise HTTPException(422, detail="Conflicting context IDs")
-        backend_upload = context_id is not None and file_path is None
+        # 표준 context_id 업로드는 항상 관리 복사본을 갖는다. 원본 위치는 별도 메타데이터다.
+        canonical_upload = context_id is not None
+        backend_upload = canonical_upload and file_path is None
         record_id = context_id if context_id is not None else record_id
         store = get_store()
         activity_record = store.get_record(record_id) if record_id is not None else None
@@ -912,12 +919,13 @@ def create_app(
 
             extracted_text = extract_document_text(temporary_path)
             check_collection(extracted_text)
-            if backend_upload:
+            if canonical_upload:
                 storage_dir = app.state.document_storage_dir
                 storage_dir.mkdir(parents=True, exist_ok=True)
                 stored_path = storage_dir / f"{uuid.uuid4().hex}{suffix}"
                 shutil.copy2(temporary_path, stored_path)
-                file_path = str(stored_path.resolve())
+                if backend_upload:
+                    file_path = str(stored_path.resolve())
 
         except ValueError as exc:
             raise HTTPException(
@@ -935,12 +943,13 @@ def create_app(
 
         try:
             document_id = store.save_document_record(
-                file_path=file_path or original_filename,
+                file_path=str(stored_path.resolve()) if stored_path else file_path or original_filename,
                 extracted_text=extracted_text,
                 captured_at=captured_at,
                 activity_record_id=record_id,
                 file_name=original_filename,
                 stored_file_path=str(stored_path) if stored_path else None,
+                original_file_path=file_path if record_id and not backend_upload else None,
             )
         except sqlite3.IntegrityError as exc:
             if stored_path:
@@ -960,6 +969,7 @@ def create_app(
                 started_at=activity_record.started_at, last_active_at=activity_record.ended_at,
                 captured_at=captured_at, content_truncated=False,
                 document=LocalDocument(file_path, suffix[1:]),
+                original_file_path=file_path if not backend_upload else None,
             )
             try:
                 search_source_id = index_collected_source(
@@ -983,7 +993,8 @@ def create_app(
                 "search_source_id": search_source_id,
                 "context_id": record_id,
                 "activity_record_id": record_id,
-                "file_path": file_path,
+                "original_file_path": file_path if record_id and not backend_upload else None,
+                "file_path": str(stored_path.resolve()) if stored_path else file_path,
             },
             "error": None,
         }

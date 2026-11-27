@@ -26,12 +26,16 @@ def read_imported_document(row: object) -> ImportedDocument:
             or not isinstance(text, str) or not text.strip()):
         raise ValueError("Invalid imported document")
     parse_timestamp(row.get("captured_at"))
-    record_id = row.get("activity_record_id")
+    record_id = row.get("context_id", row.get("activity_record_id"))
+    if "activity_record_id" in row and record_id != row["activity_record_id"]:
+        raise ValueError("Conflicting document link")
     path = None
     if record_id is not None:
         if type(record_id) is not int or record_id < 1:
             raise ValueError("Invalid linked record ID")
-        path = read_document({"file_path": row.get("file_path"), "file_type": kind[1:]}).file_path
+        original = row.get("original_file_path")
+        if original is not None:
+            path = read_document({"file_path": original, "file_type": kind[1:]}).file_path
     return ImportedDocument(row["id"], name, kind[1:], row["captured_at"], text,
                             str(record_id) if record_id is not None else None, path)
 
@@ -92,7 +96,7 @@ class DocumentsClient(JsonRequest):
         part.setBodyDevice(source)
         multipart.append(part)
         if record_id is not None:
-            for key, value in (("record_id", record_id), ("file_path", source_path)):
+            for key, value in (("context_id", record_id), ("original_file_path", source_path)):
                 field = QHttpPart()
                 field.setRawHeader(b"Content-Disposition", f'form-data; name="{key}"'.encode())
                 field.setBody(value.encode())
@@ -120,7 +124,7 @@ class DocumentsClient(JsonRequest):
             data = body.get("data")
             if self.operation == "upload":
                 result = read_imported_document(data)
-                if result.record_id != self.expected_record_id:
+                if ("context_id" in data or "activity_record_id" in data) and result.record_id != self.expected_record_id:
                     raise ValueError("Linked record does not match upload request")
             else:
                 rows = data.get("documents") if isinstance(data, dict) else None

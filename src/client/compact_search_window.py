@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from client.basic_search_source import BasicSource
 from client.citation_highlights import citation_spans
 from client.icons import apply_menu_icon
 from client.search_presentation import RESULT_ORDERS, chunk_metadata, chunk_source, ordered_chunks
@@ -444,10 +445,13 @@ class CompactSearchWindow(QWidget):
             return
         chunk = result.evidence[index]
         title, kind, _ = chunk_source(chunk)
+        time_label = (f"열람 {format_timestamp(chunk.source.last_active_at)}"
+                      if chunk.source.last_active_at and (chunk.context_id or isinstance(chunk.source, BasicSource))
+                      else "열람 시각 미확인")
         partial = " · 일부 확보" if chunk.source.content_truncated else ""
         self.source_summary.set_source(
             f"[{index + 1}] {title}",
-            f"{kind} · 열람 {format_timestamp(chunk.source.last_active_at)}{partial}",
+            f"{kind} · {time_label}{partial}",
         )
         self.source_details.setPlainText(f"근거 {index + 1}\n\n{chunk_metadata(chunk)}")
         self.evidence_text.setPlainText(chunk.text)

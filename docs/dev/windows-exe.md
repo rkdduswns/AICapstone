@@ -1,6 +1,6 @@
 # 강써치 Windows 실행 파일
 
-2026-11-27 통합 브랜치의 실제 검색·RAG·세션/삭제 및 모델 설치는 [Phase 11–14 실행 안내](phase11-14-api-integration.md)를 따른다. 기본 `[dev,build]` EXE에는 ML 런타임·가중치·Ollama가 포함되지 않으며 AI 실행 검증은 `[ml]` 소스 환경이 필요하다.
+2026-11-27 통합 브랜치의 실제 검색·RAG·세션/삭제 및 모델 설치는 [Phase 11–14 실행 안내](phase11-14-api-integration.md)를 따른다. 이 버전의 ZIP은 CPU 추론 런타임과 E5 모델을 포함한다. 폴더 전체를 추출하고 models 폴더를 두 EXE 옆에 둔다. 생성 답변을 사용하려면 별도로 Ollama를 설치·실행하고 `ollama pull qwen2.5:3b`로 생성 모델을 준비한다.
 
 대상: Windows 10/11 x64. Client와 Backend는 서로 독립된 단일 EXE다.
 표시명은 강써치이며 Python 배포 식별자는 `gangsearch`다. Python·pip 설치 없이 실행한다. 실행 안내와 현재 소스의 기능 범위는 빌드 커밋으로 구분한다.

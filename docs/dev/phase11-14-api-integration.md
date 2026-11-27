@@ -94,5 +94,20 @@ Client 의미 검색/답변 제한은 180초, Ollama 생성 제한은 120초다.
 `tests/integration/test_phase11_14_live.py`는 실제 Qt·Uvicorn·SQLite·DOCX·Ollama 전송 어댑터를
 실행한다. OS 감지와 모델 추론 출력은 제어된 대역이며 실제 모델 품질 검증을 대신하지 않는다.
 
-기존 `[dev,build]`의 최소 EXE에는 sentence-transformers·E5 가중치·Ollama 생성 모델이 포함되지 않는다.
-EXE 기본 실행 검증과 AI 모델 포함 배포는 다른 범위다. 실제 AI 연결은 위 소스 실행 환경에서 검증한다.
+## Backend 기본 형식 및 Windows 통합판
+
+표준 문서 첨부는 multipart `file`, `context_id`를 보낸다. 통합 서버는 선택 확장인
+`original_file_path`를 검증해 보존하고, 표준 업로드의 `file_path`에는 관리 복사본 경로를 저장한다.
+기본 서버가 201 응답에 작업 ID를 생략해도 업로드는 성공으로 처리하고 실제 목록을 다시 읽는다.
+요청한 ID를 연결 확인으로 간주하지 않는다. 이전 `record_id` 입력은 하위 호환용이다.
+삭제는 검증한 관리 복사본만 처리한다.
+
+의미 검색의 웹 결과 ID는 `web-{브라우저 출처 ID}`다. 작업 연결은 선택 필드 `context_id`로 구분한다.
+기본 검색의 `record` 및 평면 RAG 근거만으로도 표시한다. 확장 스냅샷이 없으면
+Backend가 알려 준 파일 위치·응답 시각을 원본 경로·본문 확보 시각으로 해석하지 않는다.
+확장 필드가 있되 서로 모순되는 경우는 오류로 처리한다.
+
+이전 최소 EXE와 달리 최신 ZIP에는 공식 E5 모델의 고정 리비전 ONNX 파일과
+CPU 추론 런타임이 함께 들어 있다. Python 설치 없이 압축 폴더에서 Backend → Client 순으로 실행한다.
+`강써치-Backend.exe --check-embedding`으로 실제 한국어 질의와 두 본문의 관련도 비교를 점검할 수 있다.
+모델 파일은 EXE와 함께 이동한다. Ollama와 생성 모델은 별도 설치가 필요하다.

@@ -239,6 +239,9 @@ class ActivityStore(ActivityDeletionMixin):
                         "ON DELETE CASCADE, PRIMARY KEY(record_id, source_id))"
                     )
                 columns = {row["name"] for row in connection.execute("PRAGMA table_info(document_records)")}
+                # UUID 경로나 과거 파일명에서 사용자 원본 경로를 추정하지 않는다.
+                if "original_file_path" not in columns:
+                    connection.execute("ALTER TABLE document_records ADD COLUMN original_file_path TEXT")
                 if "stored_file_path" not in columns:
                     connection.execute("ALTER TABLE document_records ADD COLUMN stored_file_path TEXT")
                 body_columns = {row["name"] for row in connection.execute("PRAGMA table_info(browser_content_records)")}
@@ -1049,7 +1052,7 @@ class ActivityStore(ActivityDeletionMixin):
 
             document_rows = connection.execute(
                 """
-                SELECT DISTINCT d.id, d.file_name, d.file_type, d.file_path,
+                SELECT DISTINCT d.id, d.file_name, d.file_type, d.file_path, d.original_file_path,
                     d.captured_at, d.context_id
                 FROM document_records AS d
                 JOIN activity_records AS a ON a.id = d.context_id
@@ -1079,6 +1082,7 @@ class ActivityStore(ActivityDeletionMixin):
                     "file_name": str(row["file_name"]),
                     "file_type": str(row["file_type"]),
                     "file_path": str(row["file_path"]),
+                    "original_file_path": row["original_file_path"],
                     "captured_at": str(row["captured_at"]),
                     "context_id": int(row["context_id"]) if row["context_id"] is not None else None,
                 }
@@ -1210,7 +1214,12 @@ class ActivityStore(ActivityDeletionMixin):
             ).fetchone()
         finally:
             connection.close()
-        return model(**{name: row[name] for name in model.__dataclass_fields__}) if row is not None else None
+        if row is None:
+            return None
+        fields = {name: row[name] for name in model.__dataclass_fields__}
+        if kind == "document" and fields["original_file_path"]:
+            fields["file_path"] = fields["original_file_path"]
+        return model(**fields)
 
     def get_record_browser(self, record_id: int) -> BrowserSourceRecord | None:
         """실제 외래 키로 연결된 브라우저 출처만 반환한다."""
@@ -1531,6 +1540,7 @@ class ActivityStore(ActivityDeletionMixin):
         file_name: str | None = None,
         context_id: int | None = None,
         stored_file_path: str | None = None,
+        original_file_path: str | None = None,
     ) -> int:
         """기존 명시적 링크와 새 context_id를 같은 실제 작업으로 원자적으로 저장한다."""
         if context_id is not None and activity_record_id is not None and context_id != activity_record_id:
@@ -1577,8 +1587,8 @@ class ActivityStore(ActivityDeletionMixin):
                     ),
                 )
                 source_id = int(cursor.lastrowid)
-                connection.execute("UPDATE document_records SET stored_file_path=? WHERE id=?",
-                                   (stored_file_path, source_id))
+                connection.execute("UPDATE document_records SET stored_file_path=?, original_file_path=? WHERE id=?",
+                                   (stored_file_path, original_file_path, source_id))
                 if activity_record_id is not None:
                     connection.execute("INSERT INTO record_document_sources VALUES (?, ?)",
                                        (activity_record_id, source_id))
@@ -1601,7 +1611,7 @@ class ActivityStore(ActivityDeletionMixin):
                 SELECT
                     id,
                     context_id,
-                    file_path,
+                    file_path, original_file_path,
                     file_name,
                     file_type,
                     extracted_text,
@@ -1619,7 +1629,7 @@ class ActivityStore(ActivityDeletionMixin):
             DocumentRecord(
                 id=row["id"],
                 context_id=row["context_id"],
-                file_path=row["file_path"],
+                file_path=row["file_path"], original_file_path=row["original_file_path"],
                 file_name=row["file_name"],
                 file_type=row["file_type"],
                 extracted_text=row["extracted_text"],
@@ -2068,7 +2078,7 @@ class ActivityStore(ActivityDeletionMixin):
                     SELECT
                         a.id, a.application, a.process_name, a.window_title,
                         a.started_at, a.ended_at, a.active_duration_ms,
-                        d.file_path, d.file_type
+                        COALESCE(d.original_file_path,d.file_path) AS file_path, d.file_type
                     FROM activity_records AS a
                     LEFT JOIN document_records AS d
                       ON d.id = (
@@ -2541,7 +2551,7 @@ class ActivityStore(ActivityDeletionMixin):
                     context_id = row["context_id"]
                     record_id = (
                         f"web-{row['browser_source_id']}"
-                        if kind == "web" and context_id is None
+                        if kind == "web"
                         else str(context_id)
                     )
                     if kind == "document" and context_id is None:
@@ -2569,6 +2579,7 @@ class ActivityStore(ActivityDeletionMixin):
                         "source": SourceMetadata(
                             kind, application, process, title, started_at, last_active_at,
                             row["source_captured_at"], bool(row["content_truncated"]), browser, document,
+                            metadata.get("original_file_path"),
                         ),
                     }
                     ranked.append((hit, score, instant))

@@ -6,6 +6,7 @@ from dataclasses import asdict, replace
 
 from PySide6.QtCore import Signal
 
+from client.basic_search_source import read_basic_source
 from client.compact_search_window import CompactAnswer
 from client.json_request import JsonRequest
 from client.records_client import read_context_records
@@ -44,10 +45,13 @@ def source_chunk(raw: dict, *, preview: bool = False) -> DocumentChunk:
             or type(score) not in (int, float) or not math.isfinite(score) or not -1 <= score <= 1
             or type(raw.get("content_truncated")) is not bool):
         raise ValueError("Invalid evidence fields")
+    if "source" not in raw and "context_id" not in raw:
+        # 기본 계약의 record.id와 실제 작업 ID는 별개다.
+        return DocumentChunk(identifier, None, index, text, read_basic_source(raw, preview))
     source = read_source_metadata(raw.get("source"))
     if preview:
         record = read_context_records([raw.get("record")], 1)[0]
-        if (context is not None and record.id != context) or (
+        if (context is not None and record.id != context and not (source.browser and record.id.startswith("web-") and record.id[4:].isascii() and record.id[4:].isdecimal())) or (
                 record.application, record.process_name, record.window_title, record.started_at,
                 record.last_active_at, record.browser, record.document) != (
                 source.application, source.process_name, source.window_title, source.started_at,

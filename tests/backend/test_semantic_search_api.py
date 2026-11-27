@@ -242,7 +242,8 @@ def test_semantic_search_returns_web_url_for_web_source(tmp_path):
 
     assert response.status_code == 200
     hit = response.json()["data"]["hits"][0]
-    assert hit["record"]["id"] == hit["context_id"] == "1"
+    assert hit["record"]["id"] == "web-1"
+    assert hit["context_id"] == "1"
     assert hit["record"]["browser"]["url"] == "https://example.com/research"
 
 

@@ -74,6 +74,11 @@ def main() -> None:
             assert exe.read_bytes()[:2] == b"MZ", "Windows PE 실행 파일이 아닙니다."
             shutil.copyfile(exe, work / exe.name)
         backend = work / "강써치-Backend.exe"
+        # 동일 배포본의 모델로 한글 질의·본문을 실제 추론한 후 HTTP/GUI 실행을 검증한다.
+        shutil.copytree(output / "models", work / "models")
+        subprocess.run([str(backend), "--check-embedding"], cwd=work, env=environment,
+                       check=True, timeout=150)
+        checks["packaged_e5_korean_inference"] = True
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1", 0))
             port = reservation.getsockname()[1]

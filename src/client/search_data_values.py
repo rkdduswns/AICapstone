@@ -38,10 +38,13 @@ def read_source_metadata(raw: object) -> SourceMetadata:
             raise ValueError("Expected a single HTTP(S) web source")
     elif document is None or browser is not None:
         raise ValueError("Expected a single local document source")
+    original = raw.get("original_file_path")
+    if original is not None and (not document or original != document.file_path):
+        raise ValueError("Inconsistent original path")
     return SourceMetadata(
         raw["kind"], application, process_name, title,
         raw["started_at"], raw["last_active_at"], raw["captured_at"],
-        raw["content_truncated"], browser, document,
+        raw["content_truncated"], browser, document, original,
     )
 
 

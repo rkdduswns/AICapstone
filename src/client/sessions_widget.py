@@ -157,7 +157,9 @@ class SessionsWidget(QWidget):
             materials = data["materials"]
             lines = []
             for row in materials["documents"]:
-                lines.append(f"문서 · {row['file_name']}\n{row['file_path']}")
+                original = row.get("original_file_path")
+                location = f"원본 · {original}" if original else f"Backend 파일 · {row['file_path']} (원본 경로 미확인)"
+                lines.append(f"문서 · {row['file_name']}\n{location}")
             for row in materials["web_pages"]:
                 lines.append(f"웹 · {row['page_title']}\n{row['url']}")
         except (ValueError, KeyError, TypeError):

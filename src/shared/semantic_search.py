@@ -5,6 +5,7 @@ from typing import Literal
 
 from shared.protocol import API_VERSION, SERVICE_NAME
 from shared.records import ContextRecord
+from shared.search_data import SourceMetadata
 
 SEMANTIC_SEARCH_PATH = "/records/semantic-search"
 SEMANTIC_SEARCH_LIMIT = 20
@@ -39,6 +40,8 @@ class SemanticSearchHit:
     similarity: float
     record: ContextRecord
     content_truncated: bool
+    context_id: str | None = None
+    source: SourceMetadata | None = None
 
 
 @dataclass(frozen=True)

@@ -74,3 +74,47 @@ def test_answer_confirms_query_and_preserves_actual_source_times(app, monkeypatc
     client._received(json.dumps({"ok": True, "error": None, "data": data}).encode())
     assert len(answers) == 1 and len(failures) == 1
     client.close()
+
+
+def test_backend_basic_rag_does_not_invent_original_path_or_capture_time():
+    """원본 Backend의 평면 근거로 표시·시간 정렬을 수행하되 원본 경로를 단정하지 않는다."""
+    from client.search_presentation import chunk_metadata, ordered_chunks
+
+    row = evidence()
+    del row["context_id"], row["source"]
+    chunk = source_chunk(row)
+    assert chunk.context_id is None and chunk.source.last_active_at is None
+    detail = chunk_metadata(chunk)
+    assert row["file_path"] in detail and "원본 경로 미확인" in detail
+    assert "본문 확보 시각 미제공" in detail and "Backend 응답 시각" in detail
+    assert ordered_chunks([chunk], "oldest") == [(0, chunk)]
+
+
+def test_backend_basic_semantic_hit_without_source():
+    """기본 웹 검색 ID를 작업 ID로 바꾸거나 미제공 시각을 추정하지 않는다."""
+    from client.search_presentation import chunk_metadata
+
+    row = evidence()
+    record = dict(id="web-19", application="Chrome", process_name="chrome.exe",
+                  window_title="탭", started_at=row["captured_at"], last_active_at=row["captured_at"],
+                  active_duration_ms=0, foreground_count=1, document=None,
+                  browser=dict(browser="chrome", page_title="자료", url="https://example.test/"))
+    hit = dict(chunk_id="page", preview="자료", similarity=0.8, chunk_index=0,
+               content_truncated=False, record=record)
+    chunk = source_chunk(hit, preview=True)
+    assert chunk.context_id is None
+    assert "https://example.test/" in chunk_metadata(chunk) and "본문 확보 시각 미제공" in chunk_metadata(chunk)
+
+
+def test_backend_upload_ack_without_context_is_success_not_verified_link(app):
+    """Backend 201의 문서 ID만 인정하고 요청한 작업 ID를 응답에 보충하지 않는다."""
+    from client.documents_client import DocumentsClient
+
+    client = DocumentsClient(8765)
+    client.operation, client.expected_record_id = "upload", "7"
+    received = []
+    client.document_uploaded.connect(received.append)
+    row = dict(id=5, file_name="자료.pdf", file_type=".pdf", extracted_text="자료", captured_at=evidence()["captured_at"])
+    client._received(json.dumps(dict(ok=True, error=None, data=row)).encode())
+    assert [(d.id, d.record_id, d.file_path) for d in received] == [(5, None, None)]
+    client.close()

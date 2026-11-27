@@ -92,7 +92,7 @@ def runtime(tmp_path):
                                  "2026-11-20T09:00:00+00:00", "2026-11-20T09:10:00+00:00", 600000)
     tracker = ActivityTracker(store=store, detector=SimpleNamespace(get_active_window_handle=lambda: None))
     backend = create_app(activity_store=store, activity_tracker=tracker, collection_interval=None,
-                         embedding_service=TestEmbeddings(), browser_token="live-token",
+                         document_storage_dir=tmp_path / "copies", embedding_service=TestEmbeddings(), browser_token="live-token",
                          answer_generator=OllamaAnswerGenerator(
                              base_url=f"http://127.0.0.1:{model_server.server_port}"))
     with socket.socket() as sock:
@@ -233,3 +233,15 @@ def test_sessions_display_actual_materials_and_confirm_before_delete(runtime, tm
     assert store.get_recent_document_records() == []
     with store._connect() as connection:
         assert connection.execute("SELECT COUNT(*) FROM search_chunks").fetchone()[0] == 0
+
+
+def test_canonical_upload_separates_backend_copy_and_original(runtime, tmp_path):
+    """표준 context_id 폼과 확장 원본 경로를 함께 전송해 실제 저장·삭제 경계를 확인한다."""
+    app, window, store, record_id, port, _ = runtime
+    original = upload(app, window, record_id, tmp_path)
+    row = httpx.get(f"http://127.0.0.1:{port}/documents", trust_env=False).json()["data"]["documents"][0]
+    assert row["context_id"] == record_id and row["original_file_path"] == original
+    copy = Path(row["file_path"])
+    assert copy.is_file() and str(copy) != original
+    assert httpx.delete(f"http://127.0.0.1:{port}/records/{record_id}", trust_env=False).is_success
+    assert not copy.exists() and (tmp_path / "통합 자료.docx").is_file()
