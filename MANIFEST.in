@@ -1,4 +1,10 @@
 # 학습용 사본은 소스 배포물에도 포함하지 않는다.
 prune etc/study
 
-recursive-include browser *
+# 소스 설치에 필요한 파일만 포함한다. PC별로 생성된 호스트 매니페스트는 제외한다.
+recursive-include src/browser/extension *.mjs *.html *.css manifest.json
+recursive-include src/browser/contexttrace/extension *.js manifest.json
+include src/browser/contexttrace/native_host/native_host.py
+include src/browser/contexttrace/native_host/native_host.cmd
+include tools/setup_chrome.ps1
+include docs/dev/contexttrace-browser.md

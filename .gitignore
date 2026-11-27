@@ -34,3 +34,6 @@ vector_store/
 build/
 dist/
 *.egg-info/
+
+# 소스 설치 시 생성되는 PC별 Chrome 호스트 등록 정보
+/src/browser/contexttrace/native_host/com.contexttrace.auth.json
