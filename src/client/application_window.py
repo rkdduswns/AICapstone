@@ -4,6 +4,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QAction, QCloseEvent, QKeyEvent
 from PySide6.QtWidgets import QPushButton, QScrollArea, QVBoxLayout, QWidget
 
+from client.ai_clients import RAGClient
 from client.compact_search_window import CompactAnswer, CompactSearchWindow
 from client.theme import apply_client_style, set_role
 from client.window import MainWindow
@@ -29,6 +30,10 @@ class ApplicationWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self.search = CompactSearchWindow()
+        self.rag = RAGClient(port, self)
+        self.rag.answer_received.connect(self.search.receive_result)
+        self.rag.answer_failed.connect(self._answer_failed)
+        self.search.search_cancelled.connect(lambda _identifier: self.rag.close())
         layout.addWidget(self.search)
 
         self.management_panel = QWidget()
@@ -50,6 +55,9 @@ class ApplicationWindow(QWidget):
         self.management_actions: dict[int, QAction] = {}
         self.search.main_menu.addSeparator()
         for tab, label in (
+            (self.management.search, "조건 검색"),
+            (self.management.semantic, "의미 검색"),
+            (self.management.sessions, "작업 세션"),
             (self.management.recent, "최근 기록"),
             (self.management.documents, "문서 가져오기"),
             (self.management.privacy, "개인정보 설정"),
@@ -72,9 +80,9 @@ class ApplicationWindow(QWidget):
         self.management.privacy.client.state_failed.connect(self._privacy_failed)
         self.management.privacy.client.changing.connect(self._privacy_changing)
         self._show_connection_status()
-        self.search.query.setPlaceholderText("검색할 내용 입력 · 검색 기능 준비 중")
+        self.search.query.setPlaceholderText("기록에서 찾거나 질문할 내용 입력")
         self.search.preferred_size_changed.connect(self._resize_search)
-        self.search.search_requested.connect(self._answer_unavailable)
+        self.search.search_requested.connect(self.rag.ask)
         self.back_button.clicked.connect(self.show_search)
         fit_window(self, self._search_size)
 
@@ -83,6 +91,8 @@ class ApplicationWindow(QWidget):
         self._connection_state = "checking"
         self._activity_state = self._privacy_state = "unknown"
         self._show_connection_status()
+        self.rag.close()
+        self.search.reset_request()
 
     def _connection_changed(self, connected: bool) -> None:
         """건강 확인과 실제 작업·보호 상태의 수신 여부를 구분한다."""
@@ -154,9 +164,12 @@ class ApplicationWindow(QWidget):
         self.search.connection_button.setText(label)
         self.search.connection_button.setToolTip(description + " 현재 작업과 연결 설정을 엽니다.")
 
-    def _answer_unavailable(self, request_id: int, _query: str) -> None:
-        """답변 API가 연결될 때까지 기능 준비 상태를 표시한다."""
-        self.search.receive_result(request_id, CompactAnswer("unavailable"))
+    def _answer_failed(self, request_id: int, message: str) -> None:
+        """서버/모델 오류를 표시하고 원문 오류나 가상 답변을 대신 채우지 않는다."""
+        if request_id != self.search._pending_id:
+            return
+        self.search.receive_result(request_id, CompactAnswer("error"))
+        self.search.show_request_error(message)
 
     def _resize_search(self, target: QSize) -> None:
         """검색 상태의 목표 크기를 보관하고 검색 화면이 열려 있을 때 적용한다."""
@@ -191,6 +204,7 @@ class ApplicationWindow(QWidget):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """두 화면이 소유한 통신과 대기 중인 검색을 종료한다."""
+        self.rag.close()
         self.search.close()
         self.management.close()
         super().closeEvent(event)

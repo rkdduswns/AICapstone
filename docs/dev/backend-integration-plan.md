@@ -1,5 +1,7 @@
 # 강써치 Client–Backend 통합 설계
 
+2026-11-27 `feat/phase11-14-api-integration`에서 최신 Backend `4ba10cf`의 실제 API 통합을 구현했다. [구현 계약·실행](phase11-14-api-integration.md), [검증](../reports/phase11-14-api-integration.md)을 따른다. 아래 설계안은 2026-11-13 당시 차이 분석으로 보존한다.
+
 이 문서는 **2026-11-13에 확인한 코드 차이와 다음 통합 단계의 설계안**이다. 아래의 제안 API·DB 변경은 구현 완료 목록이 아니다. 기존 기획 원문을 대체하지 않는다.
 
 ## 1. 확인 기준과 현재 경계

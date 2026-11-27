@@ -47,6 +47,10 @@ def chunk_metadata(chunk: DocumentChunk) -> str:
     """본문과 분리해 펼칠 수 있는 확보 당시 출처와 시각을 구성한다."""
     title, kind, address = chunk_source(chunk)
     source = chunk.source
+    if chunk.context_id is None:
+        return (f"{title}\n출처 ({kind}) · {address}\n"
+                f"작업 연결 없음 · 페이지 수집 시각 {format_timestamp(source.captured_at)}\n"
+                f"조각 길이 · {len(chunk.text):,}자")
     return (
         f"{title}\n출처 ({kind}) · {address}\n"
         f"프로그램 · {source.application} ({source.process_name})\n"

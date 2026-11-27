@@ -62,6 +62,11 @@ class ActivityTracker:
         """종료 또는 설정 변경 경계까지 허용된 작업을 저장하고 다음 세션과 분리한다."""
         self._finish_current()
 
+    def discard_deleted_record(self, record_id: int | None = None) -> None:
+        """삭제된 행을 다음 폴링에서 갱신하거나 종료 시 다시 저장하지 않게 한다."""
+        if record_id is None or self._record_id == record_id:
+            self._reset()
+
     def _get_detector(self) -> object | None:
         if self._detector is not None:
             return self._detector

@@ -226,8 +226,8 @@ def test_old_database_defaults_to_allowed_and_never_guesses_missing_links(tmp_pa
     assert db_path.read_bytes() == before
 
 
-def test_deleted_work_is_missing_even_if_its_raw_document_remains(tmp_path):
-    """작업이 삭제된 후 원문만 남아도 다음 준비 결과에는 포함하지 않는다."""
+def test_deleted_work_and_its_linked_document_are_missing(tmp_path):
+    """작업 삭제 시 실제 연결 문서가 함께 제거되고 다음 준비 결과에도 남지 않는다."""
     db_path = tmp_path / "deleted.db"
     store = ActivityStore(db_path)
     record_id = save_work(store)
@@ -239,7 +239,7 @@ def test_deleted_work_is_missing_even_if_its_raw_document_remains(tmp_path):
         connection.execute("DELETE FROM activity_records WHERE id = ?", (record_id,))
         connection.commit()
 
-    assert store.get_recent_document_records()[0].extracted_text == "삭제 전 연결 본문"
+    assert store.get_recent_document_records() == []
     assert prepare_search_texts(db_path, record_id) is None
 
 

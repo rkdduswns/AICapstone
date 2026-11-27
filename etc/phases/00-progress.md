@@ -11,6 +11,14 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 원래 작업 브랜치·검증 이력과 실제 Phase 체크는 보존하고 `main` 반영 여부는 별도로 관리한다.
 [브랜치별 포함 범위와 정리 기준](../../docs/dev/branch-integration.md)을 따른다.
 
+## 2026-11-27 Phase 11–14 API 통합
+
+`feat/phase11-14-api-integration`에서 `main 7e0991e`와 `feat/phase11-backend 4ba10cf`를 통합했다.
+조건 검색·의미 검색·RAG·세션/삭제를 실제 API로 연결했다. 구형 DB·원본 경로·영속 보호 정책을 보존한다.
+OS/모델 추론 출력 대역을 사용한 실제 Qt·HTTP·SQLite·문서 추출·Ollama 전송 경계의 자동 검증이다.
+실제 E5/Ollama 품질·Windows 수동/장시간 검증은 남아 있으며 main에는 미병합이다. [API 통합 검증](../../docs/reports/phase11-14-api-integration.md)를 따른다.
+아래 2026-11-13 이전 미통합/연결 전 설명은 당시 이력이다. 현재 상태는 이 절과 최신 체크 행을 따른다.
+
 ## 2026-11-13 강써치 후속 통합
 
 기존 Client 묶음에 PR #17의 최근 정렬과 PR #18의 보호 설정 영속화, PR #19·#20의 읽기 전용 전처리·청크를 합류했다.
@@ -42,18 +50,18 @@ Phase 12 Client 미리보기는 **2026-11-06 (KST)** 기준 main `7c30798`에서
 | [008](phase008.md) | 웹페이지 본문 수집 | IN_PROGRESS · Client DONE | 8/23 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [009](phase009.md) | 로컬 문서 내용 수집 | IN_PROGRESS · Client DONE | 16/21 | 2026-10-22 (이력 연결) | `feat/client-backend-integration` | 2026-10-16 (Client) |
 | [010](phase010.md) | 검색 데이터 구축 | IN_PROGRESS · Shared DONE · Backend 전처리·조각 생성 DONE | 15/22 | 2026-10-14 (Shared) / 2026-11-06 (전처리·조각 생성) | `feat/phase10-shared` / `feat/phase10-search-text-preparation` / `feat/phase10-search-chunks` | 2026-10-16 (Shared) |
-| [011](phase011.md) | 조건 검색 | IN_PROGRESS · Client DONE | 9/25 | 2026-10-15 | feat/phase11-client | 2026-10-16 (Client) |
-| [012](phase012.md) | 의미 검색 및 혼합 검색 | IN_PROGRESS · Client 미리보기 완료 | 3/20 | 2026-11-06 | `feat/phase12-client` | — |
-| [013](phase013.md) | 근거 기반 RAG | IN_PROGRESS · Client 표시 미리보기 | 0/25 | 2026-11-13 | `feat/client-evidence-highlights` | — |
-| [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | NOT_STARTED | 0/28 | — | — | — |
+| [011](phase011.md) | 조건 검색 | IN_PROGRESS · 실제 조건 검색 API 연결 | 21/25 | 2026-11-27 | `feat/phase11-14-api-integration` | 2026-10-16 (Client) |
+| [012](phase012.md) | 의미 검색 및 혼합 검색 | IN_PROGRESS · 실제 API 연결 · 모델 품질 잔여 | 8/20 | 2026-11-27 | `feat/phase11-14-api-integration` | — |
+| [013](phase013.md) | 근거 기반 RAG | IN_PROGRESS · 실제 API 연결 · 모델 품질 잔여 | 20/25 | 2026-11-27 | `feat/phase11-14-api-integration` | — |
+| [014](phase014.md) | 작업 세션·타임라인·최종 안정화 | IN_PROGRESS · 세션·삭제 API 연결 | 15/28 | 2026-11-27 | `feat/phase11-14-api-integration` | — |
 
 2026-10-15 선행 기록에서 후속으로 남긴 Phase 2~9 감지·시간 계산·저장·보호 검사·수집은 이후 가상 OS 입력과 실제 Backend HTTP·SQLite·문서 추출 라이브러리로 부분 통합했다.
 작업 ID 기반 출처 연결은 가상 OS 입력과 실제 HTTP·SQLite·Qt로 검증했다. 실제 Windows 작업/복사 및 확장 설치 후 수동 검증은 남아 있다.
 Phase 10은 지정 작업의 실제 웹·문서 본문을 정규화하고 출처가 붙은 검색 조각을 생성한다. 임베딩·색인 저장/삭제 및 검색 결과의 역추적 검증은 남아 있다.
-Phase 11의 실제 저장소 조건 검색·정렬·보호 정책 적용 및 통합 검증은 남아 있다.
-Phase 12는 가상 결과를 표시하는 Client 미리보기까지 구현했다. 실제 의미·혼합 검색과 출처 연결 검증은 남아 있다.
+2026-11-13까지 Phase 11의 실제 저장소 조건 검색·통합은 미완료였으며 2026-11-27 API 자동 검증으로 갱신했다.
+Phase 12는 실제 API·출처 연결까지 확장했으며 실제 모델의 의미·혼합 검색 품질 검증은 남아 있다.
 Phase 13의 답변·근거 표시, 정렬·복사·명시적 인용 강조는 Client 미리보기로 구현했다.
-아래 0/25는 실제 RAG 응답·Shared 계약·출처 연결 검증 체크이며, 표시 UI가 미구현이라는 뜻은 아니다.
+과거 0/25는 당시 실제 RAG 미연결 상태다. 현재 자동 검증 체크와 실제 모델 품질 잔여는 위 현황을 따른다.
 현재 코드와 문서의 차이를 대조한 [문서 정합 검토](../../docs/reports/documentation-reconciliation.md)를 함께 따른다.
 
 ## 2026-10-22 통합 범위
@@ -73,6 +81,7 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 
 | 확인일 | 범위 | 작업 브랜치 | 결과 / 근거 |
 |---|---|---|---|
+| 2026-11-27 | Phase 11–14 실제 API 통합 | `feat/phase11-14-api-integration` | main `7e0991e` + Backend `4ba10cf`, 조건/의미 검색·RAG·세션/삭제, 구형 DB·출처/정책 보존. [API 통합 검증](../../docs/reports/phase11-14-api-integration.md). 실제 모델 품질 잔여, main 미병합 |
 | 2026-11-13 | 완료 Client 작업 통합 기준 정리 | `client_dev` | `7c30798`과 `7586349`를 `2927871`로 병합, 기존 코드 트리 동일·Client 8개 작업 끝의 조상 포함 확인. 원격 게시 확인 후 완료 로컬 참조 정리. [포함·제외 범위와 검증 기록](../../docs/dev/branch-integration.md), main 미반영 |
 | 2026-11-13 | Client 근거 선택·인용 강조 | `feat/client-evidence-highlights` | 근거 선택 줄 상시 표시, 내용 표시를 메뉴로 이동, 세 메뉴 아이콘과 원래 근거 번호의 명시적 인용 강조·직접 이동. [범위·검증 기준](../compact-search-window.md#client-근거-선택과-인용-강조-단계-2026-11-13), 실제 RAG 연결 잔여, main 미병합 |
 | 2026-11-13 | Client 동작 메뉴 정리 | `feat/client-action-menus` | 보조 버튼을 기본·답변·근거의 한 단계 메뉴로 이동하고 상태에 맞는 항목만 제공. [범위·검증 기준](../compact-search-window.md#client-메뉴-정리-단계-2026-11-13), 서버 계약과 실제 RAG 체크 유지, main 미병합 |
@@ -392,27 +401,27 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 | Client | 검색 결과 목록 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
 | Client | 결과 제목 / 출처 / 열람 시각 표시 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
 | Client | 결과 상세보기 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
-| Backend | 시간 범위 조건 처리 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Backend | 프로그램 조건 처리 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Backend | 웹 / 파일 출처 유형 조건 처리 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Backend | 제목 키워드 검색 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Backend | 복수 조건 결합 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Backend | 결과 시간순 / 최근순 정렬 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Backend | 시간 범위 조건 처리 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 프로그램 조건 처리 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 웹 / 파일 출처 유형 조건 처리 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 제목 키워드 검색 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 복수 조건 결합 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 결과 시간순 / 최근순 정렬 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Shared | 검색 요청 구조 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
 | Shared | 검색 결과 구조 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
 | Shared | 출처 정보 구조 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
 | Tests | 가상 HTTP 조건 전달·결과/상세·빈 결과·오류·취소·복구 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
 | Tests | 입력·응답 조건 확인·정렬·기록 계약 검증 | 완료 | 2026-10-15 | feat/phase11-client | [검증 보고서](../../docs/reports/phase11-client.md) · Client/Shared/가상 응답 범위 |
-| Tests | 오늘 기록 검색 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Tests | 특정 날짜 범위 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Tests | Chrome 기록만 검색 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Tests | PDF 기록만 검색 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Tests | 시간 + 프로그램 조건 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| Tests | 결과 없음 | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| 완료 조건 | 시간 조건으로 기록을 찾을 수 있다. | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| 완료 조건 | 프로그램 조건으로 기록을 찾을 수 있다. | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| 완료 조건 | 웹/파일 출처를 구분해 검색할 수 있다. | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
-| 완료 조건 | 결과에서 실제 출처와 열람 시각을 확인할 수 있다. | 미완료 | — | — | Backend 실제 저장소 검색·정렬·보호 정책 및 통합 검증 필요 |
+| Tests | 오늘 기록 검색 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Tests | 특정 날짜 범위 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Tests | Chrome 기록만 검색 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Tests | PDF 기록만 검색 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Tests | 시간 + 프로그램 조건 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Tests | 결과 없음 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| 완료 조건 | 시간 조건으로 기록을 찾을 수 있다. | 미완료 | — | — | API 자동 검증 완료 · Windows 수동/전체 완료 확인 잔여 |
+| 완료 조건 | 프로그램 조건으로 기록을 찾을 수 있다. | 미완료 | — | — | API 자동 검증 완료 · Windows 수동/전체 완료 확인 잔여 |
+| 완료 조건 | 웹/파일 출처를 구분해 검색할 수 있다. | 미완료 | — | — | API 자동 검증 완료 · Windows 수동/전체 완료 확인 잔여 |
+| 완료 조건 | 결과에서 실제 출처와 열람 시각을 확인할 수 있다. | 미완료 | — | — | API 자동 검증 완료 · Windows 수동/전체 완료 확인 잔여 |
 
 ## Phase 012 — 의미 검색 및 혼합 검색
 
@@ -425,10 +434,10 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 | Client | 검색 결과 관련도 표시 방식 정리 | 완료 | 2026-11-06 | `feat/phase12-client` | [Client 미리보기](phase012.md#client-미리보기-실행) · 응답 순서 기준의 순위 |
 | Backend | 질의 의미 검색 | 미완료 | — | — | 미착수 |
 | Backend | 의미 유사도 기반 후보 추출 | 미완료 | — | — | 미착수 |
-| Backend | 시간 조건 + 의미 검색 | 미완료 | — | — | 미착수 |
-| Backend | 프로그램 조건 + 의미 검색 | 미완료 | — | — | 미착수 |
-| Backend | 출처 유형 + 의미 검색 | 미완료 | — | — | 미착수 |
-| Backend | 결과 재정렬 | 미완료 | — | — | 미착수 |
+| Backend | 시간 조건 + 의미 검색 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 프로그램 조건 + 의미 검색 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 출처 유형 + 의미 검색 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 결과 재정렬 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Backend | 활성 시간 / 재방문 신호 반영 가능 구조 | 미완료 | — | — | 미착수 |
 | Tests | 내용만 기억하는 질의 | 미완료 | — | — | 미착수 |
 | Tests | 다른 표현의 의미 검색 | 미완료 | — | — | 미착수 |
@@ -436,7 +445,7 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 | Tests | 프로그램 + 의미 질의 | 미완료 | — | — | 미착수 |
 | Tests | 웹과 PDF 혼합 결과 | 미완료 | — | — | 미착수 |
 | Tests | 관련 없는 질의 | 미완료 | — | — | 미착수 |
-| Tests | 실제 출처 연결 검증 | 미완료 | — | — | 미착수 |
+| Tests | 실제 출처 연결 검증 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | 완료 조건 | 내용의 의미만으로 과거 자료를 찾을 수 있다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 시간·프로그램 조건과 의미 검색을 함께 사용할 수 있다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 검색 결과에서 실제 URL/파일 경로를 확인할 수 있다. | 미완료 | — | — | 미착수 |
@@ -447,28 +456,28 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Client | 생성 답변 표시 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 가상 응답의 독립된 답변 영역, 실제 RAG 응답 연결 잔여. [읽기 UI](../compact-search-window.md) |
-| Client | 답변 근거 목록 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 가상 근거의 펼침·선택·정렬, 실제 응답 연결 잔여 |
-| Client | 근거별 URL / 파일 경로 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 같은 읽기 영역의 가상 출처 정보 전환·원문 복사, 실제 응답 연결 잔여 |
-| Client | 근거별 열람 시각 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 가상 근거의 열람·확보 시각 구분, 실제 응답 연결 잔여 |
-| Client | 근거 상세보기 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 답변과 독립된 근거 본문·출처 정보, 실제 응답 연결 잔여 |
-| Client | 근거 부족 상태 표시 | 미완료 | 2026-11-13 | `feat/client-reading-design` | 답변 없이 가상 근거만 펼침, 실제 응답 연결 잔여 |
-| Backend | 상위 검색 근거 선택 | 미완료 | — | — | 미착수 |
-| Backend | 중복 근거 제거 | 미완료 | — | — | 미착수 |
-| Backend | 답변용 근거 구성 | 미완료 | — | — | 미착수 |
+| Client | 생성 답변 표시 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Client | 답변 근거 목록 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Client | 근거별 URL / 파일 경로 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Client | 근거별 열람 시각 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Client | 근거 상세보기 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Client | 근거 부족 상태 표시 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 상위 검색 근거 선택 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 중복 근거 제거 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 답변용 근거 구성 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Backend | 검색 근거 기반 응답 생성 | 미완료 | — | — | 미착수 |
-| Backend | 근거 밖 출처 생성 방지 | 미완료 | — | — | 미착수 |
-| Backend | 근거 부족 기준 적용 | 미완료 | — | — | 미착수 |
-| Backend | 외부 전달 전 민감정보 재검사 | 미완료 | — | — | 미착수 |
-| Shared | RAG 요청 구조 | 미완료 | — | — | 미착수 |
-| Shared | 답변 구조 | 미완료 | — | — | 미착수 |
-| Shared | 근거 출처 구조 | 미완료 | — | — | 미착수 |
-| Tests | 단일 출처 질문 | 미완료 | — | — | 미착수 |
-| Tests | 여러 출처 질문 | 미완료 | — | — | 미착수 |
+| Backend | 근거 밖 출처 생성 방지 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 근거 부족 기준 적용 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 외부 전달 전 민감정보 재검사 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Shared | RAG 요청 구조 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Shared | 답변 구조 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Shared | 근거 출처 구조 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Tests | 단일 출처 질문 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Tests | 여러 출처 질문 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Tests | 비슷한 문서 구분 | 미완료 | — | — | 미착수 |
-| Tests | 근거가 없는 질문 | 미완료 | — | — | 미착수 |
-| Tests | 존재하지 않는 URL 생성 여부 | 미완료 | — | — | 미착수 |
-| Tests | 차단/민감 데이터 포함 여부 | 미완료 | — | — | 미착수 |
+| Tests | 근거가 없는 질문 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Tests | 존재하지 않는 URL 생성 여부 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Tests | 차단/민감 데이터 포함 여부 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | 완료 조건 | 검색된 기록을 기반으로 답변할 수 있다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 답변의 실제 출처를 함께 표시한다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 충분한 근거가 없으면 임의 답변을 생성하지 않는다. | 미완료 | — | — | 미착수 |
@@ -479,28 +488,28 @@ Phase 5에 이 구현·검증 항목 두 개를 추가하여 15/22로 집계하�
 
 | 영역 | 체크 항목 | 상태 | 작업 확인일 | 작업 브랜치 | 근거 / 남은 사항 |
 |---|---|---|---|---|---|
-| Backend | 시간 간격 기반 작업 세션 구성 | 미완료 | — | — | 미착수 |
-| Backend | 세션 시작 / 종료 계산 | 미완료 | — | — | 미착수 |
-| Backend | 세션과 작업 기록 연결 | 미완료 | — | — | 미착수 |
-| Backend | 세션 관련 자료 조회 | 미완료 | — | — | 미착수 |
-| Backend | 선택 기록 삭제 | 미완료 | — | — | 미착수 |
-| Backend | 전체 기록 삭제 | 미완료 | — | — | 미착수 |
+| Backend | 시간 간격 기반 작업 세션 구성 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 세션 시작 / 종료 계산 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 세션과 작업 기록 연결 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 세션 관련 자료 조회 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 선택 기록 삭제 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Backend | 전체 기록 삭제 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Backend | 장시간 수집 안정성 확인 | 미완료 | — | — | 미착수 |
-| Backend | 종료/재시작 데이터 일관성 확인 | 미완료 | — | — | 미착수 |
+| Backend | 종료/재시작 데이터 일관성 확인 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Backend | 검색 응답 시간 점검 | 미완료 | — | — | 미착수 |
-| Client | 작업 타임라인 | 미완료 | — | — | 미착수 |
-| Client | 작업 세션 상세보기 | 미완료 | — | — | 미착수 |
+| Client | 작업 타임라인 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Client | 작업 세션 상세보기 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Client | 개인정보 설정 화면 정리 | 미완료 | — | — | 미착수 |
-| Client | 기록 삭제 기능 | 미완료 | — | — | 미착수 |
-| Client | 검색 → 답변 → 출처 이동 흐름 정리 | 미완료 | — | — | 미착수 |
-| Client | 오류 / 빈 결과 상태 정리 | 미완료 | — | — | 미착수 |
+| Client | 기록 삭제 기능 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Client | 검색 → 답변 → 출처 이동 흐름 정리 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Client | 오류 / 빈 결과 상태 정리 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Integration | 웹 열람 → 기록 → 의미 검색 → URL 확인 | 미완료 | — | — | 미착수 |
 | Integration | PDF 열람 → 내용 검색 → 파일 경로 확인 | 미완료 | — | — | 미착수 |
 | Integration | 기록 → 검색 → RAG → 근거 확인 | 미완료 | — | — | 미착수 |
-| Integration | 차단 앱 → 저장되지 않음 | 미완료 | — | — | 미착수 |
+| Integration | 차단 앱 → 저장되지 않음 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Integration | 차단 URL → 저장되지 않음 | 미완료 | — | — | 미착수 |
-| Integration | 일시정지 → 재개 | 미완료 | — | — | 미착수 |
-| Integration | 재시작 후 기존 기록 검색 | 미완료 | — | — | 미착수 |
+| Integration | 일시정지 → 재개 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
+| Integration | 재시작 후 기존 기록 검색 | 완료 | 2026-11-27 | `feat/phase11-14-api-integration` | [API 통합 검증](../../docs/reports/phase11-14-api-integration.md) · 실제 HTTP/DB, 모델 추론 출력 대역 |
 | Integration | 장시간 실행 | 미완료 | — | — | 미착수 |
 | 완료 조건 | 웹과 로컬 문서의 전체 출처 역추적 흐름이 동작한다. | 미완료 | — | — | 미착수 |
 | 완료 조건 | 관련 작업을 세션과 타임라인으로 확인할 수 있다. | 미완료 | — | — | 미착수 |

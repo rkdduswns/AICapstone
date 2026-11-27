@@ -2,6 +2,8 @@
 
 **[전체 체크리스트·작업일·브랜치 현황](00-progress.md)** — 모든 Phase 진행사항을 한 문서에서 확인합니다.
 
+2026-11-27 `feat/phase11-14-api-integration`에서 Phase 11–14 실제 API를 연결했다. main `7e0991e`와 Backend `4ba10cf` 기준이며, 실제 모델 품질·Windows 수동 검증과 main 병합은 남아 있다. [API 통합 검증](../../docs/reports/phase11-14-api-integration.md)와 [실행 안내](../../docs/dev/phase11-14-api-integration.md)를 따른다. 아래 2026-11-13 이전 설명은 당시 이력이다.
+
 강써치 개발은 기능을 큰 덩어리로 한 번에 구현하지 않고, **작은 기능 단위로 완성 → 검증 → 통합**하는 방식으로 진행한다.
 
 2026-11-13부터 완료된 Client 작업의 개발 통합 기준은 `client_dev`다.
@@ -41,9 +43,10 @@ Client 선행 기록 (Phase 1~11은 2026-10-15)과 2026-10-22의 `feat/client-ba
 | 8 | DONE · 저장 웹 본문/수집 시각/출처 상세 | IN_PROGRESS · 수동 캡처/저장 본문 조회/재전송 갱신 완료, 정제·자동 갱신·URL 차단 잔여 |
 | 9 | DONE · 파일 출처/저장 본문 및 문서 가져오기 | IN_PROGRESS · 실제 추출·명시적 작업/선택 경로 연결 완료, 자동 파일 감지·Windows 수동 검증 잔여 |
 | 10 | Shared DONE · 검색 조각·확보 당시 출처·Client 수신 검증 | IN_PROGRESS · Backend 저장 본문 전처리·조각 생성 완료, 임베딩·색인 저장/삭제·역추적 통합 잔여 |
-| 11 | Client DONE · 명시적 조건 검색·목록·출처 상세 | IN_PROGRESS · Backend 실제 필터·조회·정렬·통합 |
-| 12 | Client 미리보기 완료 (2026-11-06) · 자연어 입력·조건·관련 본문·순위 | IN_PROGRESS · 실제 의미 검색과 혼합 조건, API 연결 |
-| 13 | Client 표시 미리보기 정리 (2026-11-13) · 근거 선택·인용 강조·본문과 출처 정보 전환 | IN_PROGRESS · 실제 RAG 요청·응답 계약과 API 연결 |
+| 11 | Client DONE · 명시적 조건 검색·목록·출처 상세 | IN_PROGRESS · 실제 조건 검색 API 연결 |
+| 12 | Client 미리보기 완료 (2026-11-06) · 자연어 입력·조건·관련 본문·순위 | IN_PROGRESS · 실제 API 연결 · 모델 품질 잔여 |
+| 13 | Client 표시 미리보기 정리 (2026-11-13) · 근거 선택·인용 강조·본문과 출처 정보 전환 | IN_PROGRESS · 실제 API 연결 · 모델 품질 잔여 |
+| 14 | 세션·타임라인·삭제 화면 실제 연결 | IN_PROGRESS · Windows 실사용·장시간·실제 모델 검증 잔여 |
 
 Phase 1~11 개발 이력은 각 작업 시점의 검증 범위를 기록한다.
 구현 및 검증 근거: [Phase 2](../../docs/reports/phase2-client.md),

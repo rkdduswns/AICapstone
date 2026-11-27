@@ -1,5 +1,7 @@
 # 개발 환경
 
+2026-11-27 통합 브랜치의 실제 검색·RAG·세션/삭제 및 모델 설치는 [Phase 11–14 실행 안내](phase11-14-api-integration.md)를 따른다. 기본 `[dev,build]` EXE에는 ML 런타임·가중치·Ollama가 포함되지 않으며 AI 실행 검증은 `[ml]` 소스 환경이 필요하다.
+
 Python 설치 없이 실행하려면 [Windows EXE 안내](windows-exe.md)를 따른다.
 
 의존성과 패키지를 설치한 뒤 Backend를 독립 실행할 수 있다. Client도 독립 실행할 수 있다.

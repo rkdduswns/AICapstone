@@ -34,7 +34,15 @@ class JsonRequest(QObject):
         """명시한 설정값을 JSON으로 전송하며 자동 재전송하지 않는다."""
         self._request(path, payload)
 
-    def _request(self, path: str, payload: bytes | None = None) -> None:
+    def post(self, path: str, payload: bytes) -> None:
+        """검색·답변 요청을 JSON POST로 보내며 실패한 요청을 자동 재전송하지 않는다."""
+        self._request(path, payload, method="POST")
+
+    def delete(self, path: str) -> None:
+        """사용자가 확정한 삭제 요청만 전용 헤더와 함께 전달한다."""
+        self._request(path, method="DELETE")
+
+    def _request(self, path: str, payload: bytes | None = None, method: str | None = None) -> None:
         """고정된 loopback 주소에 요청하며 진행 중인 요청을 중복 생성하지 않는다."""
         if self.reply is not None:
             return
@@ -44,12 +52,16 @@ class JsonRequest(QObject):
         # 다른 주소로의 이동을 따르지 않고 API 오류로 처리한다.
         request.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
                              QNetworkRequest.RedirectPolicy.ManualRedirectPolicy)
-        if payload is None:
+        if method == "DELETE":
+            request.setRawHeader(b"X-ContextTrace-Client", b"desktop")
+            self.reply = self.manager.deleteResource(request)
+        elif payload is None:
             self.reply = self.manager.get(request)
         else:
             request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
             request.setRawHeader(b"X-ContextTrace-Client", b"desktop")
-            self.reply = self.manager.put(request, QByteArray(payload))
+            sender = self.manager.post if method == "POST" else self.manager.put
+            self.reply = sender(request, QByteArray(payload))
         self.reply.finished.connect(self._finished)
         self.timer.start()
 

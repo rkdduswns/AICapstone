@@ -1,5 +1,10 @@
 # Phase 10 - 검색 데이터 구축
 
+## 2026-11-27 실제 API 통합
+
+`feat/phase11-14-api-integration`에서 `main 7e0991e`와 `feat/phase11-backend 4ba10cf`를 통합했다. 색인·벡터 저장/삭제와 검색 역추적 API를 합류했다. 기본 수집은 모델을 로드하지 않고 의미 검색 시 실제 원문에서 벡터를 만든다. 실제 E5 품질은 미검증이므로 전체 완료는 유지하지 않는다.
+[API 통합 검증](../../docs/reports/phase11-14-api-integration.md)와 [실행 안내](../../docs/dev/phase11-14-api-integration.md)를 따른다. main에는 미병합이며 전체 Phase는 IN_PROGRESS다.
+
 ## 목표
 웹과 로컬 문서 내용을 검색 가능한 작은 단위로 가공하고 의미 검색용 데이터를 만든다.
 
