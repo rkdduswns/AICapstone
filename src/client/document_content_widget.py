@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from client.document_content_client import DocumentContentClient
+from client.document_reader import add_document_reader
 from client.time_values import format_timestamp
 from shared.document import LocalDocument, RecordDocumentContent
 from shared.records import ContextRecord
@@ -48,11 +49,7 @@ class DocumentContentWidget(QWidget):
         self.source.setFixedHeight(64)
         self.source.setPlaceholderText("본문 추출 당시의 파일 경로·유형·시각")
         layout.addWidget(self.source)
-        self.text = QPlainTextEdit()
-        self.text.setReadOnly(True)
-        self.text.setTabChangesFocus(True)
-        self.text.setPlaceholderText("이 작업에 저장된 문서 본문이 여기에 표시됩니다.")
-        layout.addWidget(self.text, 1)
+        self.text = add_document_reader(self, layout)
         self.updated_at = QLabel("마지막 정상 조회: 없음")
         layout.addWidget(self.updated_at)
 

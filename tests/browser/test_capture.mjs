@@ -117,3 +117,22 @@ test("잘못된 포트는 연결을 만들지 않는다", async () => {
   await assert.rejects(capturePage(f.api, {...settings, port: "8765/other"}, f.fetcher), /포트/);
   assert.equal(f.calls.length, 0);
 });
+
+test("자동 연결은 허용 사이트의 포그라운드 제목·주소만 저장한다", async () => {
+  const {linkActiveSource} = await import("../../src/browser/extension/automatic.mjs");
+  const f = fixture();
+  f.setTab({id: 7, status: "complete", url: "https://example.test/a", title: "페이지"});
+  let focused = true, allowed = false;
+  f.api.windows = {getLastFocused: async () => ({id: 1, focused})};
+  f.api.storage = {local: {get: async () => ({autoSites:["https://example.test"], ...settings})}};
+  f.api.permissions = {contains: async () => allowed};
+  await linkActiveSource(f.api, "chrome", f.fetcher);
+  allowed = true; focused = false;
+  await linkActiveSource(f.api, "chrome", f.fetcher);
+  assert.equal(f.calls.length, 0);
+  focused = true;
+  await linkActiveSource(f.api, "chrome", f.fetcher);
+  assert.equal(f.state.scriptReads, 0);
+  assert.deepEqual(f.calls.map(c => new URL(c.url).pathname), ["/activity/current", "/browser/source"]);
+  assert.equal(JSON.parse(f.calls[1].options.body).record_id, "12");
+});

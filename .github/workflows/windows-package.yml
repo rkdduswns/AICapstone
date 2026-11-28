@@ -1,7 +1,7 @@
 name: Windows EXE package
 on:
   pull_request:
-    branches: [main]
+    branches: [chore/repository-layout, main]
   workflow_dispatch:
 permissions:
   contents: read

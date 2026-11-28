@@ -25,7 +25,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["client*", "backend*", "shared*"]
+include = ["client*", "backend*", "shared*", "desktop*"]
 namespaces = false
 
 [tool.pytest.ini_options]

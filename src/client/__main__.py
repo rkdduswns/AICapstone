@@ -18,7 +18,10 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--smoke-test-result", type=Path,
                         help="실제 창·Backend 연결 진단 결과를 JSON으로 쓰고 종료합니다.")
+    parser.add_argument("--smoke-owned-db", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.smoke_owned_db and (args.smoke_test_result is None or sys.platform != "win32"):
+        parser.error("--smoke-owned-db requires Windows and --smoke-test-result")
     if not 1 <= args.port <= 65535:
         parser.error("port must be an integer from 1 to 65535")
     app = QApplication([sys.argv[0]])
@@ -26,6 +29,13 @@ def main() -> int:
     app.setApplicationDisplayName("강써치")
     window = ApplicationWindow(args.port)
     window.show()
+    supervisor = None
+    if args.smoke_test_result is None:
+        window.enable_background()
+    if sys.platform == "win32" and (args.smoke_test_result is None or args.smoke_owned_db):
+        from desktop.launcher import BackendSupervisor
+        supervisor = BackendSupervisor(window, args.port, args.smoke_owned_db)
+        QTimer.singleShot(0, supervisor.start)
     if args.smoke_test_result is not None:
         completed = False
 
@@ -38,6 +48,11 @@ def main() -> int:
             result = {"ok": connected and window.isVisible(),
                       "frozen": bool(getattr(sys, "frozen", False)),
                       "platform": app.platformName()}
+            if supervisor is not None:
+                owned = supervisor.state == "ready_owned"
+                supervisor.stop()
+                result["owned_backend_stopped"] = owned and supervisor.shutdown_clean
+                result["ok"] = result["ok"] and result["owned_backend_stopped"]
             try:
                 args.smoke_test_result.write_text(json.dumps(result), encoding="utf-8")
                 exit_code = 0 if result["ok"] else 1
@@ -48,8 +63,9 @@ def main() -> int:
 
         window.management.backend.connection_changed.connect(finish)
         # 창이 표시되고 이벤트 루프가 시작된 뒤 요청한다. 일반 실행에는 자동 종료를 적용하지 않는다.
-        QTimer.singleShot(0, window.management.check)
-        QTimer.singleShot(10000, lambda: finish(False))
+        if supervisor is None:
+            QTimer.singleShot(0, window.management.check)
+        QTimer.singleShot(90000 if supervisor else 10000, lambda: finish(False))
     return app.exec()
 
 

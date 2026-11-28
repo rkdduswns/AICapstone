@@ -207,3 +207,25 @@ def test_failed_browser_reindex_restores_previous_body(tmp_path):
     assert response.status_code == 503
     assert store.get_browser_content_record(sid) == before
     assert store.browser_content_truncated(sid) is False
+
+
+def test_document_auto_link_requires_one_exact_viewer_path(tmp_path):
+    """파일명만 같거나 두 작업이 같은 경로를 표시하면 자동 연결하지 않는다."""
+    path = r"C:\자료\회의록.docx"
+    store = ActivityStore(tmp_path / "test.db")
+    client = TestClient(create_app(activity_store=store, collection_interval=None))
+    def save(title):
+        return store.save_record(ActiveWindow("Word", "WINWORD.EXE", 5, title), TIME, TIME, 0)
+    def upload():
+        reply = client.post("/documents", headers={"X-ContextTrace-Client": "desktop"},
+                            data={"original_file_path": path, "auto_link": "true"},
+                            files={"file": ("회의록.docx", docx_bytes())})
+        assert reply.is_success, reply.text
+        return reply.json()["data"]
+    save("회의록.docx - Word")
+    assert upload()["context_id"] is None
+    target = save(path + " - Word")
+    linked = upload()
+    assert linked["context_id"] == target and linked["search_source_id"]
+    save(path)
+    assert upload()["context_id"] is None

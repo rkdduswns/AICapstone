@@ -225,3 +225,21 @@ def test_sensitive_browser_content_is_denied(runtime):
                            json={"browser_source_id": source, "content_text": "secret=do-not-save"})
     assert response.status_code == 403
     assert store.get_browser_content_record(source) is None
+
+
+def test_own_window_is_excluded_before_title_read(runtime):
+    """자기 창과 그 대화상자는 제목·작업 행 없이 처리하고 다른 Python 창은 기록한다."""
+    client, clock, store, tracker = runtime
+    detector = tracker._detector
+    clock.process = "강써치-Client.EXE"
+    original = detector.get_window_title
+    detector.get_window_title = lambda handle: pytest.fail("excluded window title read")
+    for own in [False, True]:
+        if own:
+            clock.process = "python.exe"
+            detector.is_gangsearch_window = lambda _: True
+        assert client.get("/activity/current").json()["data"]["collection_status"] == "blocked"
+    assert not store.get_recent_records()
+    detector.is_gangsearch_window = lambda _: False
+    detector.get_window_title = original
+    assert client.get("/activity/current").json()["data"]["collection_status"] == "collecting"

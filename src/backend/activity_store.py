@@ -440,6 +440,20 @@ class ActivityStore(ActivityDeletionMixin):
         finally:
             connection.close()
 
+    def unique_document_activity(self, path: str, suffix: str) -> int | None:
+        """허용된 문서 뷰어가 전체 경로를 표시한 기록이 한 개일 때만 연결한다."""
+        viewers = (("winword.exe", "Word") if suffix == ".docx" else
+                   ("acrord32.exe", "Adobe Acrobat Reader"))
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                "SELECT id FROM activity_records WHERE process_name = ? COLLATE NOCASE "
+                "AND window_title COLLATE NOCASE IN (?, ?) LIMIT 2",
+                (viewers[0], path, f"{path} - {viewers[1]}")).fetchall()
+            return rows[0]["id"] if len(rows) == 1 else None
+        finally:
+            connection.close()
+
     def get_document_record(self, source_id: int) -> DocumentRecord | None:
         """최근 목록 제한과 무관하게 실제 문서 한 개를 읽는다."""
         connection = self._connect()

@@ -173,6 +173,17 @@ def main() -> None:
                 stop(process)
                 # 실패 로그도 CI 콘솔에 남기되 가상 데이터만 사용한다.
                 print((work / "backend.log").read_text(encoding="utf-8", errors="replace"))
+        # 기존 서버가 없는 포트에서 Client EXE만 실행하고, 직접 시작한 worker의 정상 종료도 확인한다.
+        with socket.socket() as fresh:
+            fresh.bind(("127.0.0.1", 0))
+            managed_port = fresh.getsockname()[1]
+        managed_result = work / "managed.json"
+        subprocess.run([str(work / "강써치-Client.exe"), "--port", str(managed_port),
+                        "--smoke-test-result", str(managed_result), "--smoke-owned-db", str(work / "소유.db")],
+                       cwd=work, env=environment, timeout=130, check=True)
+        assert json.loads(managed_result.read_text(encoding="utf-8"))["owned_backend_stopped"]
+        assert (work / "소유.db").exists()
+        checks["client_starts_and_stops_background_backend"] = True
         assert (work / "검증.db").exists()
     (ROOT / "build/package-smoke.json").write_text(json.dumps(checks, indent=2), encoding="utf-8")
     print(json.dumps(checks))

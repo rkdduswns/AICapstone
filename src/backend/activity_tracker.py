@@ -152,6 +152,11 @@ class ActivityTracker:
             if not process_name:
                 return self._empty_activity("error")
 
+            # 배포 EXE는 제목을 읽기 전에 제외한다. 소스 실행의 Qt 창은 별도 표식으로 구분한다.
+            if process_name.casefold() in {"강써치.exe", "강써치-client.exe", "강써치-backend.exe"} or (
+                getattr(detector, "is_gangsearch_window", lambda _: False)(handle)
+            ):
+                return self._empty_activity("blocked")
             application = detector.normalize_app_name(process_name)
 
             # Never read the title of a blocked application.

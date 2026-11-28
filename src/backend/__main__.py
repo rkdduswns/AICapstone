@@ -1,12 +1,10 @@
 """Run with python -m backend [--port 8765]."""
 
 import argparse
+import socket
+import sys
 from pathlib import Path
 
-import uvicorn
-
-from backend.activity_store import ActivityStore
-from backend.app import create_app
 from shared.protocol import DEFAULT_PORT
 
 
@@ -27,7 +25,15 @@ def main() -> None:
     parser.add_argument("--db-path", type=Path,
                         help="사용할 SQLite 파일 경로. 생략하면 사용자 데이터 폴더를 사용합니다.")
     parser.add_argument("--check-embedding", action="store_true", help="배포 E5 실제 CPU 추론 점검")
+    parser.add_argument("--backend-worker", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--owner-pid", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--stop-event", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.backend_worker:
+        from desktop.backend_worker import run_worker
+        if not args.stop_event:
+            parser.error("missing worker control")
+        raise SystemExit(run_worker(args.port, args.db_path, args.owner_pid, args.stop_event))
     if args.check_embedding:
         from backend.embedding import EmbeddingService
 
@@ -40,10 +46,29 @@ def main() -> None:
             raise RuntimeError("E5 embedding smoke check failed")
         print("E5 CPU OK: 384")
         return
-    # Uvicorn logs startup/shutdown and exits nonzero on a bind failure.
-    store = ActivityStore(args.db_path) if args.db_path is not None else None
-    uvicorn.run(create_app(activity_store=store), host="127.0.0.1", port=args.port,
-                access_log=False)
+    # 다른 인스턴스가 사용 중이면 DB나 수집기를 열기 전에 종료한다.
+    with socket.socket() as listener:
+        if sys.platform == "win32":
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        else:
+            # POSIX에서는 종료 직후 TIME_WAIT가 남아도 같은 포트로 다시 시작할 수 있다.
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            listener.bind(("127.0.0.1", args.port))
+            listener.listen()
+        except OSError:
+            parser.exit(2, "포트를 사용할 수 없습니다 (bind). 기존 강써치 또는 포트 점유를 확인해 주세요.\n")
+        import uvicorn
+
+        from backend.activity_store import ActivityStore
+        from backend.app import create_app
+
+        store = ActivityStore(args.db_path) if args.db_path is not None else None
+        server = uvicorn.Server(uvicorn.Config(create_app(activity_store=store),
+                                host="127.0.0.1", port=args.port, access_log=False))
+        server.run(sockets=[listener])
+        if not server.started:
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":
