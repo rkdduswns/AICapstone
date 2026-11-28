@@ -35,3 +35,25 @@ capture.addEventListener("click", async () => {
     capture.disabled = save.disabled = false;
   }
 });
+
+// 사이트 권한은 사용자의 클릭에서만 요청하고 해제하면 이후 자동 연결도 중지한다.
+const site = document.getElementById("site");
+const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+if (tab?.url && !tab.incognito && /^https?:\/\//i.test(tab.url)) {
+  const origin = new URL(tab.url).origin;
+  const url = new URL(origin);
+  const origins = [url.protocol + "//" + url.hostname + "/*"];
+  let {autoSites = []} = await chrome.storage.local.get("autoSites");
+  let enabled = autoSites.includes(origin) && await chrome.permissions.contains({origins});
+  function render() { site.textContent = enabled ? "이 사이트 자동 연결 끄기" : "이 사이트 자동 연결 켜기"; }
+  site.disabled = false;
+  render();
+  site.addEventListener("click", async () => {
+    if (!enabled && !await chrome.permissions.request({origins})) return;
+    const saved = await chrome.storage.local.get({autoSites: []});
+    const others = saved.autoSites.filter(value => value !== origin);
+    await chrome.storage.local.set({autoSites: enabled ? others : [...others, origin]});
+    enabled = !enabled;
+    render();
+  });
+}

@@ -1,6 +1,7 @@
 """명시적으로 선택한 문서를 Backend에 전송하고 저장된 문서 목록을 조회한다."""
 
 import json
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import QFile, QIODevice, QObject, QUrl, Signal
@@ -72,9 +73,10 @@ class DocumentsClient(JsonRequest):
                 or any(c in '\r\n"' for c in name)):
             self.documents_failed.emit("PDF 또는 DOCX 파일을 선택해 주세요.")
             return
-        if record_id is not None:
+        auto_link = record_id is None and (sys.platform == "win32" or source_path is not None)
+        if record_id is not None or auto_link:
             try:
-                if not record_id.isascii() or not record_id.isdecimal() or int(record_id) < 1:
+                if record_id is not None and (not record_id.isascii() or not record_id.isdecimal() or int(record_id) < 1):
                     raise ValueError("Invalid record ID")
                 source_path = source_path or str(Path(path).absolute())
                 read_document({"file_path": source_path, "file_type": Path(name).suffix.lower()[1:]})
@@ -95,8 +97,9 @@ class DocumentsClient(JsonRequest):
         part.setRawHeader(b"Content-Disposition", f'form-data; name="file"; filename="{name}"'.encode())
         part.setBodyDevice(source)
         multipart.append(part)
-        if record_id is not None:
-            for key, value in (("context_id", record_id), ("original_file_path", source_path)):
+        if record_id is not None or auto_link:
+            target = ("auto_link", "true") if auto_link else ("context_id", record_id)
+            for key, value in (target, ("original_file_path", source_path)):
                 field = QHttpPart()
                 field.setRawHeader(b"Content-Disposition", f'form-data; name="{key}"'.encode())
                 field.setBody(value.encode())
@@ -108,6 +111,7 @@ class DocumentsClient(JsonRequest):
                              QNetworkRequest.RedirectPolicy.ManualRedirectPolicy)
         self.operation = "upload"
         self.expected_record_id = record_id
+        self.auto_path = source_path if auto_link else None
         self.timed_out = False
         self.reply = self.manager.post(request, multipart)
         multipart.setParent(self.reply)
@@ -124,7 +128,9 @@ class DocumentsClient(JsonRequest):
             data = body.get("data")
             if self.operation == "upload":
                 result = read_imported_document(data)
-                if ("context_id" in data or "activity_record_id" in data) and result.record_id != self.expected_record_id:
+                if ("context_id" in data or "activity_record_id" in data) and result.record_id != self.expected_record_id and not (
+                    getattr(self, "auto_path", None) and result.file_path == self.auto_path
+                ):
                     raise ValueError("Linked record does not match upload request")
             else:
                 rows = data.get("documents") if isinstance(data, dict) else None

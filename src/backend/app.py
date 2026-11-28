@@ -841,6 +841,7 @@ def create_app(
         record_id: int | None = Form(default=None, ge=1, le=2**63 - 1),
         file_path: str | None = Form(default=None, max_length=8192),
         original_file_path: str | None = Form(default=None, max_length=8192),
+        auto_link: bool = Form(default=False),
         context_id: int | None = Form(default=None, ge=1, le=2**63 - 1),
     ):
         """선택한 문서를 추출하고 명시된 작업에만 경로와 함께 연결한다. 경로로 파일을 읽지 않는다."""
@@ -875,6 +876,21 @@ def create_app(
                 status_code=415,
                 detail="Only PDF and DOCX files are supported",
             )
+
+        if auto_link:
+            # 데스크톱이 선택한 파일 경로만 비교한다. 경로로 디스크를 탐색하거나 열지 않는다.
+            if record_id is not None or request.headers.get("x-contexttrace-client") != "desktop":
+                raise HTTPException(422)
+            try:
+                source = read_document({"file_path": file_path, "file_type": suffix[1:]})
+                if PureWindowsPath(source.file_path).name.casefold() != original_filename.casefold():
+                    raise ValueError("Filename mismatch")
+            except ValueError as exc:
+                raise HTTPException(422) from exc
+            record_id = store.unique_document_activity(source.file_path, suffix)
+            activity_record = store.get_record(record_id) if record_id is not None else None
+            if activity_record and policy.is_blocked(activity_record.application, activity_record.process_name):
+                raise HTTPException(403)
 
         if record_id is not None and not backend_upload:
             if (request.headers.get("origin") is not None

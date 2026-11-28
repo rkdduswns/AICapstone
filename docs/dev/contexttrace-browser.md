@@ -2,7 +2,7 @@
 
 | 구현 | 수집 시점과 인증 | 배포 |
 |---|---|---|
-| [강써치 페이지 연결](../../src/browser/extension) | 사용자가 팝업 버튼을 누르면 현재 페이지를 연결한다. 팝업의 **연결 토큰**을 사용한다. | Windows ZIP의 `browser-extension`. [설치 및 사용](history-source-linking.md) |
+| [강써치 페이지 연결](../../src/browser/extension) | 허용한 사이트의 현재 페이지 주소·제목을 자동 연결한다. 본문은 수동 옵션에서 연결한다. 팝업의 **연결 토큰**을 사용한다. | Windows ZIP의 `browser-extension`. [설치 및 사용](history-source-linking.md) |
 | [ContextTrace](../../src/browser/contexttrace) | 활성 HTTP(S) 페이지를 로드할 때 출처·본문을 전송한다. Chrome이 로컬 Native Messaging 호스트에 토큰을 요청한다. | 소스 전용. Windows ZIP에 포함하지 않는다. |
 
 두 확장의 권한과 수집 시점이 다르므로 같은 확장의 두 설치 단계로 취급하지 않는다.
@@ -24,7 +24,7 @@ Windows에서 한 번 실행하는 등록 스크립트는 `tools/`에 둔다.
 4. 등록 스크립트는 새 호스트 폴더에 매니페스트를 생성하고 현재 사용자 Chrome 레지스트리 항목을
    갱신한다. Chrome을 다시 시작한다. 이전 확장은 제거해도 된다.
 
-Windows ZIP의 수동 확장을 쓰는 사용자는 이 이전·재등록 절차를 수행할 필요가 없다.
+Windows ZIP의 확장을 쓰는 사용자는 이 이전·재등록 절차를 수행할 필요가 없다.
 
 ## 인증 상태와 확인 범위
 

@@ -4,6 +4,8 @@
 `feat/phase11-backend 4ba10cf`를 함께 반영한다. main 병합 여부와 전체 Phase 완료는 별개다.
 [검증 결과와 남은 작업](../reports/phase11-14-api-integration.md)을 따른다.
 
+이전 ZIP과 달리 후속 데스크톱 브랜치에서 빌드한 버전은 [백그라운드 실행 및 출처 연결](desktop-background.md)을 따른다.
+
 ## 실행과 모델 준비
 
 Windows 통합 ZIP(`183c974` 빌드)은 폴더 전체를 압축 해제하고 `models`를 두 EXE 옆에 둔 뒤

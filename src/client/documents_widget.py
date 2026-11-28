@@ -6,12 +6,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QListWidget,
-    QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
+from client.document_reader import add_document_reader
 from client.documents_client import DocumentsClient
 from client.time_values import format_timestamp
 from shared.document import MAX_DOCUMENT_CONTENT_LENGTH, ImportedDocument
@@ -38,7 +38,7 @@ class DocumentsWidget(QWidget):
                              "문서 저장 시각과 작업 열람 시각은 별도로 보존합니다.")
         description.setWordWrap(True)
         layout.addWidget(description)
-        self.target = QLabel("연결 대상 없음 · 문서만 가져옵니다.")
+        self.target = QLabel("자동 연결 · 전체 경로가 일치하는 작업 하나가 있을 때 연결합니다.")
         self.target.setTextFormat(Qt.TextFormat.PlainText)
         self.target.setWordWrap(True)
         layout.addWidget(self.target)
@@ -60,9 +60,7 @@ class DocumentsWidget(QWidget):
         self.records = QListWidget()
         self.records.currentRowChanged.connect(self._select)
         layout.addWidget(self.records, 1)
-        self.content = QPlainTextEdit()
-        self.content.setReadOnly(True)
-        layout.addWidget(self.content, 2)
+        self.content = add_document_reader(self, layout)
         self._controls()
 
     def _controls(self) -> None:
@@ -77,7 +75,7 @@ class DocumentsWidget(QWidget):
             return False
         self.target_record_id = record.id if record is not None else None
         self.target.setText(f"연결 대상 #{record.id} · {record.window_title}" if record else
-                            "연결 대상 없음 · 문서만 가져옵니다.")
+                            "자동 연결 · 전체 경로가 일치하는 작업 하나가 있을 때 연결합니다.")
         self._controls()
         return True
 

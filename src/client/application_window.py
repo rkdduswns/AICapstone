@@ -1,8 +1,19 @@
 """일반 Client의 검색 화면과 기존 관리 화면을 한 창에서 전환한다."""
 
-from PySide6.QtCore import QSize, Qt
+import sys
+
+from PySide6.QtCore import QEvent, QSize, Qt
 from PySide6.QtGui import QAction, QCloseEvent, QKeyEvent
-from PySide6.QtWidgets import QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QMenu,
+    QPushButton,
+    QScrollArea,
+    QStyle,
+    QSystemTrayIcon,
+    QVBoxLayout,
+    QWidget,
+)
 
 from client.ai_clients import RAGClient
 from client.compact_search_window import CompactAnswer, CompactSearchWindow
@@ -20,6 +31,9 @@ class ApplicationWindow(QWidget):
     def __init__(self, port: int = DEFAULT_PORT) -> None:
         """기존 API 클라이언트를 관리 화면에 한 번만 구성한다."""
         super().__init__()
+        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, False)
+        self.background = False
+        self.tray = None
         apply_client_style(self)
         self.setWindowTitle("강써치 — 검색")
         self._management_open = False
@@ -31,7 +45,7 @@ class ApplicationWindow(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.search = CompactSearchWindow()
         self.rag = RAGClient(port, self)
-        self.rag.answer_received.connect(self.search.receive_result)
+        self.rag.answer_received.connect(self._answer_ready)
         self.rag.answer_failed.connect(self._answer_failed)
         self.search.search_cancelled.connect(lambda _identifier: self.rag.close())
         layout.addWidget(self.search)
@@ -64,7 +78,9 @@ class ApplicationWindow(QWidget):
             (self.management.tabs.widget(0), "현재 작업·연결"),
         ):
             index = self.management.tabs.indexOf(tab)
-            action = self.search.main_menu.addAction(label)
+            menu = (self.search.main_menu.addMenu("출처 관리") if tab is self.management.documents
+                    else self.search.main_menu)
+            action = menu.addAction(label)
             action.setData(index)
             action.triggered.connect(
                 lambda _checked=False, tab_index=index: self.show_management(tab_index),
@@ -164,12 +180,63 @@ class ApplicationWindow(QWidget):
         self.search.connection_button.setText(label)
         self.search.connection_button.setToolTip(description + " 현재 작업과 연결 설정을 엽니다.")
 
+    def enable_background(self) -> None:
+        """일반 실행에만 트레이와 종료 메뉴를 추가하고 Windows 원본 창에 감지 제외 표식을 단다."""
+        self.background = True
+        if sys.platform == "win32":
+            import ctypes
+            from ctypes import wintypes
+            mark = ctypes.windll.user32.SetPropW
+            mark.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.HANDLE]
+            mark(int(self.winId()), "GangSearch.Desktop.Window", 1)
+        self.search.main_menu.addAction("강써치 종료", self.quit_application)
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            QApplication.instance().setQuitOnLastWindowClosed(False)
+            self.tray = QSystemTrayIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView), self)
+            self.tray.setToolTip("강써치")
+            menu = QMenu(self)
+            menu.addAction("강써치 열기", self.restore_window)
+            menu.addAction("강써치 종료", self.quit_application)
+            self.tray.setContextMenu(menu)
+            self.tray.activated.connect(lambda reason: self.restore_window() if reason in (
+                QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick) else None)
+            self.tray.messageClicked.connect(self.restore_window)
+            self.tray.show()
+
+    def restore_window(self) -> None:
+        """트레이·알림·중복 실행 모두 대기 중인 화면을 그대로 복원한다."""
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def quit_application(self) -> None:
+        """명시적으로 종료할 때만 통신·소유 서버를 정리한다."""
+        self.background = False
+        self.close()
+        QApplication.instance().quit()
+
+    def _notify_answer(self, message: str) -> None:
+        """숨겨진 창의 결과만 알리고 질문·문서·답변 원문은 알림에 넣지 않는다."""
+        if self.background and (not self.isVisible() or self.isMinimized()):
+            if self.tray and QSystemTrayIcon.supportsMessages():
+                self.tray.showMessage("강써치", message)
+            else:
+                self.restore_window()
+                QApplication.alert(self)
+
+    def _answer_ready(self, request_id: int, result: CompactAnswer) -> None:
+        """현재 요청의 답변을 보관한 뒤 닫혀 있는 창에 완료를 알린다."""
+        if request_id == self.search._pending_id:
+            self.search.receive_result(request_id, result)
+            self._notify_answer("질문 처리가 완료되었습니다.")
+
     def _answer_failed(self, request_id: int, message: str) -> None:
         """서버/모델 오류를 표시하고 원문 오류나 가상 답변을 대신 채우지 않는다."""
         if request_id != self.search._pending_id:
             return
         self.search.receive_result(request_id, CompactAnswer("error"))
         self.search.show_request_error(message)
+        self._notify_answer("질문을 처리하지 못했습니다. 창에서 확인해 주세요.")
 
     def _resize_search(self, target: QSize) -> None:
         """검색 상태의 목표 크기를 보관하고 검색 화면이 열려 있을 때 적용한다."""
@@ -194,6 +261,12 @@ class ApplicationWindow(QWidget):
         fit_window(self, self._search_size)
         self.search.query.setFocus()
 
+    def changeEvent(self, event: QEvent) -> None:
+        """시스템 단축키가 최대화를 요청해도 검색창은 기존 펼침 크기를 유지한다."""
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.WindowStateChange and self.isMaximized():
+            self.showNormal()
+
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """관리 화면의 Esc는 검색으로 돌아가고 다른 키는 기본 처리에 맡긴다."""
         if event.key() == Qt.Key.Key_Escape and self._management_open:
@@ -204,6 +277,13 @@ class ApplicationWindow(QWidget):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """두 화면이 소유한 통신과 대기 중인 검색을 종료한다."""
+        if self.background and (self.tray or self.search._pending_id is not None):
+            event.ignore()
+            if self.tray:
+                self.hide()
+            else:
+                self.showMinimized()
+            return
         self.rag.close()
         self.search.close()
         self.management.close()

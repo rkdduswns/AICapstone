@@ -130,8 +130,11 @@ def test_menu_reuses_management_tabs_and_roundtrip_preserves_search(app, shell):
         0: "현재 작업·연결",
     }
     assert {index: action.text() for index, action in actions.items()} == expected
-    assert all(action.menu() is None for action in search.main_menu.actions())
-    assert all(action in search.main_menu.actions() for action in actions.values())
+    source_menu, = [action.menu() for action in search.main_menu.actions() if action.menu()]
+    document_action = actions[management.tabs.indexOf(management.documents)]
+    assert source_menu.actions() == [document_action]
+    assert document_action not in search.main_menu.actions()
+    assert all(action in search.main_menu.actions() for action in actions.values() if action != document_action)
     # 실제 API가 연결된 조건 검색을 기본 메뉴에서도 사용할 수 있다.
     assert management.tabs.indexOf(management.search) >= 0
     assert management.tabs.indexOf(management.search) in actions
@@ -380,3 +383,61 @@ def test_close_aborts_management_requests_and_stops_polling(app, delayed_server)
     assert not management.activity.poll_timer.isActive()
     assert not management.privacy.client.poll_timer.isActive()
     assert not window.isVisible()
+
+
+def test_close_keeps_pending_answer_and_notifies_without_contents(shell, monkeypatch):
+    """트레이로 숨겨도 늦게 온 답을 보존하고 원문 없는 알림에서 같은 창을 복원한다."""
+    from PySide6.QtWidgets import QSystemTrayIcon
+    messages = []
+    monkeypatch.setattr(QSystemTrayIcon, "supportsMessages", lambda: True)
+    shell.background = True
+    shell.tray = SimpleNamespace(showMessage=lambda *args: messages.append(args))
+    monkeypatch.setattr(shell.rag, "post", lambda *args: None)
+    shell.search.query.setText("민감할 수 있는 질문")
+    shell.search.submit()
+    identifier = shell.search._pending_id
+    shell.close()
+    assert not shell.isVisible() and shell.search._pending_id == identifier
+    result = CompactAnswer("answer", "요약", "저장한 답변", ())
+    shell.rag.answer_received.emit(identifier + 1, result)
+    assert not messages
+    shell.rag.answer_received.emit(identifier, result)
+    assert messages == [("강써치", "질문 처리가 완료되었습니다.")]
+    shell.restore_window()
+    assert shell.isVisible() and shell.search._result == result
+    assert not (shell.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint)
+    shell.background = False
+    shell.tray = None
+
+
+def test_second_launch_restores_existing_window_without_starting_backend(app, tmp_path, monkeypatch):
+    """같은 사용자·포트에 두 번째 창을 열면 소유 창만 복원하고 worker는 생기지 않는다."""
+    from desktop import launcher
+    monkeypatch.setattr(launcher, "_lock_path", lambda port: str(tmp_path / f"gs-{tmp_path.name}-{port}.lock"))
+    first = ApplicationWindow()
+    second = ApplicationWindow()
+    owner = launcher.BackendSupervisor(first, 8765)
+    duplicate = launcher.BackendSupervisor(second, 8765)
+    probes, notices = [], []
+    monkeypatch.setattr(launcher.QMessageBox, "information", lambda *args: notices.append(args[-1]))
+    monkeypatch.setattr(owner.probe, "get", probes.append)
+    monkeypatch.setattr(duplicate.probe, "get", lambda _: pytest.fail("duplicate probe"))
+    monkeypatch.setattr(launcher.QTimer, "singleShot", lambda *args: None)
+    try:
+        owner.start()
+        duplicate.start()
+        QTest.qWait(60)
+        if owner.activation.isListening():
+            assert first.isVisible() and not notices
+        else:
+            # Unix 소켓이 차단된 환경에서는 기존 창 위치를 안내하되 중복 서버는 만들지 않는다.
+            assert notices and "이미 실행 중" in notices[0]
+        assert not second.isVisible()
+        assert probes == ["/health"] and duplicate.process is None
+        duplicate.stop()
+        assert owner.lock.isLocked()
+    finally:
+        duplicate.stop()
+        owner.stop()
+        first.close()
+        second.close()

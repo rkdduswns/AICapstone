@@ -48,7 +48,7 @@ Linux 및 Windows 자동 테스트와 사용자 실행 확인을 근거로 완�
 Phase 2–9는 Client 현재 창·시간·최근 기록·개인정보/클립보드/URL 설정·복사 텍스트·브라우저 출처·저장 웹/문서 본문·파일 출처 화면과 Shared 구조를 먼저 구현했습니다.
 main에 Backend의 Windows 감지·세션 저장·브라우저 수신·문서 추출 구현이 반영됐습니다.
 통합 작업 브랜치에서는 현재 창·기록·개인정보/클립보드 설정·문서 가져오기와 웹·문서의 작업 ID 연결을 실제 API에 연결했습니다.
-Chrome/Edge는 확장 버튼으로 수동 연결하며 문서는 최근 기록에서 대상을 선택해 연결합니다.
+이전 통합 ZIP은 수동 연결을 사용합니다. 후속 데스크톱 브랜치는 [사이트별 자동 연결과 문서 경로 대조](docs/dev/desktop-background.md)를 추가합니다.
 2026-11-27 통합 브랜치 `feat/phase11-14-api-integration`에서는 최신 `feat/phase11-backend 4ba10cf`와 main `7e0991e`를 합류해 실제 조건/의미 검색·RAG·세션/삭제 API까지 연결했습니다. Windows 수동 검증·재방문 집계·자동 탭/파일 감지와 실제 모델 품질 검증은 남아 있습니다. main에는 아직 병합하지 않았습니다.
 최신 진행 상태와 검증 근거는 [개발 Phase](etc/phases/README.md)에 기록합니다.
 
@@ -65,7 +65,7 @@ Phase 12·13의 일반 실행은 실제 HTTP를 사용합니다. 의미 검색�
 ## 실제 Client–Backend 실행
 
 Python 설치 없이 실행할 Windows x64 배포판은 Client·Backend 각각의 단일 EXE로 빌드합니다.
-통합 ZIP에는 E5 의미 검색 모델이 포함됩니다. 답변 생성은 Ollama와 `qwen2.5:3b`가 추가로 필요합니다. ZIP을 폴더 전체로 푼 뒤 `강써치-Backend.exe` → `강써치-Client.exe` → `연결 확인` 순서로 사용합니다. 소형 창을 포함한 소스 빌드에서는 상태 버튼으로 관리 화면을 열어 연결을 확인합니다.
+통합 ZIP에는 E5 의미 검색 모델이 포함됩니다. 답변 생성은 Ollama와 `qwen2.5:3b`가 추가로 필요합니다. 기존 통합 ZIP은 Backend → Client 순서로 실행합니다. 이 브랜치에서 새로 빌드하면 두 EXE를 같은 폴더에 두고 Client만 실행합니다. [백그라운드 실행과 자동 출처 연결](docs/dev/desktop-background.md)을 참고하세요. 소형 창을 포함한 소스 빌드에서는 상태 버튼으로 관리 화면을 열어 연결을 확인합니다.
 [실행·재빌드 안내](docs/dev/windows-exe.md)를 참고하세요.
 
 의존성을 설치한 뒤 프로젝트 루트의 PowerShell 두 개에서 각각 실행합니다.
@@ -95,7 +95,7 @@ AICapstone/
 │  ├─ client/
 │  ├─ backend/
 │  ├─ browser/
-│  │  ├─ extension/      # Windows ZIP에 넣는 수동 페이지 연결 확장
+│  │  ├─ extension/      # Windows ZIP에 넣는 페이지 연결 확장
 │  │  └─ contexttrace/   # 별도 자동 수집 확장과 Native Messaging 호스트
 │  └─ shared/
 ├─ tests/
@@ -125,7 +125,7 @@ AICapstone/
 - `etc/`: 프로젝트 기획, 개발 규칙, Phase 관리 문서
 - `.github/`: GitHub 자동화
 
-Windows ZIP의 확장은 [수동 페이지 연결 안내](docs/dev/history-source-linking.md)를 따른다.
+Windows ZIP의 확장은 [페이지 연결 안내](docs/dev/history-source-linking.md)를 따른다.
 기존 루트 `browser/`에서 설치했다면 [ContextTrace 경로 변경 및 재등록](docs/dev/contexttrace-browser.md)을 확인한다.
 
 `client`와 `backend` 내부 구조는 실제 구현이 진행되면서 필요한 기능 단위로 추가합니다.

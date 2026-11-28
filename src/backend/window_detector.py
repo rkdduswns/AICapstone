@@ -173,3 +173,12 @@ def normalize_app_name(process_name: str) -> str:
         return normalized_name
 
     return process_name
+
+def is_gangsearch_window(handle: int) -> bool:
+    """원본 Qt 창과 그 소유 대화상자를 식별하며 다른 Python 앱은 제외하지 않는다."""
+    user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+    user32.GetAncestor.restype = wintypes.HWND
+    user32.GetPropW.argtypes = [wintypes.HWND, wintypes.LPCWSTR]
+    user32.GetPropW.restype = wintypes.HANDLE
+    owner = user32.GetAncestor(handle, 3) or handle  # GA_ROOTOWNER
+    return bool(user32.GetPropW(owner, "GangSearch.Desktop.Window"))
